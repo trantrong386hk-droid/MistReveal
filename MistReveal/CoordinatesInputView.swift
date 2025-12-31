@@ -28,18 +28,19 @@ struct CoordinatesInputView: View {
     ]
 
     var body: some View {
-        ZStack {
-            // 背景保持一致：深邃星空
-            Color(hex: "#0A0A12").ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // 背景保持一致：深邃星空
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
-            // 装饰星云
-            Circle()
-                .fill(Color(hex: "#16213E").opacity(0.6))
-                .frame(width: 400, height: 400)
-                .blur(radius: 80)
-                .offset(x: -150, y: -200)
+                // 装饰星云 - 使用相对尺寸
+                Circle()
+                    .fill(Color(hex: "#16213E").opacity(0.6))
+                    .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
+                    .blur(radius: 80)
+                    .offset(x: -geometry.size.width * 0.35, y: -geometry.size.height * 0.25)
 
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                 // 1. 模仿 Starla 的自定义导航栏
                 customNavBar
 
@@ -124,6 +125,8 @@ struct CoordinatesInputView: View {
                     }
                 }
             }
+            }
+            .clipped()
         }
         .navigationBarHidden(true) // 隐藏原生导航栏
         .navigationDestination(isPresented: $navigateToReport) {

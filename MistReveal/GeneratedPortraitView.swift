@@ -18,24 +18,25 @@ struct GeneratedPortraitView: View {
     @State private var glowAmount: CGFloat = 0
 
     var body: some View {
-        ZStack {
-            // 背景
-            Color(hex: "#0A0A12").ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // 背景
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
-            // 动态星云背景
-            Circle()
-                .fill(Color(hex: "#16213E").opacity(0.4))
-                .frame(width: 500, height: 500)
-                .blur(radius: 150)
-                .offset(x: -100, y: -200)
+                // 动态星云背景 - 使用相对尺寸
+                Circle()
+                    .fill(Color(hex: "#16213E").opacity(0.4))
+                    .frame(width: min(geometry.size.width * 1.2, 400), height: min(geometry.size.width * 1.2, 400))
+                    .blur(radius: 150)
+                    .offset(x: -geometry.size.width * 0.25, y: -geometry.size.height * 0.25)
 
-            Circle()
-                .fill(Color(hex: "#E94560").opacity(0.15))
-                .frame(width: 400, height: 400)
-                .blur(radius: 100)
-                .offset(x: 150, y: 300)
+                Circle()
+                    .fill(Color(hex: "#E94560").opacity(0.15))
+                    .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
+                    .blur(radius: 100)
+                    .offset(x: geometry.size.width * 0.3, y: geometry.size.height * 0.35)
 
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                 // 自定义导航栏
                 customNavBar
 
@@ -47,6 +48,8 @@ struct GeneratedPortraitView: View {
                     portraitView
                 }
             }
+            }
+            .clipped()
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -260,28 +263,15 @@ struct GeneratedPortraitView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(.white.opacity(0.4))
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 8) {
-                                    ForEach(["温柔", "聪慧", "艺术气质"], id: \.self) { tag in
-                                        Text(tag)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.white.opacity(0.8))
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(Color.white.opacity(0.08))
-                                            .cornerRadius(14)
-                                    }
-                                }
-                                HStack(spacing: 8) {
-                                    ForEach(["善解人意", "浪漫"], id: \.self) { tag in
-                                        Text(tag)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.white.opacity(0.8))
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(Color.white.opacity(0.08))
-                                            .cornerRadius(14)
-                                    }
+                            FlowLayout(spacing: 8) {
+                                ForEach(["温柔", "聪慧", "艺术气质", "善解人意", "浪漫"], id: \.self) { tag in
+                                    Text(tag)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white.opacity(0.8))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color.white.opacity(0.08))
+                                        .cornerRadius(14)
                                 }
                             }
                         }
@@ -347,8 +337,9 @@ struct GeneratedPortraitView: View {
                 .padding(.top, 16)
                 .opacity(showDetails ? 1 : 0)
 
-                // 底部留白
-                Color.clear.frame(height: 120)
+                // 底部留白 - 自适应安全区域
+                Spacer()
+                    .frame(minHeight: 40)
             }
         }
     }

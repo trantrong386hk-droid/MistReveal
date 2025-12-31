@@ -89,24 +89,25 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                // 背景
-                Color(hex: "#0A0A12").ignoresSafeArea()
+            GeometryReader { geometry in
+                ZStack {
+                    // 背景
+                    Color(hex: "#0A0A12").ignoresSafeArea()
 
-                // 星云装饰
-                Circle()
-                    .fill(Color(hex: "#16213E").opacity(0.6))
-                    .frame(width: 500, height: 500)
-                    .blur(radius: 150)
-                    .offset(x: -100, y: -300)
+                    // 星云装饰 - 使用相对尺寸
+                    Circle()
+                        .fill(Color(hex: "#16213E").opacity(0.6))
+                        .frame(width: min(geometry.size.width * 1.2, 400), height: min(geometry.size.width * 1.2, 400))
+                        .blur(radius: 150)
+                        .offset(x: -geometry.size.width * 0.25, y: -geometry.size.height * 0.35)
 
-                Circle()
-                    .fill(Color(hex: "#E94560").opacity(0.15))
-                    .frame(width: 400, height: 400)
-                    .blur(radius: 120)
-                    .offset(x: 150, y: 400)
+                    Circle()
+                        .fill(Color(hex: "#E94560").opacity(0.15))
+                        .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
+                        .blur(radius: 120)
+                        .offset(x: geometry.size.width * 0.35, y: geometry.size.height * 0.45)
 
-                VStack(spacing: 0) {
+                    VStack(spacing: 0) {
                     Spacer()
 
                     // Logo 区域
@@ -191,8 +192,13 @@ struct HomeView: View {
                             .foregroundColor(.white.opacity(0.3))
                     }
                     .opacity(showContent ? 1 : 0)
-                    .padding(.bottom, 140)
+                    .padding(.bottom, 100)
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: 60)
+                    }
                 }
+                }
+                .clipped()
             }
             .navigationDestination(isPresented: $navigateToCoordinates) {
                 CoordinatesInputView()

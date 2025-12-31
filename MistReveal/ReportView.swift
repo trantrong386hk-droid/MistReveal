@@ -19,24 +19,25 @@ struct ReportView: View {
     let destinyElements = ["木", "水"]
 
     var body: some View {
-        ZStack {
-            // 背景
-            Color(hex: "#0A0A12").ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // 背景
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
-            // 装饰星云
-            Circle()
-                .fill(Color(hex: "#16213E").opacity(0.5))
-                .frame(width: 300, height: 300)
-                .blur(radius: 100)
-                .offset(x: 100, y: -300)
+                // 装饰星云 - 使用相对尺寸
+                Circle()
+                    .fill(Color(hex: "#16213E").opacity(0.5))
+                    .frame(width: min(geometry.size.width * 0.8, 280), height: min(geometry.size.width * 0.8, 280))
+                    .blur(radius: 100)
+                    .offset(x: geometry.size.width * 0.25, y: -geometry.size.height * 0.35)
 
-            Circle()
-                .fill(Color(hex: "#E94560").opacity(0.1))
-                .frame(width: 400, height: 400)
-                .blur(radius: 120)
-                .offset(x: -100, y: 300)
+                Circle()
+                    .fill(Color(hex: "#E94560").opacity(0.1))
+                    .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
+                    .blur(radius: 120)
+                    .offset(x: -geometry.size.width * 0.25, y: geometry.size.height * 0.35)
 
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                 // 自定义导航栏
                 customNavBar
 
@@ -106,6 +107,8 @@ struct ReportView: View {
                     .padding(.horizontal, 24)
                 }
             }
+            }
+            .clipped()
         }
         .navigationBarHidden(true)
         .navigationDestination(isPresented: $navigateToMistReveal) {

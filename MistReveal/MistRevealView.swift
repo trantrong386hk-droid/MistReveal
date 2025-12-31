@@ -137,17 +137,18 @@ struct MistRevealView: View {
     @State private var navigateToPortrait = false
 
     var body: some View {
-        ZStack {
-            // 1. 背景层：深邃星空渐变
-            Color(hex: "#0A0A12").ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // 1. 背景层：深邃星空渐变
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
-            // 动态星云感（模拟 Starla 的 Mesh Gradient）
-            RadialGradient(gradient: Gradient(colors: [Color(hex: "#16213E"), .clear]), center: .topLeading, startRadius: 100, endRadius: 600)
-                .ignoresSafeArea()
-            RadialGradient(gradient: Gradient(colors: [Color(hex: "#E94560").opacity(0.15), .clear]), center: .bottomTrailing, startRadius: 100, endRadius: 500)
-                .ignoresSafeArea()
+                // 动态星云感 - 使用相对尺寸
+                RadialGradient(gradient: Gradient(colors: [Color(hex: "#16213E"), .clear]), center: .topLeading, startRadius: 100, endRadius: min(geometry.size.width * 1.5, 500))
+                    .ignoresSafeArea()
+                RadialGradient(gradient: Gradient(colors: [Color(hex: "#E94560").opacity(0.15), .clear]), center: .bottomTrailing, startRadius: 100, endRadius: min(geometry.size.width * 1.2, 400))
+                    .ignoresSafeArea()
 
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                 // 自定义导航栏
                 customNavBar
 
@@ -252,10 +253,15 @@ struct MistRevealView: View {
                         }
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
-                    }
-                    .padding(.bottom, 120)
+                }
+                .padding(.bottom, 100)
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear.frame(height: 80)
+                }
                 }
             }
+            }
+            .clipped()
         }
         .navigationDestination(isPresented: $navigateToPortrait) {
             GeneratedPortraitView(
