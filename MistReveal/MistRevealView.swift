@@ -193,18 +193,11 @@ struct MistRevealView: View {
                             .opacity(breathRingOpacity)
                     }
 
-                    // 覆盖一层闪烁的粒子感（用 Overlay 代替）
+                    // 静态圆圈边框（移除脉冲动画）
                     if !isRevealed {
                         Circle()
                             .stroke(Color.white.opacity(0.2), lineWidth: 1)
                             .frame(width: 320, height: 320)
-                            .scaleEffect(pulseAmount)
-                            .opacity(Double(2 - pulseAmount))
-                            .onAppear {
-                                withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: false)) {
-                                    pulseAmount = 1.5
-                                }
-                            }
                     }
                 }
                 .onTapGesture {
@@ -251,13 +244,10 @@ struct MistRevealView: View {
                                         .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
                                 )
                         }
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
-                .padding(.bottom, 100)
-                .safeAreaInset(edge: .bottom) {
-                    Color.clear.frame(height: 80)
-                }
+                .padding(.bottom, 240)
+                .offset(y: -60)
                 }
             }
             }
