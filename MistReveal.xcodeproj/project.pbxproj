@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2239BF502F07C4C300B8997C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF4F2F07C4C300B8997C /* Supabase */; };
 		AA000001 /* MistRevealApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001 /* MistRevealApp.swift */; };
 		AA000002 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002 /* MainTabView.swift */; };
 		AA000003 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003 /* WelcomeView.swift */; };
@@ -14,6 +15,7 @@
 		AA000005 /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000005 /* ReportView.swift */; };
 		AA000006 /* MistRevealView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000006 /* MistRevealView.swift */; };
 		AA000007 /* GeneratedPortraitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000007 /* GeneratedPortraitView.swift */; };
+		AA00000A /* SupabaseTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000B /* SupabaseTestView.swift */; };
 		AA000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000008 /* Assets.xcassets */; };
 		AA000009 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000009 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -27,6 +29,7 @@
 		AB000005 /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
 		AB000006 /* MistRevealView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistRevealView.swift; sourceTree = "<group>"; };
 		AB000007 /* GeneratedPortraitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedPortraitView.swift; sourceTree = "<group>"; };
+		AB00000B /* SupabaseTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseTestView.swift; sourceTree = "<group>"; };
 		AB000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB000009 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		AB00000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -37,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2239BF502F07C4C300B8997C /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -61,6 +65,7 @@
 				AB000005 /* ReportView.swift */,
 				AB000006 /* MistRevealView.swift */,
 				AB000007 /* GeneratedPortraitView.swift */,
+				AB00000B /* SupabaseTestView.swift */,
 				AB000008 /* Assets.xcassets */,
 				AB00000A /* Info.plist */,
 				AD000004 /* Preview Content */,
@@ -129,6 +134,9 @@
 				"zh-Hans",
 			);
 			mainGroup = AD000001;
+			packageReferences = (
+				2239BF4E2F07C4C300B8997C /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			productRefGroup = AD000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -162,6 +170,7 @@
 				AA000005 /* ReportView.swift in Sources */,
 				AA000006 /* MistRevealView.swift in Sources */,
 				AA000007 /* GeneratedPortraitView.swift in Sources */,
+				AA00000A /* SupabaseTestView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -371,6 +380,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2239BF4E2F07C4C300B8997C /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2239BF4F2F07C4C300B8997C /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2239BF4E2F07C4C300B8997C /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AF000001 /* Project object */;
 }

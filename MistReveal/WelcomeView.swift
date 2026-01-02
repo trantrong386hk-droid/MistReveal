@@ -4,122 +4,123 @@ struct WelcomeView: View {
     @State private var showContent = false
     @State private var logoScale: CGFloat = 0.8
     @State private var navigateToCoordinates = false
+    @State private var rotationAngle: Double = 0
 
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
                 ZStack {
-                    // 背景图片
-                    Image("star_background")
+                    // 背景图片（缓慢旋转）
+                    Image("galaxy_background")
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
+                        .frame(width: geometry.size.width * 1.5, height: geometry.size.height * 1.5)
+                        .rotationEffect(.degrees(rotationAngle))
                         .ignoresSafeArea()
 
-                // 流星效果
-                ForEach(0..<3) { i in
-                    MeteorView()
-                        .offset(x: CGFloat.random(in: -100...100), y: CGFloat.random(in: -200...0))
-                        .opacity(showContent ? 1 : 0)
-                }
-
-                VStack(spacing: 0) {
-                    Spacer()
-
-                    // Logo 区域
-                    VStack(spacing: 24) {
-                        // 神秘符号
-                        ZStack {
-                            // 外圈光环
-                            Circle()
-                                .stroke(
-                                    AngularGradient(
-                                        colors: [Color(hex: "#E94560").opacity(0.6), Color(hex: "#16213E"), Color(hex: "#E94560").opacity(0.6)],
-                                        center: .center
-                                    ),
-                                    lineWidth: 2
-                                )
-                                .frame(width: 120, height: 120)
-                                .rotationEffect(.degrees(showContent ? 360 : 0))
-                                .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: showContent)
-
-                            // 内圈
-                            Circle()
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                .frame(width: 90, height: 90)
-
-                            // 中心图标
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 36))
-                                .foregroundColor(Color(hex: "#E94560"))
-                        }
-                        .scaleEffect(logoScale)
-
-                        // 标题
-                        VStack(spacing: 12) {
-                            Text("缘 起")
-                                .font(.system(size: 42, weight: .bold))
-                                .tracking(16)
-                                .foregroundColor(.white)
-
-                            Text("DESTINY AWAITS")
-                                .font(.system(size: 12, weight: .light))
-                                .tracking(6)
-                                .foregroundColor(.white.opacity(0.4))
-                        }
-
-                        // 副标题
-                        Text("探索命定之缘，遇见灵魂伴侣")
-                            .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.6))
-                            .padding(.top, 8)
+                    // 流星效果
+                    ForEach(0..<3) { i in
+                        MeteorView()
+                            .offset(x: CGFloat.random(in: -100...100), y: CGFloat.random(in: -200...0))
+                            .opacity(showContent ? 1 : 0)
                     }
-                    .opacity(showContent ? 1 : 0)
-                    .offset(y: showContent ? 0 : 30)
 
-                    Spacer()
+                    VStack(spacing: 0) {
+                        Spacer()
 
-                    // 底部按钮区域
-                    VStack(spacing: 20) {
-                        // 开始按钮
-                        Button(action: {
-                            navigateToCoordinates = true
-                        }) {
-                            HStack(spacing: 12) {
-                                Text("开启命运之旅")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .tracking(4)
+                        // Logo 区域
+                        VStack(spacing: 24) {
+                            // 神秘符号
+                            ZStack {
+                                // 外圈光环
+                                Circle()
+                                    .stroke(
+                                        AngularGradient(
+                                            colors: [Color(hex: "#E94560").opacity(0.6), Color(hex: "#16213E"), Color(hex: "#E94560").opacity(0.6)],
+                                            center: .center
+                                        ),
+                                        lineWidth: 2
+                                    )
+                                    .frame(width: 120, height: 120)
+                                    .rotationEffect(.degrees(showContent ? 360 : 0))
+                                    .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: showContent)
 
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 14, weight: .medium))
+                                // 内圈
+                                Circle()
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                    .frame(width: 90, height: 90)
+
+                                // 中心图标
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(Color(hex: "#E94560"))
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(30)
-                            .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 20, x: 0, y: 10)
-                        }
-                        .padding(.horizontal, 40)
+                            .scaleEffect(logoScale)
 
-                        // 底部说明
-                        Text("基于时空坐标与灵魂共振理论")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.3))
+                            // 标题
+                            VStack(spacing: 12) {
+                                Text("缘 起")
+                                    .font(.system(size: 42, weight: .bold))
+                                    .tracking(16)
+                                    .foregroundColor(.white)
+
+                                Text("DESTINY AWAITS")
+                                    .font(.system(size: 12, weight: .light))
+                                    .tracking(6)
+                                    .foregroundColor(.white.opacity(0.4))
+                            }
+
+                            // 副标题
+                            Text("探索命定之缘，遇见灵魂伴侣")
+                                .font(.system(size: 15))
+                                .foregroundColor(.white.opacity(0.6))
+                                .padding(.top, 8)
+                        }
+                        .opacity(showContent ? 1 : 0)
+                        .offset(y: showContent ? 0 : 30)
+
+                        Spacer()
+
+                        // 底部按钮区域
+                        VStack(spacing: 20) {
+                            // 开始按钮
+                            Button(action: {
+                                navigateToCoordinates = true
+                            }) {
+                                HStack(spacing: 12) {
+                                    Text("开启命运之旅")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .tracking(4)
+
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(30)
+                                .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 20, x: 0, y: 10)
+                            }
+                            .padding(.horizontal, 40)
+
+                            // 底部说明
+                            Text("基于时空坐标与灵魂共振理论")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.3))
+                        }
+                        .opacity(showContent ? 1 : 0)
+                        .padding(.bottom, 40)
+                        .safeAreaInset(edge: .bottom) {
+                            Color.clear.frame(height: 20)
+                        }
                     }
-                    .opacity(showContent ? 1 : 0)
-                    .padding(.bottom, 40)
-                    .safeAreaInset(edge: .bottom) {
-                        Color.clear.frame(height: 20)
-                    }
-                }
                 }
                 .clipped()
             }
@@ -133,6 +134,10 @@ struct WelcomeView: View {
             }
             withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                 logoScale = 1.0
+            }
+            // 背景缓慢旋转动画
+            withAnimation(.linear(duration: 120).repeatForever(autoreverses: false)) {
+                rotationAngle = 360
             }
         }
     }

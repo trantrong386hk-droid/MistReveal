@@ -241,39 +241,76 @@ struct ConnectionView: View {
 
 // MARK: - 个人中心视图（占位）
 struct ProfileView: View {
+    @State private var navigateToSupabaseTest = false
+
     var body: some View {
-        ZStack {
-            Color(hex: "#0A0A12").ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                // 头像
-                Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 100, height: 100)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.white.opacity(0.6))
-                    )
+                VStack(spacing: 20) {
+                    // 头像
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 100, height: 100)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.white.opacity(0.6))
+                        )
 
-                Text("我的")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
-
-                Text("登录后查看你的灵魂档案")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.5))
-
-                // 登录按钮
-                Button(action: {}) {
-                    Text("登录 / 注册")
-                        .font(.system(size: 16, weight: .medium))
+                    Text("我的")
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
-                        .frame(width: 200, height: 50)
-                        .background(Color(hex: "#E94560").opacity(0.8))
-                        .cornerRadius(25)
+
+                    Text("登录后查看你的灵魂档案")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.5))
+
+                    // 登录按钮
+                    Button(action: {}) {
+                        Text("登录 / 注册")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 200, height: 50)
+                            .background(Color(hex: "#E94560").opacity(0.8))
+                            .cornerRadius(25)
+                    }
+                    .padding(.top, 20)
+
+                    Spacer()
+
+                    // 更多功能区域
+                    VStack(spacing: 12) {
+                        Text("开发者选项")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.4))
+
+                        Button(action: {
+                            navigateToSupabaseTest = true
+                        }) {
+                            HStack {
+                                Image(systemName: "server.rack")
+                                    .font(.system(size: 16))
+                                Text("Supabase 连接测试")
+                                    .font(.system(size: 14))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12))
+                            }
+                            .foregroundColor(.white.opacity(0.8))
+                            .padding()
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 120)
                 }
-                .padding(.top, 20)
+                .padding(.top, 60)
+            }
+            .navigationDestination(isPresented: $navigateToSupabaseTest) {
+                SupabaseTestView()
             }
         }
     }
