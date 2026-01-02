@@ -30,15 +30,14 @@ struct CoordinatesInputView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 背景保持一致：深邃星空
-                Color(hex: "#0A0A12").ignoresSafeArea()
-
-                // 装饰星云 - 使用相对尺寸
-                Circle()
-                    .fill(Color(hex: "#16213E").opacity(0.6))
-                    .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
-                    .blur(radius: 80)
-                    .offset(x: -geometry.size.width * 0.35, y: -geometry.size.height * 0.25)
+                // 背景图片（轻微虚化）
+                Image("star_background")
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+                    .blur(radius: 4)
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                 // 1. 模仿 Starla 的自定义导航栏
@@ -52,10 +51,12 @@ struct CoordinatesInputView: View {
                                 .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(.white)
                                 .tracking(2)
+                                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                             Text("录入你的时空坐标，打捞沉睡的灵魂")
                                 .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.white.opacity(0.9))
                                 .tracking(1)
+                                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 24)
@@ -152,7 +153,7 @@ struct CoordinatesInputView: View {
             Text("时空坐标")
                 .font(.system(size: 12, weight: .light))
                 .tracking(4)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.white.opacity(0.9))
 
             Spacer()
 
@@ -173,8 +174,8 @@ struct CoordinatesInputView: View {
     func inputCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.4))
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.85))
                 .tracking(1)
 
             HStack {
@@ -182,11 +183,11 @@ struct CoordinatesInputView: View {
                 Spacer()
             }
             .padding()
-            .background(.white.opacity(0.05))
+            .background(.white.opacity(0.1))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
         }
     }
@@ -195,14 +196,15 @@ struct CoordinatesInputView: View {
     func genderButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16))
-                .foregroundColor(isSelected ? .white : .white.opacity(0.4))
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                 .frame(width: 80, height: 40)
-                .background(isSelected ? Color(hex: "#E94560").opacity(0.4) : Color.white.opacity(0.05))
+                .background(isSelected ? Color(hex: "#E94560").opacity(0.5) : Color.white.opacity(0.15))
                 .cornerRadius(20)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(isSelected ? Color(hex: "#E94560") : Color.clear, lineWidth: 1)
+                        .stroke(isSelected ? Color(hex: "#E94560") : Color.white.opacity(0.3), lineWidth: 1)
                 )
         }
     }

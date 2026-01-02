@@ -21,21 +21,14 @@ struct ReportView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 背景
-                Color(hex: "#0A0A12").ignoresSafeArea()
-
-                // 装饰星云 - 使用相对尺寸
-                Circle()
-                    .fill(Color(hex: "#16213E").opacity(0.5))
-                    .frame(width: min(geometry.size.width * 0.8, 280), height: min(geometry.size.width * 0.8, 280))
-                    .blur(radius: 100)
-                    .offset(x: geometry.size.width * 0.25, y: -geometry.size.height * 0.35)
-
-                Circle()
-                    .fill(Color(hex: "#E94560").opacity(0.1))
-                    .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
-                    .blur(radius: 120)
-                    .offset(x: -geometry.size.width * 0.25, y: geometry.size.height * 0.35)
+                // 背景图片（轻微虚化）
+                Image("star_background")
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+                    .blur(radius: 4)
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                 // 自定义导航栏
@@ -139,7 +132,7 @@ struct ReportView: View {
             Text("灵魂解析")
                 .font(.system(size: 12, weight: .light))
                 .tracking(4)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.white.opacity(0.9))
 
             Spacer()
 
@@ -161,7 +154,7 @@ struct ReportView: View {
         ZStack {
             // 外圈
             Circle()
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 .frame(width: 200, height: 200)
 
             // 内圈动态
@@ -182,14 +175,17 @@ struct ReportView: View {
                 Text(gender.isEmpty ? "乾" : gender)
                     .font(.system(size: 36, weight: .light))
                     .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
 
                 Text(formattedBirthDate)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.white.opacity(0.9))
+                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
 
                 Text(birthTime)
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#E94560"))
+                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
             }
 
             // 五行元素标记
@@ -200,7 +196,8 @@ struct ReportView: View {
 
                 Text(element)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(isActive ? Color(hex: "#E94560") : .white.opacity(0.3))
+                    .foregroundColor(isActive ? Color(hex: "#E94560") : .white.opacity(0.8))
+                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                     .offset(
                         x: cos(angle * .pi / 180) * 90,
                         y: sin(angle * .pi / 180) * 90
@@ -215,7 +212,7 @@ struct ReportView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("灵魂特质")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.white.opacity(0.85))
                 .tracking(2)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -233,11 +230,11 @@ struct ReportView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.05))
+                    .background(Color.white.opacity(0.1))
                     .cornerRadius(12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
                     )
                 }
             }
@@ -249,7 +246,7 @@ struct ReportView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("命定缘分")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.white.opacity(0.85))
                 .tracking(2)
 
             VStack(spacing: 0) {
@@ -294,11 +291,11 @@ struct ReportView: View {
                 }
                 .padding(20)
             }
-            .background(Color.white.opacity(0.05))
+            .background(Color.white.opacity(0.1))
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
         }
     }
@@ -307,7 +304,7 @@ struct ReportView: View {
         VStack(spacing: 6) {
             Text(title)
                 .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.white.opacity(0.85))
 
             Text(value)
                 .font(.system(size: 13, weight: .medium))

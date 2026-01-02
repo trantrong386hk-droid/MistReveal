@@ -9,21 +9,13 @@ struct WelcomeView: View {
         NavigationStack {
             GeometryReader { geometry in
                 ZStack {
-                    // 背景
-                    Color(hex: "#0A0A12").ignoresSafeArea()
-
-                    // 星云装饰 - 使用相对尺寸
-                    Circle()
-                        .fill(Color(hex: "#16213E").opacity(0.6))
-                        .frame(width: min(geometry.size.width * 1.2, 400), height: min(geometry.size.width * 1.2, 400))
-                        .blur(radius: 150)
-                        .offset(x: -geometry.size.width * 0.25, y: -geometry.size.height * 0.35)
-
-                    Circle()
-                        .fill(Color(hex: "#E94560").opacity(0.15))
-                        .frame(width: min(geometry.size.width, 350), height: min(geometry.size.width, 350))
-                        .blur(radius: 120)
-                        .offset(x: geometry.size.width * 0.35, y: geometry.size.height * 0.45)
+                    // 背景图片
+                    Image("star_background")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                        .ignoresSafeArea()
 
                 // 流星效果
                 ForEach(0..<3) { i in
