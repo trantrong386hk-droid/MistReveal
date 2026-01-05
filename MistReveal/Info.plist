@@ -9,12 +9,12 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.YOUR_CLIENT_ID</string>
+				<string>com.googleusercontent.apps.179531742874-k0g2p6cal903vk10nmvivhflne627jou</string>
 			</array>
 		</dict>
 	</array>
 	<key>GIDClientID</key>
-	<string>YOUR_CLIENT_ID.apps.googleusercontent.com</string>
+	<string>179531742874-k0g2p6cal903vk10nmvivhflne627jou.apps.googleusercontent.com</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>用于吹气互动功能，拨开迷雾揭示画像</string>
 	<key>UILaunchScreen</key>
