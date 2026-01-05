@@ -239,79 +239,221 @@ struct ConnectionView: View {
     }
 }
 
-// MARK: - 个人中心视图（占位）
+// MARK: - 个人中心视图
 struct ProfileView: View {
+    @EnvironmentObject var authManager: AuthManager
     @State private var navigateToSupabaseTest = false
+    @State private var showDeleteConfirmation = false
+    @State private var deleteConfirmText = ""
+    @State private var isDeleting = false
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color(hex: "#0A0A12").ignoresSafeArea()
 
-                VStack(spacing: 20) {
-                    // 头像
-                    Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 100, height: 100)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.white.opacity(0.6))
-                        )
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // 头像
+                        Circle()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(width: 100, height: 100)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.white.opacity(0.6))
+                            )
 
-                    Text("我的")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
-
-                    Text("登录后查看你的灵魂档案")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.5))
-
-                    // 登录按钮
-                    Button(action: {}) {
-                        Text("登录 / 注册")
-                            .font(.system(size: 16, weight: .medium))
+                        Text("我的")
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 200, height: 50)
-                            .background(Color(hex: "#E94560").opacity(0.8))
-                            .cornerRadius(25)
-                    }
-                    .padding(.top, 20)
 
-                    Spacer()
+                        // 显示用户邮箱
+                        if let user = authManager.currentUser {
+                            Text(user.email ?? "未知邮箱")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
 
-                    // 更多功能区域
-                    VStack(spacing: 12) {
-                        Text("开发者选项")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.4))
+                        // 功能列表
+                        VStack(spacing: 12) {
+                            // 灵魂档案
+                            profileMenuItem(icon: "sparkles", title: "我的灵魂档案", subtitle: "查看你的命理分析")
 
+                            // 缘分记录
+                            profileMenuItem(icon: "heart.circle", title: "缘分记录", subtitle: "查看历史匹配")
+
+                            // 设置
+                            profileMenuItem(icon: "gearshape", title: "设置", subtitle: "账号与偏好设置")
+                        }
+                        .padding(.top, 20)
+                        .padding(.horizontal, 24)
+
+                        // 退出登录按钮
                         Button(action: {
-                            navigateToSupabaseTest = true
+                            Task {
+                                await authManager.signOut()
+                            }
                         }) {
                             HStack {
-                                Image(systemName: "server.rack")
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
                                     .font(.system(size: 16))
-                                Text("Supabase 连接测试")
-                                    .font(.system(size: 14))
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12))
+                                Text("退出登录")
+                                    .font(.system(size: 15))
                             }
-                            .foregroundColor(.white.opacity(0.8))
-                            .padding()
-                            .background(Color.white.opacity(0.1))
+                            .foregroundColor(Color(hex: "#E94560"))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Color(hex: "#E94560").opacity(0.1))
                             .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(hex: "#E94560").opacity(0.3), lineWidth: 1)
+                            )
                         }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 30)
+
+                        // 删除账户按钮
+                        Button(action: {
+                            showDeleteConfirmation = true
+                        }) {
+                            HStack {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 16))
+                                Text("删除账户")
+                                    .font(.system(size: 15))
+                            }
+                            .foregroundColor(.red.opacity(0.8))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 12)
+
+                        // 开发者选项
+                        VStack(spacing: 12) {
+                            Text("开发者选项")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.4))
+
+                            Button(action: {
+                                navigateToSupabaseTest = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "server.rack")
+                                        .font(.system(size: 16))
+                                    Text("Supabase 连接测试")
+                                        .font(.system(size: 14))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12))
+                                }
+                                .foregroundColor(.white.opacity(0.8))
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .padding(.bottom, 120)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 120)
+                    .padding(.top, 60)
                 }
-                .padding(.top, 60)
             }
             .navigationDestination(isPresented: $navigateToSupabaseTest) {
                 SupabaseTestView()
             }
+            .alert("删除账户", isPresented: $showDeleteConfirmation) {
+                TextField("请输入「删除」确认", text: $deleteConfirmText)
+                Button("取消", role: .cancel) {
+                    deleteConfirmText = ""
+                }
+                Button("确认删除", role: .destructive) {
+                    if deleteConfirmText == "删除" {
+                        Task {
+                            await performDeleteAccount()
+                        }
+                    }
+                }
+                .disabled(deleteConfirmText != "删除")
+            } message: {
+                Text("此操作不可撤销！您的所有数据将被永久删除。\n\n请输入「删除」以确认。")
+            }
+            .overlay {
+                if isDeleting {
+                    ZStack {
+                        Color.black.opacity(0.5)
+                            .ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .tint(.white)
+                            Text("正在删除账户...")
+                                .foregroundColor(.white)
+                        }
+                        .padding(30)
+                        .background(Color(hex: "#1A1A2E"))
+                        .cornerRadius(16)
+                    }
+                }
+            }
+        }
+    }
+
+    // 执行删除账户
+    private func performDeleteAccount() async {
+        print("🗑️ 用户确认删除账户")
+        isDeleting = true
+        deleteConfirmText = ""
+
+        let success = await authManager.deleteAccount()
+
+        if success {
+            print("✅ 账户删除成功，已返回登录页面")
+        } else {
+            print("❌ 账户删除失败: \(authManager.errorMessage ?? "未知错误")")
+        }
+
+        isDeleting = false
+    }
+
+    // 菜单项组件
+    func profileMenuItem(icon: String, title: String, subtitle: String) -> some View {
+        Button(action: {}) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(Color(hex: "#E94560"))
+                    .frame(width: 40, height: 40)
+                    .background(Color(hex: "#E94560").opacity(0.1))
+                    .cornerRadius(10)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .padding()
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(12)
         }
     }
 }

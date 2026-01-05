@@ -4,7 +4,13 @@ import Supabase
 // Supabase 客户端初始化
 let supabase = SupabaseClient(
     supabaseURL: URL(string: "https://zbsqbarlzzqhhdcroxsp.supabase.co")!,
-    supabaseKey: "sb_publishable_SC1cTCb7d4KpuIcx1EleDQ_pBi0hqnt"
+    supabaseKey: "sb_publishable_SC1cTCb7d4KpuIcx1EleDQ_pBi0hqnt",
+    options: SupabaseClientOptions(
+        auth: SupabaseClientOptions.AuthOptions(
+            autoRefreshToken: true,
+            emitLocalSessionAsInitialSession: true
+        )
+    )
 )
 
 struct SupabaseTestView: View {
