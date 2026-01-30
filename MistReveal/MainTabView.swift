@@ -1,4 +1,13 @@
 import SwiftUI
+import CoreLocation
+import Combine
+
+// MARK: - CLLocationCoordinate2D Equatable
+extension CLLocationCoordinate2D: @retroactive Equatable {
+    public static func == (lhs: CLLocationCoordinate2D, rhs: CLLocationCoordinate2D) -> Bool {
+        lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude
+    }
+}
 
 struct MainTabView: View {
     @State private var selectedTab = 0
@@ -23,6 +32,11 @@ struct MainTabView: View {
             customTabBar
         }
         .ignoresSafeArea(.keyboard)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = 0
+            }
+        }
     }
 
     // MARK: - 自定义底部导航栏
@@ -215,26 +229,742 @@ struct HomeView: View {
     }
 }
 
-// MARK: - 缘分视图（占位）
+// MARK: - 搜索范围枚举
+enum SearchScope: String, CaseIterable {
+    case local = "同城"
+    case provincial = "跨省"
+    case global = "全球"
+
+    var maxRadius: Double {
+        switch self {
+        case .local: return 100
+        case .provincial: return 2000
+        case .global: return 20000
+        }
+    }
+
+    var minRadius: Double {
+        switch self {
+        case .local: return 10
+        case .provincial: return 100
+        case .global: return 1000
+        }
+    }
+
+    var step: Double {
+        switch self {
+        case .local: return 10
+        case .provincial: return 100
+        case .global: return 1000
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .local: return "📍"
+        case .provincial: return "🚄"
+        case .global: return "🌍"
+        }
+    }
+}
+
+// MARK: - 缘分视图（地图匹配）
 struct ConnectionView: View {
+    @StateObject private var locationManager = LocationManager.shared
+    @StateObject private var matchingService = MatchingService.shared
+    @StateObject private var archiveManager = SoulArchiveManager.shared
+
+    @State private var selectedUser: MatchingService.MatchedUser?
+    @State private var showUserCard = false
+    @State private var matchThreshold: Double = 60
+    @State private var searchRadius: Double = 50
+    @State private var searchScope: SearchScope = .local
+    @State private var hasUpdatedLocation = false
+    @State private var shouldRecenterMap = false
+
+    // 用户定位优化 - 新增状态
+    @State private var currentFocusIndex: Int = 0  // 当前聚焦的用户索引
+    @State private var showMiniList: Bool = false  // 是否显示迷你列表
+    @State private var focusCoordinate: CLLocationCoordinate2D?  // 跳转目标坐标
+
     var body: some View {
         ZStack {
             Color(hex: "#0A0A12").ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                Image(systemName: "heart.circle")
-                    .font(.system(size: 60))
-                    .foregroundColor(Color(hex: "#E94560").opacity(0.6))
+            // 检查是否完成灵魂分析
+            if archiveManager.myRecord == nil {
+                // 未完成分析的提示
+                unlockedView
+            } else {
+                // 已完成分析，显示地图
+                mapContentView
+            }
 
-                Text("缘分匹配")
+            // 用户卡片弹窗
+            if showUserCard, let user = selectedUser {
+                userCardOverlay(user: user)
+            }
+        }
+        .onAppear {
+            Task {
+                await archiveManager.fetchUserRecords()
+            }
+            // 请求定位权限
+            locationManager.requestAuthorization()
+        }
+        .onChange(of: locationManager.userLocation) { _, newLocation in
+            guard let location = newLocation, !hasUpdatedLocation else { return }
+            hasUpdatedLocation = true
+
+            Task {
+                // 更新自己的位置到数据库
+                let success = await matchingService.updateUserLocation(
+                    latitude: location.latitude,
+                    longitude: location.longitude
+                )
+                if success {
+                    // 搜索附近匹配的用户
+                    await matchingService.findNearbyMatches(
+                        center: location,
+                        radiusKm: searchRadius,
+                        minMatchScore: Int(matchThreshold)
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - 未解锁视图
+    private var unlockedView: some View {
+        VStack(spacing: 24) {
+            // 锁定图标
+            ZStack {
+                Circle()
+                    .stroke(Color(hex: "#E94560").opacity(0.3), lineWidth: 2)
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(Color(hex: "#E94560").opacity(0.6))
+            }
+
+            VStack(spacing: 12) {
+                Text("缘分探索")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
 
-                Text("完成灵魂推演后\n解锁更多缘分功能")
+                Text("完成灵魂推演后\n即可探索附近与你灵魂共振的人")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.5))
                     .multilineTextAlignment(.center)
+                    .lineSpacing(4)
             }
+
+            // 引导按钮
+            Button(action: {
+                NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
+            }) {
+                HStack(spacing: 8) {
+                    Text("开始灵魂推演")
+                        .font(.system(size: 15, weight: .medium))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(25)
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    // MARK: - 地图内容视图
+    private var mapContentView: some View {
+        VStack(spacing: 0) {
+            // 顶部标题栏
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("缘分探索")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+
+                    if matchingService.isLoading {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .tint(.white)
+                            Text("正在搜索...")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    } else if matchingService.nearbyMatches.isEmpty {
+                        Text("附近暂无灵魂共振")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.6))
+                    } else {
+                        // 可点击的提示文字
+                        Button(action: {
+                            focusNextUser()
+                        }) {
+                            HStack(spacing: 4) {
+                                Text("附近 \(matchingService.nearbyMatches.count) 人与你灵魂共振")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(hex: "#E94560"))
+                                Image(systemName: "hand.tap.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(Color(hex: "#E94560").opacity(0.8))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(hex: "#E94560").opacity(0.15))
+                            .cornerRadius(8)
+                        }
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.5)
+                                .onEnded { _ in
+                                    withAnimation(.spring(response: 0.3)) {
+                                        showMiniList.toggle()
+                                    }
+                                }
+                        )
+                    }
+                }
+
+                Spacer()
+
+                // 刷新按钮
+                Button(action: {
+                    refreshMatches()
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 40, height: 40)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            // 地图
+            ZStack(alignment: .bottom) {
+                MapViewRepresentable(
+                    userLocation: $locationManager.userLocation,
+                    matchedUsers: $matchingService.nearbyMatches,
+                    selectedUser: $selectedUser,
+                    shouldRecenter: $shouldRecenterMap,
+                    focusCoordinate: $focusCoordinate,
+                    onAnnotationSelected: { user in
+                        selectedUser = user
+                        withAnimation(.spring(response: 0.3)) {
+                            showUserCard = true
+                        }
+                    }
+                )
+                .ignoresSafeArea(edges: .bottom)
+
+                // 迷你列表弹窗
+                if showMiniList && !matchingService.nearbyMatches.isEmpty {
+                    miniListOverlay
+                }
+
+                // 定位到我按钮
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            shouldRecenterMap = true
+                        }) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(Color(hex: "#E94560"))
+                                .frame(width: 44, height: 44)
+                                .background(Color(hex: "#1A1A2E").opacity(0.95))
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                )
+                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                        }
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 280) // 在控制面板上方
+                    }
+                }
+
+                // 底部控制面板
+                controlPanel
+            }
+        }
+    }
+
+    // MARK: - 控制面板
+    private var controlPanel: some View {
+        VStack(spacing: 16) {
+            // 搜索范围选择器（三档模式）
+            VStack(alignment: .leading, spacing: 8) {
+                Text("搜索范围")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.8))
+
+                HStack(spacing: 8) {
+                    ForEach(SearchScope.allCases, id: \.self) { scope in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                searchScope = scope
+                                // 切换范围时，将半径重置为该范围的最小值
+                                searchRadius = scope.minRadius
+                            }
+                            refreshMatches()
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(scope.icon)
+                                    .font(.system(size: 12))
+                                Text(scope.rawValue)
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(searchScope == scope ? .white : .white.opacity(0.5))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(searchScope == scope ? Color(hex: "#E94560") : Color.white.opacity(0.1))
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 匹配度阈值
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("最低匹配度")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.8))
+                    Spacer()
+                    Text("\(Int(matchThreshold))%")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(hex: "#E94560"))
+                }
+
+                Slider(value: $matchThreshold, in: 40...90, step: 5)
+                    .tint(Color(hex: "#E94560"))
+                    .onChange(of: matchThreshold) { _, _ in
+                        refreshMatches()
+                    }
+            }
+
+            // 搜索半径
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("搜索半径")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.8))
+                    Spacer()
+                    Text(formatDistance(searchRadius))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(hex: "#E94560"))
+                }
+
+                Slider(value: $searchRadius, in: searchScope.minRadius...searchScope.maxRadius, step: searchScope.step)
+                    .tint(Color(hex: "#E94560"))
+                    .onChange(of: searchRadius) { _, _ in
+                        refreshMatches()
+                    }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(hex: "#1A1A2E").opacity(0.95))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 16)
+        .padding(.bottom, 100) // 为 TabBar 留空间
+    }
+
+    // MARK: - 用户卡片弹窗
+    private func userCardOverlay(user: MatchingService.MatchedUser) -> some View {
+        ZStack {
+            // 背景遮罩
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3)) {
+                        showUserCard = false
+                    }
+                }
+
+            // 卡片
+            VStack(spacing: 20) {
+                // 关闭按钮
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3)) {
+                            showUserCard = false
+                        }
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 30, height: 30)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                }
+
+                // 头像和匹配度
+                ZStack {
+                    Circle()
+                        .fill(matchScoreColor(user.matchScore).opacity(0.2))
+                        .frame(width: 90, height: 90)
+
+                    Circle()
+                        .stroke(matchScoreColor(user.matchScore), lineWidth: 3)
+                        .frame(width: 90, height: 90)
+
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(matchScoreColor(user.matchScore))
+                }
+
+                // 用户信息
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(user.nickname)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.white)
+
+                        // 测试用户标签
+                        if user.isTestUser {
+                            Text("测试")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.orange)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.2))
+                                .cornerRadius(4)
+                        }
+                    }
+
+                    HStack(spacing: 16) {
+                        // 匹配度
+                        HStack(spacing: 4) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(matchScoreColor(user.matchScore))
+                            Text("匹配度 \(user.matchScore)%")
+                                .font(.system(size: 13))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+
+                        // 距离
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.5))
+                            Text(formatUserDistance(user.distance))
+                                .font(.system(size: 13))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                }
+
+                // 五行标签
+                HStack(spacing: 8) {
+                    elementTag(user.userElement)
+                }
+
+                // 性格特质
+                if !user.personalityTraits.isEmpty {
+                    FlowLayout(spacing: 8) {
+                        ForEach(user.personalityTraits.prefix(4), id: \.self) { trait in
+                            Text(trait)
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.8))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(12)
+                        }
+                    }
+                }
+
+                // 开始对话按钮
+                Button(action: {
+                    // TODO: 跳转到聊天页面
+                    print("开始与 \(user.nickname) 对话")
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bubble.left.fill")
+                            .font(.system(size: 14))
+                        Text("开始对话")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(25)
+                }
+                .padding(.top, 8)
+            }
+            .padding(24)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(hex: "#1A1A2E"))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 24)
+        }
+    }
+
+    // MARK: - 迷你列表弹窗
+    private var miniListOverlay: some View {
+        VStack(spacing: 0) {
+            // 列表头部
+            HStack {
+                Text("灵魂共振列表")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        showMiniList = false
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 24, height: 24)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
+                .background(Color.white.opacity(0.1))
+
+            // 用户列表
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(matchingService.nearbyMatches.enumerated()), id: \.element.id) { index, user in
+                        Button(action: {
+                            focusOnUser(user, at: index)
+                            withAnimation(.spring(response: 0.3)) {
+                                showMiniList = false
+                            }
+                        }) {
+                            HStack(spacing: 12) {
+                                // 匹配度颜色标记
+                                Circle()
+                                    .fill(matchScoreColor(user.matchScore))
+                                    .frame(width: 8, height: 8)
+
+                                // 用户信息
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(user.nickname)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.white)
+                                        if user.isTestUser {
+                                            Text("测试")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.orange)
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 1)
+                                                .background(Color.orange.opacity(0.2))
+                                                .cornerRadius(3)
+                                        }
+                                    }
+                                    Text("\(user.userElement)命")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.5))
+                                }
+
+                                Spacer()
+
+                                // 匹配度
+                                Text("\(user.matchScore)%")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(matchScoreColor(user.matchScore))
+
+                                // 距离
+                                Text(formatUserDistance(user.distance))
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.5))
+                                    .frame(width: 50, alignment: .trailing)
+
+                                // 箭头
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.3))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                currentFocusIndex == index ?
+                                Color(hex: "#E94560").opacity(0.1) : Color.clear
+                            )
+                        }
+
+                        if index < matchingService.nearbyMatches.count - 1 {
+                            Divider()
+                                .background(Color.white.opacity(0.05))
+                                .padding(.leading, 32)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 200)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(hex: "#1A1A2E").opacity(0.98))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    // MARK: - 辅助方法
+
+    /// 跳转到指定用户位置
+    private func focusOnUser(_ user: MatchingService.MatchedUser, at index: Int) {
+        currentFocusIndex = index
+        focusCoordinate = user.coordinate
+        selectedUser = user
+        withAnimation(.spring(response: 0.3)) {
+            showUserCard = true
+        }
+    }
+
+    /// 跳转到下一个用户（循环）
+    private func focusNextUser() {
+        let users = matchingService.nearbyMatches
+        guard !users.isEmpty else { return }
+        currentFocusIndex = (currentFocusIndex + 1) % users.count
+        let user = users[currentFocusIndex]
+        focusOnUser(user, at: currentFocusIndex)
+    }
+
+    private func refreshMatches() {
+        guard let location = locationManager.userLocation else { return }
+        // 重置聚焦索引
+        currentFocusIndex = 0
+        Task {
+            await matchingService.findNearbyMatches(
+                center: location,
+                radiusKm: searchRadius,
+                minMatchScore: Int(matchThreshold)
+            )
+        }
+    }
+
+    /// 格式化距离显示
+    private func formatDistance(_ km: Double) -> String {
+        if km < 1 {
+            return String(format: "%.0f 米", km * 1000)
+        } else if km < 100 {
+            return String(format: "%.1f 公里", km)
+        } else if km < 1000 {
+            return String(format: "%.0f 公里", km)
+        } else {
+            return String(format: "%.1f 千公里", km / 1000)
+        }
+    }
+
+    /// 格式化用户距离显示
+    private func formatUserDistance(_ km: Double) -> String {
+        if km < 1 {
+            return String(format: "%.0f 米", km * 1000)
+        } else if km < 100 {
+            return String(format: "%.1f km", km)
+        } else if km < 1000 {
+            return String(format: "%.0f km", km)
+        } else {
+            return String(format: "%.0f km", km)
+        }
+    }
+
+    private func matchScoreColor(_ score: Int) -> Color {
+        if score >= 95 {
+            return Color(hex: "#FFD700") // 命中注定 - 金色
+        } else if score >= 85 {
+            return Color(hex: "#E94560") // 高度契合 - 粉红
+        } else if score >= 75 {
+            return Color(hex: "#FF8C00") // 相当匹配 - 橙色
+        } else if score >= 65 {
+            return Color(hex: "#8B5CF6") // 值得关注 - 紫色
+        } else {
+            return Color(hex: "#9CA3AF") // 一般匹配 - 灰色
+        }
+    }
+
+    private func elementTag(_ element: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: elementIcon(element))
+                .font(.system(size: 12))
+            Text("\(element)命")
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundColor(elementColor(element))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(elementColor(element).opacity(0.15))
+        .cornerRadius(12)
+    }
+
+    private func elementIcon(_ element: String) -> String {
+        switch element {
+        case "金": return "sparkle"
+        case "木": return "leaf.fill"
+        case "水": return "drop.fill"
+        case "火": return "flame.fill"
+        case "土": return "mountain.2.fill"
+        default: return "sparkles"
+        }
+    }
+
+    private func elementColor(_ element: String) -> Color {
+        switch element {
+        case "金": return Color(hex: "#FFD700")
+        case "木": return Color(hex: "#4CAF50")
+        case "水": return Color(hex: "#2196F3")
+        case "火": return Color(hex: "#FF5722")
+        case "土": return Color(hex: "#8D6E63")
+        default: return Color.white
         }
     }
 }
@@ -242,10 +972,11 @@ struct ConnectionView: View {
 // MARK: - 个人中心视图
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
-    @State private var navigateToSupabaseTest = false
     @State private var showDeleteConfirmation = false
     @State private var deleteConfirmText = ""
     @State private var isDeleting = false
+    @State private var navigateToArchive = false
+    @State private var navigateToInvite = false
 
     var body: some View {
         NavigationStack {
@@ -277,8 +1008,19 @@ struct ProfileView: View {
 
                         // 功能列表
                         VStack(spacing: 12) {
-                            // 灵魂档案
-                            profileMenuItem(icon: "sparkles", title: "我的灵魂档案", subtitle: "查看你的命理分析")
+                            // 灵魂档案 - 可导航
+                            Button(action: {
+                                navigateToArchive = true
+                            }) {
+                                profileMenuItemContent(icon: "sparkles", title: "我的灵魂档案", subtitle: "查看你的命理分析")
+                            }
+
+                            // 邀请好友 - 可导航
+                            Button(action: {
+                                navigateToInvite = true
+                            }) {
+                                profileMenuItemContent(icon: "gift.fill", title: "邀请好友", subtitle: "邀请好友获得生成次数")
+                            }
 
                             // 缘分记录
                             profileMenuItem(icon: "heart.circle", title: "缘分记录", subtitle: "查看历史匹配")
@@ -336,40 +1078,10 @@ struct ProfileView: View {
                         }
                         .padding(.horizontal, 24)
                         .padding(.top, 12)
-
-                        // 开发者选项
-                        VStack(spacing: 12) {
-                            Text("开发者选项")
-                                .font(.system(size: 12))
-                                .foregroundColor(.white.opacity(0.4))
-
-                            Button(action: {
-                                navigateToSupabaseTest = true
-                            }) {
-                                HStack {
-                                    Image(systemName: "server.rack")
-                                        .font(.system(size: 16))
-                                    Text("Supabase 连接测试")
-                                        .font(.system(size: 14))
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12))
-                                }
-                                .foregroundColor(.white.opacity(0.8))
-                                .padding()
-                                .background(Color.white.opacity(0.1))
-                                .cornerRadius(12)
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 20)
                         .padding(.bottom, 120)
                     }
                     .padding(.top, 60)
                 }
-            }
-            .navigationDestination(isPresented: $navigateToSupabaseTest) {
-                SupabaseTestView()
             }
             .alert("删除账户", isPresented: $showDeleteConfirmation) {
                 TextField("请输入「删除」确认", text: $deleteConfirmText)
@@ -405,6 +1117,12 @@ struct ProfileView: View {
                     }
                 }
             }
+            .navigationDestination(isPresented: $navigateToArchive) {
+                SoulArchiveView()
+            }
+            .navigationDestination(isPresented: $navigateToInvite) {
+                InviteFriendsView()
+            }
         }
     }
 
@@ -417,44 +1135,50 @@ struct ProfileView: View {
         let success = await authManager.deleteAccount()
 
         if success {
-            print("✅ 账户删除成功，已返回登录页面")
+            print("✅ 账户删除成功，即将跳转到登录页面")
+            // 删除成功后不需要关闭遮罩，因为整个页面会被替换
         } else {
             print("❌ 账户删除失败: \(authManager.errorMessage ?? "未知错误")")
+            // 只有失败时才关闭遮罩，让用户可以重试
+            isDeleting = false
         }
-
-        isDeleting = false
     }
 
-    // 菜单项组件
+    // 菜单项组件（不可点击）
     func profileMenuItem(icon: String, title: String, subtitle: String) -> some View {
         Button(action: {}) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(Color(hex: "#E94560"))
-                    .frame(width: 40, height: 40)
-                    .background(Color(hex: "#E94560").opacity(0.1))
-                    .cornerRadius(10)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.3))
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(12)
+            profileMenuItemContent(icon: icon, title: title, subtitle: subtitle)
         }
+    }
+
+    // 菜单项内容（可复用）
+    func profileMenuItemContent(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(Color(hex: "#E94560"))
+                .frame(width: 40, height: 40)
+                .background(Color(hex: "#E94560").opacity(0.1))
+                .cornerRadius(10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.white)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.3))
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
 }
 

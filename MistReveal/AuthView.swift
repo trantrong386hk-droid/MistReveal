@@ -83,11 +83,9 @@ struct AuthView: View {
             forgotPasswordSheet
         }
         .onChange(of: authManager.otpVerified) { _, verified in
-            // OTP 验证成功后，自动切换到第三步
-            if verified && authManager.needsPasswordSetup {
-                if selectedTab == 1 {
-                    registerStep = 3
-                }
+            // OTP 验证成功后的处理（步骤切换已在按钮点击时处理）
+            if verified {
+                print("🔵 OTP 验证状态变更: \(verified)")
             }
         }
         .onChange(of: authManager.otpSent) { _, sent in
@@ -315,7 +313,10 @@ struct AuthView: View {
 
             primaryButton(title: "验证") {
                 Task {
-                    await authManager.verifyRegisterOTP(email: registerEmail, code: registerCode)
+                    let success = await authManager.verifyRegisterOTP(email: registerEmail, code: registerCode)
+                    if success {
+                        registerStep = 3  // 验证成功，进入下一步
+                    }
                 }
             }
 
@@ -336,6 +337,18 @@ struct AuthView: View {
                         .foregroundColor(Color(hex: "#E94560"))
                 }
             }
+
+            // 返回修改邮箱按钮
+            Button(action: {
+                registerStep = 1
+                registerCode = ""
+                authManager.otpSent = false
+            }) {
+                Text("返回修改邮箱")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .padding(.top, 10)
         }
     }
 
@@ -357,7 +370,17 @@ struct AuthView: View {
 
             primaryButton(title: "完成注册") {
                 Task {
-                    await authManager.completeRegistration(password: registerPassword)
+                    let success = await authManager.completeRegistration(email: registerEmail, password: registerPassword)
+                    if success {
+                        // 注册成功，重置表单并切换到登录页
+                        registerEmail = ""
+                        registerPassword = ""
+                        registerConfirmPassword = ""
+                        registerCode = ""
+                        registerStep = 1
+                        selectedTab = 0  // 切换到登录 Tab
+                        showToastMessage("注册成功，请登录")
+                    }
                 }
             }
             .padding(.top, 10)

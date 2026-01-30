@@ -298,8 +298,9 @@ struct MistRevealView: View {
 
             Spacer()
 
-            // 进度小点 - 第三步
+            // 进度小点 - 第四步 (4/5)
             HStack(spacing: 4) {
+                Circle().fill(Color.white).frame(width: 4, height: 4)
                 Circle().fill(Color.white).frame(width: 4, height: 4)
                 Circle().fill(Color.white).frame(width: 4, height: 4)
                 Circle().fill(Color.white).frame(width: 4, height: 4)

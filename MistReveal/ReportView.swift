@@ -9,103 +9,110 @@ struct ReportView: View {
     var birthTime: String
     var location: String
 
+    // SoulmateManager
+    @ObservedObject private var soulmateManager = SoulmateManager.shared
+
     // 动画状态
     @State private var showContent = false
     @State private var currentSection = 0
-    @State private var navigateToMistReveal = false
+    @State private var navigateToDestinyDeduction = false
 
-    // 模拟的报告数据
-    let soulTraits = ["温柔如水", "坚韧不拔", "灵性通透", "情感细腻"]
-    let destinyElements = ["木", "水"]
+    // 打字机动画
+    @State private var displayedDescription: String = ""
+    @State private var typewriterTimer: Timer?
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 背景图片（轻微虚化）
-                Image("star_background")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-                    .blur(radius: 4)
-                    .ignoresSafeArea()
+                // 纯色背景
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                // 自定义导航栏
-                customNavBar
+                    // 自定义导航栏
+                    customNavBar
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 32) {
-                        // 标题区域
-                        VStack(spacing: 12) {
-                            Text("灵 魂 解 析")
-                                .font(.system(size: 28, weight: .bold))
-                                .tracking(6)
-                                .foregroundColor(.white)
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 32) {
+                            // 标题区域
+                            VStack(spacing: 12) {
+                                Text("灵 魂 解 析")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .tracking(6)
+                                    .foregroundColor(.white)
 
-                            Text("基于你的时空坐标，命运已为你勾勒轮廓")
-                                .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.5))
-                        }
-                        .padding(.top, 20)
-                        .opacity(showContent ? 1 : 0)
-                        .offset(y: showContent ? 0 : 20)
-
-                        // 核心命盘图
-                        destinyCircle
-                            .opacity(showContent ? 1 : 0)
-                            .scaleEffect(showContent ? 1 : 0.8)
-
-                        // 灵魂特质卡片
-                        soulTraitsSection
-                            .opacity(currentSection >= 1 ? 1 : 0)
-                            .offset(y: currentSection >= 1 ? 0 : 30)
-
-                        // 命定缘分预览
-                        destinyPreviewSection
-                            .opacity(currentSection >= 2 ? 1 : 0)
-                            .offset(y: currentSection >= 2 ? 0 : 30)
-
-                        // 底部按钮
-                        Button(action: {
-                            navigateToMistReveal = true
-                        }) {
-                            HStack(spacing: 12) {
-                                Text("揭示命定之人")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .tracking(4)
-
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 14, weight: .medium))
+                                Text("基于你的时空坐标，解读你的内在特质")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.5))
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(30)
-                            .shadow(color: Color(hex: "#E94560").opacity(0.3), radius: 20, x: 0, y: 10)
-                        }
-                        .padding(.horizontal, 40)
-                        .padding(.top, 20)
-                        .opacity(currentSection >= 2 ? 1 : 0)
+                            .padding(.top, 20)
+                            .opacity(showContent ? 1 : 0)
+                            .offset(y: showContent ? 0 : 20)
 
-                        Spacer(minLength: 100)
+                            // 核心命盘图
+                            destinyCircle
+                                .opacity(showContent ? 1 : 0)
+                                .scaleEffect(showContent ? 1 : 0.8)
+
+                            // 你的灵魂印记（核心性格描述）
+                            soulImpressionSection
+                                .opacity(currentSection >= 1 ? 1 : 0)
+                                .offset(y: currentSection >= 1 ? 0 : 30)
+
+                            // 性格特质标签
+                            personalityTraitsSection
+                                .opacity(currentSection >= 2 ? 1 : 0)
+                                .offset(y: currentSection >= 2 ? 0 : 30)
+
+                            // 感情中的你
+                            relationshipBehaviorsSection
+                                .opacity(currentSection >= 3 ? 1 : 0)
+                                .offset(y: currentSection >= 3 ? 0 : 30)
+
+                            // 你的情感需求
+                            emotionalNeedsSection
+                                .opacity(currentSection >= 4 ? 1 : 0)
+                                .offset(y: currentSection >= 4 ? 0 : 30)
+
+                            // 底部按钮
+                            Button(action: {
+                                navigateToDestinyDeduction = true
+                            }) {
+                                HStack(spacing: 12) {
+                                    Text("查看命定之缘")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .tracking(4)
+
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(30)
+                                .shadow(color: Color(hex: "#E94560").opacity(0.3), radius: 20, x: 0, y: 10)
+                            }
+                            .padding(.horizontal, 40)
+                            .padding(.top, 20)
+                            .opacity(currentSection >= 4 ? 1 : 0)
+
+                            Spacer(minLength: 100)
+                        }
+                        .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
                 }
-            }
             }
             .clipped()
         }
         .navigationBarHidden(true)
-        .navigationDestination(isPresented: $navigateToMistReveal) {
-            MistRevealView(
+        .navigationDestination(isPresented: $navigateToDestinyDeduction) {
+            DestinyDeductionView(
                 birthDate: birthDate,
                 gender: gender,
                 birthTime: birthTime,
@@ -114,6 +121,9 @@ struct ReportView: View {
         }
         .onAppear {
             startAnimations()
+        }
+        .onDisappear {
+            typewriterTimer?.invalidate()
         }
     }
 
@@ -136,7 +146,7 @@ struct ReportView: View {
 
             Spacer()
 
-            // 进度指示 - 第二步
+            // 进度指示 - 第二步 (2/4)
             HStack(spacing: 4) {
                 Circle().fill(Color.white).frame(width: 4, height: 4)
                 Circle().fill(Color.white).frame(width: 4, height: 4)
@@ -172,7 +182,7 @@ struct ReportView: View {
 
             // 中心内容
             VStack(spacing: 8) {
-                Text(gender.isEmpty ? "乾" : gender)
+                Text(gender.isEmpty ? "你" : gender)
                     .font(.system(size: 36, weight: .light))
                     .foregroundColor(.white)
                     .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
@@ -192,11 +202,10 @@ struct ReportView: View {
             ForEach(0..<5) { i in
                 let angle = Double(i) * 72 - 90
                 let element = ["金", "木", "水", "火", "土"][i]
-                let isActive = destinyElements.contains(element)
 
                 Text(element)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(isActive ? Color(hex: "#E94560") : .white.opacity(0.8))
+                    .foregroundColor(.white.opacity(0.8))
                     .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                     .offset(
                         x: cos(angle * .pi / 180) * 90,
@@ -207,110 +216,130 @@ struct ReportView: View {
         .frame(height: 220)
     }
 
-    // 灵魂特质
-    var soulTraitsSection: some View {
+    // 你的灵魂印记
+    var soulImpressionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("灵魂特质")
+            HStack {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "#E94560"))
+                Text("你的灵魂印记")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
+                    .tracking(2)
+            }
+
+            // 打字机效果显示性格描述
+            Text(displayedDescription)
+                .font(.system(size: 15))
+                .foregroundColor(.white.opacity(0.9))
+                .lineSpacing(8)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.08))
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color(hex: "#E94560").opacity(0.3), lineWidth: 1)
+                )
+        }
+    }
+
+    // 性格特质标签
+    var personalityTraitsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("性格特质")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.white.opacity(0.85))
                 .tracking(2)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(soulTraits, id: \.self) { trait in
-                    HStack {
-                        Circle()
-                            .fill(Color(hex: "#E94560"))
-                            .frame(width: 6, height: 6)
-
-                        Text(trait)
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.8))
-
-                        Spacer()
+            if let analysis = soulmateManager.soulAnalysis {
+                FlowLayout(spacing: 10) {
+                    ForEach(analysis.personalityTraits, id: \.self) { trait in
+                        traitTag(trait)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
                 }
             }
         }
     }
 
-    // 命定缘分预览
-    var destinyPreviewSection: some View {
+    // 感情中的你
+    var relationshipBehaviorsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("命定缘分")
+            Text("感情中的你")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.white.opacity(0.85))
                 .tracking(2)
 
-            VStack(spacing: 0) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("契合度")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.4))
+            VStack(alignment: .leading, spacing: 12) {
+                if let analysis = soulmateManager.soulAnalysis {
+                    ForEach(analysis.relationshipBehaviors, id: \.self) { behavior in
+                        HStack(alignment: .top, spacing: 12) {
+                            Circle()
+                                .fill(Color(hex: "#E94560"))
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 6)
 
-                        Text("96%")
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(Color(hex: "#E94560"))
-                    }
-
-                    Spacer()
-
-                    // 模糊的剪影预览
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.1))
-                            .frame(width: 80, height: 80)
-
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white.opacity(0.3))
-                            .blur(radius: 4)
-
-                        Text("?")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white.opacity(0.6))
+                            Text(behavior)
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.8))
+                                .lineSpacing(4)
+                        }
                     }
                 }
-                .padding(20)
-
-                Divider()
-                    .background(Color.white.opacity(0.1))
-
-                HStack(spacing: 20) {
-                    destinyInfoItem(title: "相遇时机", value: "近期")
-                    destinyInfoItem(title: "缘分类型", value: "灵魂伴侣")
-                    destinyInfoItem(title: "羁绊强度", value: "极深")
-                }
-                .padding(20)
             }
-            .background(Color.white.opacity(0.1))
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(16)
+        }
+    }
+
+    // 你的情感需求
+    var emotionalNeedsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("你的情感需求")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
+                .tracking(2)
+
+            VStack(alignment: .leading, spacing: 12) {
+                if let analysis = soulmateManager.soulAnalysis {
+                    ForEach(analysis.emotionalNeeds, id: \.self) { need in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(Color(hex: "#E94560").opacity(0.8))
+                                .padding(.top, 4)
+
+                            Text(need)
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.8))
+                                .lineSpacing(4)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(16)
+        }
+    }
+
+    // 特质标签
+    func traitTag(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color(hex: "#E94560").opacity(0.3))
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    .stroke(Color(hex: "#E94560").opacity(0.5), lineWidth: 1)
             )
-        }
-    }
-
-    func destinyInfoItem(title: String, value: String) -> some View {
-        VStack(spacing: 6) {
-            Text(title)
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.85))
-
-            Text(value)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     var formattedBirthDate: String {
@@ -326,16 +355,95 @@ struct ReportView: View {
             showContent = true
         }
 
+        // 延迟显示各部分
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation(.easeOut(duration: 0.6)) {
                 currentSection = 1
             }
+            // 启动打字机动画
+            startTypewriterAnimation()
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             withAnimation(.easeOut(duration: 0.6)) {
                 currentSection = 2
             }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeOut(duration: 0.6)) {
+                currentSection = 3
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation(.easeOut(duration: 0.6)) {
+                currentSection = 4
+            }
+        }
+    }
+
+    func startTypewriterAnimation() {
+        guard let analysis = soulmateManager.soulAnalysis else { return }
+
+        let fullText = analysis.personalityDescription
+        displayedDescription = ""
+        var charIndex = 0
+
+        typewriterTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+            if charIndex < fullText.count {
+                let index = fullText.index(fullText.startIndex, offsetBy: charIndex)
+                displayedDescription += String(fullText[index])
+                charIndex += 1
+            } else {
+                timer.invalidate()
+            }
+        }
+    }
+}
+
+// MARK: - Flow Layout for Tags
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = FlowResult(in: proposal.width ?? 0, subviews: subviews, spacing: spacing)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = FlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x,
+                                      y: bounds.minY + result.positions[index].y),
+                         proposal: .unspecified)
+        }
+    }
+
+    struct FlowResult {
+        var size: CGSize = .zero
+        var positions: [CGPoint] = []
+
+        init(in width: CGFloat, subviews: Subviews, spacing: CGFloat) {
+            var x: CGFloat = 0
+            var y: CGFloat = 0
+            var lineHeight: CGFloat = 0
+
+            for subview in subviews {
+                let size = subview.sizeThatFits(.unspecified)
+
+                if x + size.width > width, x > 0 {
+                    x = 0
+                    y += lineHeight + spacing
+                    lineHeight = 0
+                }
+
+                positions.append(CGPoint(x: x, y: y))
+                lineHeight = max(lineHeight, size.height)
+                x += size.width + spacing
+            }
+
+            self.size = CGSize(width: width, height: y + lineHeight)
         }
     }
 }
@@ -344,7 +452,7 @@ struct ReportView: View {
     NavigationStack {
         ReportView(
             birthDate: Date(),
-            gender: "乾",
+            gender: "男",
             birthTime: "子时",
             location: "北京"
         )

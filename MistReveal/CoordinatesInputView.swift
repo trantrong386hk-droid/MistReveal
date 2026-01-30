@@ -3,11 +3,24 @@ import SwiftUI
 struct CoordinatesInputView: View {
     @Environment(\.dismiss) var dismiss
 
+    // 是否为朋友生成
+    var forFriend: Bool = false
+    var friendNickname: String = ""
+
     // 数据状态
     @State private var birthDate = Date()
-    @State private var gender: String = "" // 乾 (男) / 坤 (女)
+    @State private var gender: String = "" // 男 / 女
     @State private var location: String = ""
     @State private var birthTime: String = "子时"
+
+    // 加载状态
+    @State private var isAnalyzing = false
+    @State private var loadingProgress: CGFloat = 0
+    @State private var loadingText = "正在解读你的灵魂印记..."
+
+    // SoulmateManager & ArchiveManager
+    @ObservedObject private var soulmateManager = SoulmateManager.shared
+    @ObservedObject private var archiveManager = SoulArchiveManager.shared
 
     // 导航
     @State private var navigateToReport = false
@@ -30,14 +43,8 @@ struct CoordinatesInputView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 背景图片（轻微虚化）
-                Image("star_background")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-                    .blur(radius: 4)
-                    .ignoresSafeArea()
+                // 纯色背景
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
                 VStack(spacing: 0) {
                 // 1. 模仿 Starla 的自定义导航栏
@@ -106,7 +113,7 @@ struct CoordinatesInputView: View {
 
                         // 3. 开启按钮
                         Button(action: {
-                            navigateToReport = true
+                            startSoulAnalysis()
                         }) {
                             Text("开启灵魂推演")
                                 .font(.system(size: 16, weight: .bold))
@@ -120,12 +127,19 @@ struct CoordinatesInputView: View {
                                 .cornerRadius(30)
                                 .shadow(color: Color(hex: "#E94560").opacity(0.3), radius: 20, x: 0, y: 10)
                         }
+                        .disabled(isAnalyzing)
+                        .opacity(isAnalyzing ? 0.6 : 1)
                         .padding(.horizontal, 40)
                         .padding(.top, 20)
                         .padding(.bottom, 100)
                     }
                 }
             }
+
+                // 全屏加载动画覆盖层
+                if isAnalyzing {
+                    analysisLoadingOverlay
+                }
             }
             .clipped()
         }
@@ -138,6 +152,147 @@ struct CoordinatesInputView: View {
                 location: location
             )
         }
+        .onChange(of: soulmateManager.soulAnalysis) { _, newValue in
+            // 分析完成后跳转
+            if let result = newValue, isAnalyzing {
+                // 保存到数据库
+                Task {
+                    let nickname = forFriend ? friendNickname : "我自己"
+                    let isSelf = !forFriend
+                    _ = await archiveManager.saveAnalysisResult(
+                        gender: gender,
+                        birthDate: birthDate,
+                        birthTime: birthTime,
+                        location: location,
+                        analysisResult: result,
+                        nickname: nickname,
+                        isSelf: isSelf
+                    )
+                }
+                isAnalyzing = false
+                navigateToReport = true
+            }
+        }
+        .onChange(of: soulmateManager.state) { _, newState in
+            // 处理失败状态
+            if newState == .failed && isAnalyzing {
+                isAnalyzing = false
+            }
+        }
+    }
+
+    // MARK: - 加载动画覆盖层
+
+    var analysisLoadingOverlay: some View {
+        ZStack {
+            // 半透明背景
+            Color(hex: "#0A0A12").opacity(0.95)
+                .ignoresSafeArea()
+
+            VStack(spacing: 40) {
+                Spacer()
+
+                // 加载动画圆环
+                ZStack {
+                    // 外层光环
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle()
+                            .stroke(Color(hex: "#E94560").opacity(0.3 - Double(i) * 0.1), lineWidth: 1)
+                            .frame(width: 160 + CGFloat(i) * 40, height: 160 + CGFloat(i) * 40)
+                    }
+
+                    // 旋转的进度环
+                    Circle()
+                        .trim(from: 0, to: 0.7)
+                        .stroke(
+                            AngularGradient(
+                                colors: [Color(hex: "#E94560"), Color(hex: "#E94560").opacity(0.3)],
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                        )
+                        .frame(width: 120, height: 120)
+                        .rotationEffect(.degrees(loadingProgress))
+                        .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: loadingProgress)
+
+                    // 中心图标
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 36))
+                        .foregroundColor(Color(hex: "#E94560").opacity(0.8))
+                }
+
+                // 加载文案
+                VStack(spacing: 12) {
+                    Text("灵魂解析中")
+                        .font(.system(size: 24, weight: .bold))
+                        .tracking(4)
+                        .foregroundColor(.white)
+
+                    Text(soulmateManager.progressText.isEmpty ? loadingText : soulmateManager.progressText)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.6))
+                        .animation(.easeInOut, value: soulmateManager.progressText)
+                }
+
+                Spacer()
+                Spacer()
+            }
+        }
+        .onAppear {
+            loadingProgress = 360
+        }
+    }
+
+    // MARK: - 开始灵魂分析
+
+    func startSoulAnalysis() {
+        // 格式化生日
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy年M月d日"
+        let birthDateString = formatter.string(from: birthDate)
+
+        // 显示加载动画
+        isAnalyzing = true
+        loadingProgress = 0
+
+        Task {
+            // 先检查数据库是否已有记录
+            if let existingResult = await archiveManager.checkExistingRecord(
+                gender: gender,
+                birthDate: birthDate,
+                birthTime: birthTime,
+                location: location
+            ) {
+                print("✅ [CoordinatesInputView] 使用已有分析结果")
+                // 使用已有结果
+                soulmateManager.soulAnalysis = existingResult
+                soulmateManager.state = .analyzingSoulmate
+
+                // 添加到用户历史（不消耗配额）
+                let nickname = forFriend ? friendNickname : "我自己"
+                let isSelf = !forFriend
+                _ = await archiveManager.saveAnalysisResult(
+                    gender: gender,
+                    birthDate: birthDate,
+                    birthTime: birthTime,
+                    location: location,
+                    analysisResult: existingResult,
+                    nickname: nickname,
+                    isSelf: isSelf
+                )
+
+                isAnalyzing = false
+                navigateToReport = true
+            } else {
+                // 调用 SoulmateManager 开始分析
+                await soulmateManager.startSoulAnalysis(
+                    birthDate: birthDateString,
+                    gender: gender,
+                    birthTime: birthTime,
+                    location: location
+                )
+            }
+        }
     }
 
     // --- 子组件 ---
@@ -145,21 +300,32 @@ struct CoordinatesInputView: View {
     // 模仿 Starla 极简导航栏
     var customNavBar: some View {
         HStack {
-            // 起始页无返回按钮，用空白占位
-            Color.clear.frame(width: 24, height: 24)
+            // 帮朋友生成时显示返回按钮
+            if forFriend {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .light))
+                        .foregroundColor(.white)
+                }
+            } else {
+                Color.clear.frame(width: 24, height: 24)
+            }
 
             Spacer()
 
-            Text("时空坐标")
-                .font(.system(size: 12, weight: .light))
-                .tracking(4)
-                .foregroundColor(.white.opacity(0.9))
+            VStack(spacing: 2) {
+                Text(forFriend ? "为 \(friendNickname) 测算" : "时空坐标")
+                    .font(.system(size: 12, weight: .light))
+                    .tracking(4)
+                    .foregroundColor(.white.opacity(0.9))
+            }
 
             Spacer()
 
-            // 进度小点 - 第一步
+            // 进度小点 - 第一步 (1/5)
             HStack(spacing: 4) {
                 Circle().fill(Color.white).frame(width: 4, height: 4)
+                Circle().fill(Color.white.opacity(0.3)).frame(width: 4, height: 4)
                 Circle().fill(Color.white.opacity(0.3)).frame(width: 4, height: 4)
                 Circle().fill(Color.white.opacity(0.3)).frame(width: 4, height: 4)
                 Circle().fill(Color.white.opacity(0.3)).frame(width: 4, height: 4)

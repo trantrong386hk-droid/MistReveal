@@ -67,7 +67,20 @@ class AuthManager: ObservableObject {
         otpSent = false  // 重置状态，确保 onChange 能触发
 
         do {
-            // 发送 OTP，shouldCreateUser: true 表示如果用户不存在则创建
+            print("🔵 检查邮箱是否已注册: \(email)")
+
+            // 先检查邮箱是否已注册
+            let emailExists = await checkEmailExists(email: email)
+            if emailExists {
+                print("❌ 邮箱已被注册: \(email)")
+                errorMessage = "该邮箱已注册，请直接登录"
+                isLoading = false
+                return
+            }
+
+            print("🔵 发送注册验证码: \(email)")
+
+            // 使用 Supabase Auth 内置邮件服务发送验证码
             try await supabase.auth.signInWithOTP(
                 email: email,
                 shouldCreateUser: true
@@ -88,80 +101,95 @@ class AuthManager: ObservableObject {
     /// - Parameters:
     ///   - email: 用户邮箱
     ///   - code: 验证码
-    func verifyRegisterOTP(email: String, code: String) async {
+    /// - Returns: 验证是否成功
+    func verifyRegisterOTP(email: String, code: String) async -> Bool {
         guard !code.isEmpty else {
             errorMessage = "请输入验证码"
-            return
+            return false
         }
 
         isLoading = true
         errorMessage = nil
 
         do {
-            // 验证 OTP，type 为 .email 用于注册流程
+            print("🔵 验证注册验证码: \(email)")
+
+            // 验证 OTP
             let response = try await supabase.auth.verifyOTP(
                 email: email,
                 token: code,
                 type: .email
             )
 
-            // 验证成功后用户已登录，但需要设置密码才能完成注册
             currentUser = response.user
             otpVerified = true
-            needsPasswordSetup = true
-            // 注意：isAuthenticated 保持 false，直到设置密码完成
-
-            print("✅ 注册验证码验证成功，等待设置密码")
+            print("✅ 注册验证码验证成功")
+            isLoading = false
+            return true
 
         } catch {
             errorMessage = handleAuthError(error)
             print("❌ 验证注册验证码失败: \(error)")
+            isLoading = false
+            return false
         }
-
-        isLoading = false
     }
 
     /// 完成注册（设置密码）
-    /// - Parameter password: 用户密码
-    func completeRegistration(password: String) async {
+    /// - Parameters:
+    ///   - email: 用户邮箱
+    ///   - password: 用户密码
+    /// - Returns: 是否注册成功
+    func completeRegistration(email: String, password: String) async -> Bool {
         guard !password.isEmpty else {
             errorMessage = "请输入密码"
-            return
+            return false
         }
 
         guard password.count >= 6 else {
             errorMessage = "密码至少需要6位"
-            return
+            return false
         }
 
         isLoading = true
         errorMessage = nil
 
         do {
+            print("🔵 设置用户密码")
+
             // 更新用户密码
             let user = try await supabase.auth.update(
                 user: UserAttributes(password: password)
             )
 
-            currentUser = user
-            needsPasswordSetup = false
-            isAuthenticated = true
+            print("✅ 密码设置成功，用户ID: \(user.id.uuidString)")
 
             // 保存注册完成标记
             let userId = user.id.uuidString
             UserDefaults.standard.set(true, forKey: "registration_completed_\(userId)")
 
-            // 重置流程状态
+            // 退出登录，让用户重新登录
+            try await supabase.auth.signOut()
+            print("🔵 已退出登录，等待用户重新登录")
+
+            // 重置所有状态
+            currentUser = nil
+            needsPasswordSetup = false
+            isAuthenticated = false
+            otpVerified = false
+            otpSent = false
             resetFlowState()
 
-            print("✅ 注册完成，密码设置成功")
+            print("✅ 注册完成，请用户登录")
+            isLoading = false
+            return true
 
         } catch {
             errorMessage = handleAuthError(error)
             print("❌ 设置密码失败: \(error)")
+            isLoading = false
+            return false
         }
-
-        isLoading = false
     }
 
     // MARK: - 登录方法
@@ -185,6 +213,19 @@ class AuthManager: ObservableObject {
         errorMessage = nil
 
         do {
+            // 先检查邮箱是否存在
+            print("🔵 检查邮箱是否存在: \(email)")
+            let emailExists = await checkEmailExists(email: email)
+
+            if !emailExists {
+                print("❌ 账号不存在: \(email)")
+                errorMessage = "账号不存在"
+                isLoading = false
+                return
+            }
+
+            print("🔵 账号存在，尝试登录...")
+
             let response = try await supabase.auth.signIn(
                 email: email,
                 password: password
@@ -200,11 +241,42 @@ class AuthManager: ObservableObject {
             print("✅ 登录成功: \(email)")
 
         } catch {
-            errorMessage = handleAuthError(error)
-            print("❌ 登录失败: \(error)")
+            // 如果走到这里，说明账号存在但密码错误
+            print("❌ 密码错误: \(error)")
+            errorMessage = "密码错误"
         }
 
         isLoading = false
+    }
+
+    /// 检查邮箱是否存在
+    /// - Parameter email: 邮箱地址
+    /// - Returns: 是否存在
+    private func checkEmailExists(email: String) async -> Bool {
+        struct CheckEmailRequest: Encodable {
+            let email: String
+        }
+
+        struct CheckEmailResponse: Decodable {
+            let exists: Bool
+            let error: String?
+        }
+
+        do {
+            let response: CheckEmailResponse = try await supabase.functions.invoke(
+                "check-email-exists",
+                options: FunctionInvokeOptions(
+                    method: .post,
+                    body: CheckEmailRequest(email: email)
+                )
+            )
+            print("🔵 邮箱检查结果: exists = \(response.exists)")
+            return response.exists
+        } catch {
+            print("❌ 检查邮箱失败: \(error)")
+            // 如果检查失败，默认认为存在，继续尝试登录
+            return true
+        }
     }
 
     // MARK: - 找回密码流程
@@ -440,42 +512,57 @@ class AuthManager: ObservableObject {
     /// 删除账户
     /// 调用边缘函数删除用户账户及所有相关数据
     func deleteAccount() async -> Bool {
+        print("🗑️ 开始删除账户流程")
+
         guard let user = currentUser else {
+            print("❌ 删除失败：用户未登录")
             errorMessage = "未登录"
             return false
         }
 
+        print("🔵 当前用户 ID: \(user.id.uuidString)")
         isLoading = true
         errorMessage = nil
 
+        // 定义响应结构
+        struct DeleteResponse: Decodable {
+            let success: Bool?
+            let error: String?
+            let message: String?
+        }
+
         do {
             // 获取当前会话的 access token
+            print("🔵 获取会话 token...")
             let session = try await supabase.auth.session
+            print("🔵 Token 获取成功，长度: \(session.accessToken.count)")
 
             // 调用删除账户的边缘函数
-            let data: Data = try await supabase.functions.invoke(
+            print("🔵 调用边缘函数 delete-account...")
+            print("🔵 使用的 Token: \(session.accessToken.prefix(30))...")
+
+            let deleteResponse: DeleteResponse = try await supabase.functions.invoke(
                 "delete-account",
                 options: FunctionInvokeOptions(
+                    method: .post,
                     headers: ["Authorization": "Bearer \(session.accessToken)"]
                 )
             )
 
-            // 解析响应
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("📦 删除账户响应: \(jsonString)")
-            }
-
-            // 检查是否成功
-            struct DeleteResponse: Decodable {
-                let success: Bool?
-                let error: String?
-                let message: String?
-            }
-
-            let deleteResponse = try JSONDecoder().decode(DeleteResponse.self, from: data)
+            print("📦 删除账户响应: success=\(deleteResponse.success ?? false), error=\(deleteResponse.error ?? "无"), message=\(deleteResponse.message ?? "无")")
 
             if let error = deleteResponse.error {
+                print("❌ 边缘函数返回错误: \(error)")
                 errorMessage = error
+                isLoading = false
+                return false
+            }
+
+            if deleteResponse.success == true {
+                print("✅ 边缘函数确认删除成功")
+            } else {
+                print("❌ 删除未成功，success 不为 true")
+                errorMessage = "删除账户失败"
                 isLoading = false
                 return false
             }
@@ -483,20 +570,27 @@ class AuthManager: ObservableObject {
             // 清除本地存储的注册完成标记
             let userId = user.id.uuidString
             UserDefaults.standard.removeObject(forKey: "registration_completed_\(userId)")
+            print("🔵 已清除本地注册标记")
 
-            // 重置所有状态
-            isAuthenticated = false
-            needsPasswordSetup = false
-            currentUser = nil
-            resetFlowState()
+            // 退出 Supabase 会话
+            try await supabase.auth.signOut()
+            print("🔵 已退出 Supabase 会话")
 
-            print("✅ 账户已成功删除")
+            // 重置所有状态，触发页面跳转
+            print("🔵 重置认证状态...")
             isLoading = false
+            currentUser = nil
+            needsPasswordSetup = false
+            resetFlowState()
+            isAuthenticated = false  // 最后设置，触发 App 切换到登录页面
+
+            print("✅ 账户删除完成，isAuthenticated = \(isAuthenticated)")
             return true
 
         } catch {
+            print("❌ 删除账户异常: \(error)")
+            print("❌ 错误类型: \(type(of: error))")
             errorMessage = "删除账户失败: \(error.localizedDescription)"
-            print("❌ 删除账户失败: \(error)")
             isLoading = false
             return false
         }
