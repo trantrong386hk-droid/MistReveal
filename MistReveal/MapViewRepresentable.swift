@@ -9,6 +9,8 @@ struct MapViewRepresentable: UIViewRepresentable {
     @Binding var selectedUser: MatchingService.MatchedUser?
     @Binding var shouldRecenter: Bool
     @Binding var focusCoordinate: CLLocationCoordinate2D?  // 跳转到指定坐标
+    @Binding var showConnectionLines: Bool  // 是否显示连接线
+    @Binding var shouldFitAllAnnotations: Bool  // 是否缩放显示全部
 
     var onAnnotationSelected: ((MatchingService.MatchedUser) -> Void)?
 
@@ -84,8 +86,72 @@ struct MapViewRepresentable: UIViewRepresentable {
             }
         }
 
+        // 响应缩放显示全部请求
+        if shouldFitAllAnnotations {
+            fitAllAnnotations(mapView: mapView)
+            DispatchQueue.main.async {
+                self.shouldFitAllAnnotations = false
+            }
+        }
+
         // 更新匹配用户标记
         updateAnnotations(mapView: mapView, context: context)
+
+        // 更新连接线
+        updateConnectionLines(mapView: mapView)
+    }
+
+    // MARK: - 缩放显示全部标记
+
+    private func fitAllAnnotations(mapView: MKMapView) {
+        let annotations = mapView.annotations.filter { !($0 is MKUserLocation) }
+        guard !annotations.isEmpty, let userLoc = userLocation else { return }
+
+        var coordinates = annotations.map { $0.coordinate }
+        coordinates.append(userLoc)
+
+        // 计算包含所有坐标的区域
+        var minLat = coordinates[0].latitude
+        var maxLat = coordinates[0].latitude
+        var minLon = coordinates[0].longitude
+        var maxLon = coordinates[0].longitude
+
+        for coord in coordinates {
+            minLat = min(minLat, coord.latitude)
+            maxLat = max(maxLat, coord.latitude)
+            minLon = min(minLon, coord.longitude)
+            maxLon = max(maxLon, coord.longitude)
+        }
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        let span = MKCoordinateSpan(
+            latitudeDelta: (maxLat - minLat) * 1.5 + 0.01,  // 添加边距
+            longitudeDelta: (maxLon - minLon) * 1.5 + 0.01
+        )
+
+        let region = MKCoordinateRegion(center: center, span: span)
+        mapView.setRegion(region, animated: true)
+    }
+
+    // MARK: - 连接线
+
+    private func updateConnectionLines(mapView: MKMapView) {
+        // 移除旧的覆盖层
+        let overlays = mapView.overlays.filter { $0 is MKPolyline }
+        mapView.removeOverlays(overlays)
+
+        guard showConnectionLines, let userLoc = userLocation else { return }
+
+        // 为每个匹配用户绘制连接线（使用大圆航线）
+        for user in matchedUsers {
+            let coordinates = [userLoc, user.coordinate]
+            let polyline = MKGeodesicPolyline(coordinates: coordinates, count: 2)
+            mapView.addOverlay(polyline)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -123,38 +189,24 @@ struct MapViewRepresentable: UIViewRepresentable {
                 return nil
             }
 
-            // 匹配用户使用自定义标记
+            // 匹配用户使用脉冲波纹标记
             if let matchAnnotation = annotation as? MatchAnnotation {
-                let identifier = "MatchAnnotation"
-                var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                let identifier = "PulseAnnotation"
+                var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? PulseAnnotationView
 
                 if annotationView == nil {
-                    annotationView = MKMarkerAnnotationView(annotation: matchAnnotation, reuseIdentifier: identifier)
+                    annotationView = PulseAnnotationView(annotation: matchAnnotation, reuseIdentifier: identifier)
+                    annotationView?.frame = CGRect(x: 0, y: 0, width: 60, height: 60)
                     annotationView?.canShowCallout = false
                 } else {
                     annotationView?.annotation = matchAnnotation
                 }
 
-                // 根据匹配度设置颜色（5档分层）
-                let score = matchAnnotation.user.matchScore
-                if score >= 95 {
-                    annotationView?.markerTintColor = UIColor(hex: "#FFD700") // 命中注定 - 金色
-                    annotationView?.glyphImage = UIImage(systemName: "star.fill")
-                } else if score >= 85 {
-                    annotationView?.markerTintColor = UIColor(hex: "#E94560") // 高度契合 - 粉红
-                    annotationView?.glyphImage = UIImage(systemName: "heart.fill")
-                } else if score >= 75 {
-                    annotationView?.markerTintColor = UIColor(hex: "#FF8C00") // 相当匹配 - 橙色
-                    annotationView?.glyphImage = UIImage(systemName: "heart.fill")
-                } else if score >= 65 {
-                    annotationView?.markerTintColor = UIColor(hex: "#8B5CF6") // 值得关注 - 紫色
-                    annotationView?.glyphImage = UIImage(systemName: "heart")
-                } else {
-                    annotationView?.markerTintColor = UIColor(hex: "#9CA3AF") // 一般匹配 - 灰色
-                    annotationView?.glyphImage = UIImage(systemName: "heart")
-                }
-
-                annotationView?.displayPriority = .required
+                // 配置五行颜色和动画
+                annotationView?.configure(
+                    element: matchAnnotation.user.userElement,
+                    matchScore: matchAnnotation.user.matchScore
+                )
 
                 return annotationView
             }
@@ -171,6 +223,18 @@ struct MapViewRepresentable: UIViewRepresentable {
                 // 取消选中状态（允许重复点击）
                 mapView.deselectAnnotation(annotation, animated: false)
             }
+        }
+
+        // 连接线渲染器
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor(hex: "#E94560").withAlphaComponent(0.6)
+                renderer.lineWidth = 2
+                renderer.lineDashPattern = [6, 4]  // 虚线效果
+                return renderer
+            }
+            return MKOverlayRenderer(overlay: overlay)
         }
     }
 }

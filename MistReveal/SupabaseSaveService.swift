@@ -177,8 +177,8 @@ class SupabaseSaveService {
         try await supabase.storage
             .from("portraits")
             .upload(
-                path: filePath,
-                file: imageData,
+                filePath,
+                data: imageData,
                 options: FileOptions(
                     contentType: "image/jpeg"
                 )

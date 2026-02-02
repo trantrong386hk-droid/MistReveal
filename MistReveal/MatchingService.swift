@@ -26,6 +26,7 @@ class MatchingService: ObservableObject {
         let userElement: String      // 对方的五行
         let personalityTraits: [String]
         let distance: Double         // 距离（公里）
+        let avatarUrl: String?       // 头像URL
 
         var coordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -49,6 +50,7 @@ class MatchingService: ObservableObject {
         let personalityTraits: [String]?
         let soulmateTraits: [String]?
         let updatedAt: String?
+        let avatarUrl: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -61,6 +63,7 @@ class MatchingService: ObservableObject {
             case personalityTraits = "personality_traits"
             case soulmateTraits = "soulmate_traits"
             case updatedAt = "updated_at"
+            case avatarUrl = "avatar_url"
         }
     }
 
@@ -101,7 +104,8 @@ class MatchingService: ObservableObject {
                 soulmateElement: myRecord?.analysisResult.soulmateElement,
                 personalityTraits: myRecord?.analysisResult.personalityTraits,
                 soulmateTraits: myRecord?.analysisResult.soulmateTraits,
-                updatedAt: nil
+                updatedAt: nil,
+                avatarUrl: nil
             )
 
             // 使用 upsert：如果存在则更新，不存在则插入
@@ -199,7 +203,8 @@ class MatchingService: ObservableObject {
                     matchScore: score,
                     userElement: record.userElement ?? "未知",
                     personalityTraits: record.personalityTraits ?? [],
-                    distance: distance
+                    distance: distance,
+                    avatarUrl: record.avatarUrl
                 )
 
                 matches.append(matchedUser)

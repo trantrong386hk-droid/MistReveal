@@ -1,275 +1,199 @@
 import Foundation
+import CryptoKit
 
-/// 图片生成服务 - 使用阿里云通义万相 API
+/// 图片生成服务 - 使用火山引擎即梦 V2.1 API
 class ImageGenerationService {
 
     static let shared = ImageGenerationService()
-
     private init() {}
 
-    // MARK: - 配置 (使用 AppConfig 中的百炼 API Key)
+    // MARK: - 配置
+    private let host = "open.volcengineapi.com"
+    private let action = "JimengHighAESGeneralV21L"
+    private let version = "2024-06-06"
+    private let region = "cn-beijing"
+    private let service = "cv"
 
-    /// 通义万相 API 端点
-    private let submitEndpoint = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis"
-    private let taskEndpoint = "https://dashscope.aliyuncs.com/api/v1/tasks/"
-
-    /// 模型名称
-    private let model = "wanx-v1"  // 通义万相基础模型
-
-    // MARK: - 数据模型
-
-    /// 提交请求体
-    private struct SubmitRequest: Encodable {
-        let model: String
-        let input: Input
-        let parameters: Parameters
-
-        struct Input: Encodable {
-            let prompt: String
-        }
-
-        struct Parameters: Encodable {
-            let size: String
-            let n: Int
-        }
-    }
-
-    /// 提交响应
-    private struct SubmitResponse: Decodable {
-        let request_id: String?
-        let output: Output?
-        let code: String?
-        let message: String?
-
-        struct Output: Decodable {
-            let task_id: String?
-            let task_status: String?
-        }
-    }
-
-    /// 任务查询响应
-    private struct TaskResponse: Decodable {
-        let request_id: String?
-        let output: Output?
-        let code: String?
-        let message: String?
-
-        struct Output: Decodable {
-            let task_id: String?
-            let task_status: String?
-            let results: [ImageResult]?
-            let task_metrics: TaskMetrics?
-        }
-
-        struct ImageResult: Decodable {
-            let url: String?
-            let code: String?
-            let message: String?
-        }
-
-        struct TaskMetrics: Decodable {
-            let TOTAL: Int?
-            let SUCCEEDED: Int?
-            let FAILED: Int?
-        }
-    }
-
-    // MARK: - 公开方法
-
-    /// 根据提示词生成图片
+    // MARK: - 生成图片
     func generateImage(prompt: String) async throws -> Data {
-        // 直接使用 AI 生成的优化提示词（已包含完整描述）
-        let fullPrompt = prompt
-        print("🔵 [ImageGeneration] 开始生成图片 (通义万相)")
-        print("🔵 [ImageGeneration] Model: \(model)")
-        print("🔵 [ImageGeneration] Prompt: \(fullPrompt.prefix(100))...")
+        print("🔵 [ImageGen] ========== 开始生成图片 ==========")
 
-        // 1. 提交任务
-        let taskId = try await submitTask(prompt: fullPrompt)
-        print("🔵 [ImageGeneration] 任务已提交，Task ID: \(taskId)")
+        // 1. 构建 Body 字典
+        let bodyDict: [String: String] = [
+            "req_key": "jimeng_high_aes_general_v21_L",
+            "prompt": prompt
+        ]
 
-        // 2. 轮询任务状态
-        let imageUrl = try await pollTaskResult(taskId: taskId)
-        print("🔵 [ImageGeneration] 图片生成完成，URL: \(imageUrl.prefix(80))...")
+        // 2. 直接序列化为 Data，不做任何 String 转换
+        let bodyData = try JSONSerialization.data(withJSONObject: bodyDict, options: [])
 
-        // 3. 下载图片
-        guard let url = URL(string: imageUrl) else {
-            throw ImageGenerationError.invalidURL
-        }
-        let (imageData, _) = try await URLSession.shared.data(from: url)
-        print("✅ [ImageGeneration] 图片下载成功，大小: \(imageData.count) bytes")
+        // 调试：打印 Body 的十六进制表示（前50字节）
+        let bodyHex = bodyData.prefix(50).map { String(format: "%02x", $0) }.joined(separator: " ")
+        print("🔵 [ImageGen] Body Hex (前50字节): \(bodyHex)")
+        print("🔵 [ImageGen] Body 长度: \(bodyData.count) bytes")
 
-        return imageData
-    }
+        // 3. 构建签名请求
+        let request = try await buildRequest(bodyData: bodyData)
 
-    // MARK: - 私有方法
-
-    /// 提交图片生成任务
-    private func submitTask(prompt: String) async throws -> String {
-        guard let url = URL(string: submitEndpoint) else {
-            throw ImageGenerationError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(AppConfig.AliyunBailian.apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("enable", forHTTPHeaderField: "X-DashScope-Async")
-        request.timeoutInterval = 30
-
-        let requestBody = SubmitRequest(
-            model: model,
-            input: .init(prompt: prompt),
-            parameters: .init(size: "720*1280", n: 1)  // 竖版肖像 (9:16)
-        )
-
-        request.httpBody = try JSONEncoder().encode(requestBody)
-
+        // 4. 发送请求
         let (data, response) = try await URLSession.shared.data(for: request)
+        let httpResponse = response as! HTTPURLResponse
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ImageGenerationError.invalidResponse
-        }
-
-        // 调试日志
-        if let responseText = String(data: data, encoding: .utf8) {
-            print("🔵 [ImageGeneration] 提交响应: \(responseText.prefix(300))...")
+        print("🔵 [ImageGen] ========== 响应 ==========")
+        print("🔵 [ImageGen] 状态码: \(httpResponse.statusCode)")
+        if let text = String(data: data, encoding: .utf8) {
+            print("🔵 [ImageGen] 响应内容: \(text)")
         }
 
         guard httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "未知错误"
-            throw ImageGenerationError.apiError(statusCode: httpResponse.statusCode, message: errorText)
+            throw ImageError.api(String(data: data, encoding: .utf8) ?? "未知错误")
         }
 
-        let submitResponse = try JSONDecoder().decode(SubmitResponse.self, from: data)
-
-        // 检查错误
-        if let code = submitResponse.code, code != "200" && !code.isEmpty {
-            throw ImageGenerationError.apiError(
-                statusCode: Int(code) ?? 0,
-                message: submitResponse.message ?? "未知错误"
-            )
+        // 5. 解析响应获取图片
+        // 结构: Result -> data -> binary_data_base64
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let result = json["Result"] as? [String: Any],
+              let dataObj = result["data"] as? [String: Any],
+              let base64Array = dataObj["binary_data_base64"] as? [String],
+              let firstBase64 = base64Array.first else {
+            print("❌ [ImageGen] 解析失败，完整响应: \(String(data: data, encoding: .utf8) ?? "")")
+            throw ImageError.noImage
         }
 
-        guard let taskId = submitResponse.output?.task_id else {
-            throw ImageGenerationError.noImageData
+        // Base64 转 Data
+        guard let imageData = Data(base64Encoded: firstBase64) else {
+            print("❌ [ImageGen] Base64 解码失败")
+            throw ImageError.noImage
         }
 
-        return taskId
+        print("✅ [ImageGen] 图片解码成功: \(imageData.count) bytes")
+        return imageData
     }
 
-    /// 轮询任务结果
-    private func pollTaskResult(taskId: String) async throws -> String {
-        let maxAttempts = 60  // 最多等待 2 分钟
-        let pollInterval: UInt64 = 2_000_000_000  // 2秒
-
-        for attempt in 1...maxAttempts {
-            print("🔵 [ImageGeneration] 查询任务状态... (第 \(attempt) 次)")
-
-            let taskUrl = URL(string: taskEndpoint + taskId)!
-            var request = URLRequest(url: taskUrl)
-            request.httpMethod = "GET"
-            request.setValue("Bearer \(AppConfig.AliyunBailian.apiKey)", forHTTPHeaderField: "Authorization")
-            request.timeoutInterval = 15
-
-            let (data, _) = try await URLSession.shared.data(for: request)
-
-            let taskResponse = try JSONDecoder().decode(TaskResponse.self, from: data)
-
-            // 检查错误
-            if let code = taskResponse.code, code != "200" && !code.isEmpty {
-                throw ImageGenerationError.apiError(
-                    statusCode: Int(code) ?? 0,
-                    message: taskResponse.message ?? "未知错误"
-                )
-            }
-
-            let status = taskResponse.output?.task_status ?? ""
-            print("🔵 [ImageGeneration] 任务状态: \(status)")
-
-            switch status {
-            case "SUCCEEDED":
-                // 成功 - 返回图片 URL
-                if let results = taskResponse.output?.results,
-                   let firstResult = results.first,
-                   let imageUrl = firstResult.url {
-                    return imageUrl
-                }
-                throw ImageGenerationError.noImageData
-
-            case "FAILED":
-                // 失败
-                let errorMsg = taskResponse.output?.results?.first?.message ?? "生成失败"
-                throw ImageGenerationError.apiError(statusCode: 500, message: errorMsg)
-
-            case "PENDING", "RUNNING":
-                // 进行中 - 等待后继续轮询
-                try await Task.sleep(nanoseconds: pollInterval)
-                continue
-
-            default:
-                // 未知状态 - 等待后继续
-                try await Task.sleep(nanoseconds: pollInterval)
-                continue
-            }
+    // MARK: - 构建签名请求
+    private func buildRequest(bodyData: Data) async throws -> URLRequest {
+        // ===== 从 SecretsManager 获取凭证 =====
+        guard let ak = await SecretsManager.shared.getSecret("VOLCANO_ACCESS_KEY_ID") else {
+            throw ImageError.api("无法获取 Access Key ID")
+        }
+        guard let sk = await SecretsManager.shared.getSecret("VOLCANO_SECRET_ACCESS_KEY") else {
+            throw ImageError.api("无法获取 Secret Access Key")
         }
 
-        // 超时
-        throw ImageGenerationError.timeout
-    }
+        print("🔵 [ImageGen] AK: \(ak)")
+        print("🔵 [ImageGen] SK长度: \(sk.count)")
 
-    // MARK: - API Key 验证
+        // ===== 时间 (UTC) =====
+        let now = Date()
+        let fmt = DateFormatter()
+        fmt.timeZone = TimeZone(identifier: "UTC")
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        let xDate = fmt.string(from: now)
+        fmt.dateFormat = "yyyyMMdd"
+        let dateStamp = fmt.string(from: now)
 
-    /// 测试 API Key 是否有效
-    func validateApiKey() async -> (isValid: Bool, message: String) {
-        // 使用 models 接口验证
-        guard let url = URL(string: "https://dashscope.aliyuncs.com/api/v1/models") else {
-            return (false, "URL 无效")
+        print("🔵 [ImageGen] X-Date: \(xDate)")
+        print("🔵 [ImageGen] DateStamp: \(dateStamp)")
+
+        // ===== URL =====
+        let urlString = "https://\(host)/?Action=\(action)&Version=\(version)"
+        guard let url = URL(string: urlString) else {
+            throw ImageError.invalidURL
         }
+        print("🔵 [ImageGen] URL: \(urlString)")
 
+        // ===== Body Hash (直接对 bodyData 计算) =====
+        let bodyHash = sha256Hex(bodyData)
+        print("🔵 [ImageGen] Body SHA256: \(bodyHash)")
+
+        // ===== Step 1: Canonical Request =====
+        let httpMethod = "POST"
+        let canonicalUri = "/"
+        let canonicalQueryString = "Action=\(action)&Version=\(version)"
+        let contentType = "application/json"
+
+        // 构建 Canonical Headers (每行一个，按字母顺序，最后有换行)
+        let canonicalHeaders = "content-type:\(contentType)\nhost:\(host)\nx-content-sha256:\(bodyHash)\nx-date:\(xDate)\n"
+        let signedHeaders = "content-type;host;x-content-sha256;x-date"
+
+        // 拼接 Canonical Request
+        let canonicalRequest = "\(httpMethod)\n\(canonicalUri)\n\(canonicalQueryString)\n\(canonicalHeaders)\n\(signedHeaders)\n\(bodyHash)"
+
+        print("🔵 [ImageGen] ========== CanonicalRequest ==========")
+        print(canonicalRequest)
+        print("🔵 [ImageGen] ========================================")
+
+        // ===== Step 2: String to Sign =====
+        let algorithm = "HMAC-SHA256"
+        let credentialScope = "\(dateStamp)/\(region)/\(service)/request"
+        let hashedCanonicalRequest = sha256Hex(canonicalRequest.data(using: .utf8)!)
+
+        let stringToSign = "\(algorithm)\n\(xDate)\n\(credentialScope)\n\(hashedCanonicalRequest)"
+
+        print("🔵 [ImageGen] ========== StringToSign ==========")
+        print(stringToSign)
+        print("🔵 [ImageGen] ====================================")
+
+        // ===== Step 3: 派生签名密钥 (全部使用 UTF-8 编码) =====
+        let skData = sk.data(using: .utf8)!
+        let dateStampData = dateStamp.data(using: .utf8)!
+        let regionData = region.data(using: .utf8)!
+        let serviceData = service.data(using: .utf8)!
+        let requestData = "request".data(using: .utf8)!
+
+        let kDate = hmacSHA256(key: skData, data: dateStampData)
+        let kRegion = hmacSHA256(key: kDate, data: regionData)
+        let kService = hmacSHA256(key: kRegion, data: serviceData)
+        let kSigning = hmacSHA256(key: kService, data: requestData)
+
+        // ===== Step 4: 计算签名 =====
+        let stringToSignData = stringToSign.data(using: .utf8)!
+        let signatureData = hmacSHA256(key: kSigning, data: stringToSignData)
+        let signature = signatureData.map { String(format: "%02x", $0) }.joined()
+
+        print("🔵 [ImageGen] Signature: \(signature)")
+
+        // ===== Step 5: Authorization Header =====
+        let authorization = "\(algorithm) Credential=\(ak)/\(credentialScope), SignedHeaders=\(signedHeaders), Signature=\(signature)"
+
+        print("🔵 [ImageGen] Authorization: \(authorization)")
+
+        // ===== 构建 URLRequest =====
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(AppConfig.AliyunBailian.apiKey)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 10
+        request.httpMethod = httpMethod
+        request.httpBody = bodyData  // 直接使用同一份 bodyData
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        request.setValue(host, forHTTPHeaderField: "Host")
+        request.setValue(xDate, forHTTPHeaderField: "X-Date")
+        request.setValue(bodyHash, forHTTPHeaderField: "X-Content-Sha256")
+        request.setValue(authorization, forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 120
 
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                return (false, "响应无效")
-            }
-
-            if httpResponse.statusCode == 200 {
-                return (true, "API Key 有效 (阿里云百炼)")
-            } else {
-                let errorText = String(data: data, encoding: .utf8) ?? "未知错误"
-                return (false, "状态码 \(httpResponse.statusCode): \(errorText.prefix(100))")
-            }
-        } catch {
-            return (false, "网络错误: \(error.localizedDescription)")
-        }
+        return request
     }
 
-    // MARK: - 错误类型
+    // MARK: - SHA256 (返回小写十六进制)
+    private func sha256Hex(_ data: Data) -> String {
+        let hash = SHA256.hash(data: data)
+        return hash.map { String(format: "%02x", $0) }.joined()
+    }
 
-    enum ImageGenerationError: LocalizedError {
-        case invalidURL
-        case invalidResponse
-        case apiError(statusCode: Int, message: String)
-        case noImageData
-        case timeout
+    // MARK: - HMAC-SHA256 (返回 Data)
+    private func hmacSHA256(key: Data, data: Data) -> Data {
+        let symmetricKey = SymmetricKey(data: key)
+        let mac = HMAC<SHA256>.authenticationCode(for: data, using: symmetricKey)
+        return Data(mac)
+    }
 
+    // MARK: - 错误
+    enum ImageError: LocalizedError {
+        case invalidURL, noImage, api(String)
         var errorDescription: String? {
             switch self {
-            case .invalidURL:
-                return "无效的 URL"
-            case .invalidResponse:
-                return "无效的响应"
-            case .apiError(let statusCode, let message):
-                return "API 错误 (\(statusCode)): \(message)"
-            case .noImageData:
-                return "未获取到图片数据"
-            case .timeout:
-                return "图片生成超时"
+            case .invalidURL: return "无效URL"
+            case .noImage: return "无图片数据"
+            case .api(let msg): return msg
             }
         }
     }

@@ -38,6 +38,11 @@
 		AA00001B /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001B /* LocationManager.swift */; };
 		AA00001C /* MatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001C /* MatchingService.swift */; };
 		AA00001D /* MapViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001D /* MapViewRepresentable.swift */; };
+		AA00001E /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E /* ChatService.swift */; };
+		AA00001F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001F /* ChatView.swift */; };
+		AA000020 /* IceBreakerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000020 /* IceBreakerView.swift */; };
+		AA000021 /* PulseAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021 /* PulseAnnotationView.swift */; };
+		AA000022 /* DestinyConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022 /* DestinyConnectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -71,6 +76,11 @@
 		AB00001B /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		AB00001C /* MatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingService.swift; sourceTree = "<group>"; };
 		AB00001D /* MapViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewRepresentable.swift; sourceTree = "<group>"; };
+		AB00001E /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+		AB00001F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		AB000020 /* IceBreakerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IceBreakerView.swift; sourceTree = "<group>"; };
+		AB000021 /* PulseAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseAnnotationView.swift; sourceTree = "<group>"; };
+		AB000022 /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +134,11 @@
 				AB00001B /* LocationManager.swift */,
 				AB00001C /* MatchingService.swift */,
 				AB00001D /* MapViewRepresentable.swift */,
+				AB00001E /* ChatService.swift */,
+				AB00001F /* ChatView.swift */,
+				AB000020 /* IceBreakerView.swift */,
+				AB000021 /* PulseAnnotationView.swift */,
+				AB000022 /* DestinyConnectionView.swift */,
 				AB000008 /* Assets.xcassets */,
 				AB00000A /* Info.plist */,
 				AD000004 /* Preview Content */,
@@ -248,6 +263,11 @@
 				AA00001B /* LocationManager.swift in Sources */,
 				AA00001C /* MatchingService.swift in Sources */,
 				AA00001D /* MapViewRepresentable.swift in Sources */,
+				AA00001E /* ChatService.swift in Sources */,
+				AA00001F /* ChatView.swift in Sources */,
+				AA000020 /* IceBreakerView.swift in Sources */,
+				AA000021 /* PulseAnnotationView.swift in Sources */,
+				AA000022 /* DestinyConnectionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -235,11 +235,16 @@ class TextGenerationService {
         print("   - 时辰: \(birthTime)")
         print("   - 地点: \(location)")
 
+        // 从 SecretsManager 获取 API Key
+        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
+            throw TextGenerationError.apiError(statusCode: 0, message: "无法获取 API 密钥")
+        }
+
         let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(AppConfig.AliyunBailian.apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let userMessage = """
@@ -322,11 +327,16 @@ class TextGenerationService {
         print("   - 时辰: \(birthTime)")
         print("   - 地点: \(location)")
 
+        // 从 SecretsManager 获取 API Key
+        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
+            throw TextGenerationError.apiError(statusCode: 0, message: "无法获取 API 密钥")
+        }
+
         let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(AppConfig.AliyunBailian.apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // 根据用户性别确定伴侣性别

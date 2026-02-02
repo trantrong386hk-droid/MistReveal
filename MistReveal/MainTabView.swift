@@ -1,6 +1,20 @@
 import SwiftUI
 import CoreLocation
 import Combine
+import PhotosUI
+import Supabase
+
+// MARK: - TabBar 隐藏环境变量
+private struct HideTabBarKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(false)
+}
+
+extension EnvironmentValues {
+    var hideTabBar: Binding<Bool> {
+        get { self[HideTabBarKey.self] }
+        set { self[HideTabBarKey.self] = newValue }
+    }
+}
 
 // MARK: - CLLocationCoordinate2D Equatable
 extension CLLocationCoordinate2D: @retroactive Equatable {
@@ -11,6 +25,7 @@ extension CLLocationCoordinate2D: @retroactive Equatable {
 
 struct MainTabView: View {
     @State private var selectedTab = 0
+    @State private var hideTabBar = false  // 控制 TabBar 显示/隐藏
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -21,6 +36,7 @@ struct MainTabView: View {
                     HomeView()
                 case 1:
                     ConnectionView()
+                        .environment(\.hideTabBar, $hideTabBar)
                 case 2:
                     ProfileView()
                 default:
@@ -29,7 +45,9 @@ struct MainTabView: View {
             }
 
             // 自定义底部导航栏
-            customTabBar
+            if !hideTabBar {
+                customTabBar
+            }
         }
         .ignoresSafeArea(.keyboard)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
@@ -273,6 +291,9 @@ struct ConnectionView: View {
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var matchingService = MatchingService.shared
     @StateObject private var archiveManager = SoulArchiveManager.shared
+    @StateObject private var chatService = ChatService.shared
+
+    @Environment(\.hideTabBar) private var hideTabBar
 
     @State private var selectedUser: MatchingService.MatchedUser?
     @State private var showUserCard = false
@@ -287,22 +308,90 @@ struct ConnectionView: View {
     @State private var showMiniList: Bool = false  // 是否显示迷你列表
     @State private var focusCoordinate: CLLocationCoordinate2D?  // 跳转目标坐标
 
+    // 聊天相关状态
+    @State private var showIceBreaker = false  // 显示破冰界面
+    @State private var showChat = false  // 显示聊天界面
+    @State private var chatConversationId: String?  // 当前对话ID
+    @State private var initialChatMessage: String?  // 破冰话题
+
+    // 连线动画状态
+    @State private var showConnectionAnimation = false
+
+    // 连接线显示状态
+    @State private var showConnectionLines = false
+    @State private var shouldFitAllAnnotations = false
+
+    // 控制面板收起状态
+    @State private var isControlPanelExpanded = false
+
     var body: some View {
-        ZStack {
-            Color(hex: "#0A0A12").ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color(hex: "#0A0A12").ignoresSafeArea()
 
-            // 检查是否完成灵魂分析
-            if archiveManager.myRecord == nil {
-                // 未完成分析的提示
-                unlockedView
-            } else {
-                // 已完成分析，显示地图
-                mapContentView
+                // 检查是否完成灵魂分析
+                if archiveManager.myRecord == nil {
+                    // 未完成分析的提示
+                    unlockedView
+                } else {
+                    // 已完成分析，显示地图
+                    mapContentView
+                }
+
+                // 用户卡片弹窗
+                if showUserCard, let user = selectedUser {
+                    userCardOverlay(user: user)
+                }
+
+                // 破冰话题界面
+                if showIceBreaker, let user = selectedUser, let myRecord = archiveManager.myRecord {
+                    IceBreakerView(
+                        user: user,
+                        myRecord: myRecord,
+                        onStartChat: { topic in
+                            startChatWithTopic(topic, user: user)
+                        },
+                        onDismiss: {
+                            withAnimation(.spring(response: 0.3)) {
+                                showIceBreaker = false
+                            }
+                        }
+                    )
+                    .transition(.opacity)
+                }
+
+                // 命运连接动画
+                if showConnectionAnimation, let user = selectedUser, let myRecord = archiveManager.myRecord {
+                    DestinyConnectionView(
+                        fromElement: myRecord.analysisResult.userElement,
+                        toElement: user.userElement,
+                        fromName: "我",
+                        toName: user.nickname,
+                        onComplete: {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showConnectionAnimation = false
+                            }
+                            // 动画完成后继续原有的对话流程
+                            proceedToConversation(with: user)
+                        }
+                    )
+                    .transition(.opacity)
+                    .zIndex(100)
+                }
             }
-
-            // 用户卡片弹窗
-            if showUserCard, let user = selectedUser {
-                userCardOverlay(user: user)
+            .navigationBarHidden(true)
+            .navigationDestination(isPresented: $showChat) {
+                if let user = selectedUser, let conversationId = chatConversationId {
+                    ChatView(
+                        user: user,
+                        conversationId: conversationId,
+                        initialMessage: initialChatMessage
+                    )
+                    .onDisappear {
+                        // 返回时恢复 TabBar
+                        hideTabBar.wrappedValue = false
+                    }
+                }
             }
         }
         .onAppear {
@@ -464,6 +553,8 @@ struct ConnectionView: View {
                     selectedUser: $selectedUser,
                     shouldRecenter: $shouldRecenterMap,
                     focusCoordinate: $focusCoordinate,
+                    showConnectionLines: $showConnectionLines,
+                    shouldFitAllAnnotations: $shouldFitAllAnnotations,
                     onAnnotationSelected: { user in
                         selectedUser = user
                         withAnimation(.spring(response: 0.3)) {
@@ -478,28 +569,51 @@ struct ConnectionView: View {
                     miniListOverlay
                 }
 
-                // 定位到我按钮
+                // 右下角按钮组
                 VStack {
                     Spacer()
                     HStack {
                         Spacer()
-                        Button(action: {
-                            shouldRecenterMap = true
-                        }) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(Color(hex: "#E94560"))
-                                .frame(width: 44, height: 44)
-                                .background(Color(hex: "#1A1A2E").opacity(0.95))
-                                .clipShape(Circle())
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                )
-                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                        VStack(spacing: 12) {
+                            // 显示全部/连接线按钮
+                            Button(action: {
+                                showConnectionLines.toggle()
+                                if showConnectionLines {
+                                    shouldFitAllAnnotations = true
+                                }
+                            }) {
+                                Image(systemName: showConnectionLines ? "link.circle.fill" : "link.circle")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(showConnectionLines ? Color(hex: "#E94560") : .white.opacity(0.8))
+                                    .frame(width: 44, height: 44)
+                                    .background(Color(hex: "#1A1A2E").opacity(0.95))
+                                    .clipShape(Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(showConnectionLines ? Color(hex: "#E94560").opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                            }
+
+                            // 定位到我按钮
+                            Button(action: {
+                                shouldRecenterMap = true
+                            }) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(Color(hex: "#E94560"))
+                                    .frame(width: 44, height: 44)
+                                    .background(Color(hex: "#1A1A2E").opacity(0.95))
+                                    .clipShape(Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                            }
                         }
                         .padding(.trailing, 16)
-                        .padding(.bottom, 280) // 在控制面板上方
+                        .padding(.bottom, isControlPanelExpanded ? 320 : 150) // 根据面板状态调整
                     }
                 }
 
@@ -509,92 +623,145 @@ struct ConnectionView: View {
         }
     }
 
-    // MARK: - 控制面板
+    // MARK: - 控制面板（底部抽屉式）
     private var controlPanel: some View {
-        VStack(spacing: 16) {
-            // 搜索范围选择器（三档模式）
-            VStack(alignment: .leading, spacing: 8) {
-                Text("搜索范围")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.8))
+        VStack(spacing: 0) {
+            if isControlPanelExpanded {
+                // 展开状态：完整控制面板
+                VStack(spacing: 0) {
+                    // 顶部拉手
+                    controlPanelHandle
 
-                HStack(spacing: 8) {
-                    ForEach(SearchScope.allCases, id: \.self) { scope in
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                searchScope = scope
-                                // 切换范围时，将半径重置为该范围的最小值
-                                searchRadius = scope.minRadius
+                    // 筛选控件
+                    VStack(spacing: 16) {
+                        // 搜索范围选择器（三档模式）
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("搜索范围")
+                                .font(.system(size: 13))
+                                .foregroundColor(.white.opacity(0.8))
+
+                            HStack(spacing: 8) {
+                                ForEach(SearchScope.allCases, id: \.self) { scope in
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            searchScope = scope
+                                            searchRadius = scope.minRadius
+                                        }
+                                        refreshMatches()
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Text(scope.icon)
+                                                .font(.system(size: 12))
+                                            Text(scope.rawValue)
+                                                .font(.system(size: 12, weight: .medium))
+                                        }
+                                        .foregroundColor(searchScope == scope ? .white : .white.opacity(0.5))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(searchScope == scope ? Color(hex: "#E94560") : Color.white.opacity(0.1))
+                                        )
+                                    }
+                                }
                             }
-                            refreshMatches()
-                        }) {
-                            HStack(spacing: 4) {
-                                Text(scope.icon)
-                                    .font(.system(size: 12))
-                                Text(scope.rawValue)
-                                    .font(.system(size: 12, weight: .medium))
+                        }
+
+                        // 匹配度阈值
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("最低匹配度")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.8))
+                                Spacer()
+                                Text("\(Int(matchThreshold))%")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Color(hex: "#E94560"))
                             }
-                            .foregroundColor(searchScope == scope ? .white : .white.opacity(0.5))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(searchScope == scope ? Color(hex: "#E94560") : Color.white.opacity(0.1))
-                            )
+
+                            Slider(value: $matchThreshold, in: 40...90, step: 5)
+                                .tint(Color(hex: "#E94560"))
+                                .onChange(of: matchThreshold) { _, _ in
+                                    refreshMatches()
+                                }
+                        }
+
+                        // 搜索半径
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("搜索半径")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.8))
+                                Spacer()
+                                Text(formatDistance(searchRadius))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Color(hex: "#E94560"))
+                            }
+
+                            Slider(value: $searchRadius, in: searchScope.minRadius...searchScope.maxRadius, step: searchScope.step)
+                                .tint(Color(hex: "#E94560"))
+                                .onChange(of: searchRadius) { _, _ in
+                                    refreshMatches()
+                                }
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
-            }
-
-            // 匹配度阈值
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("最低匹配度")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.8))
-                    Spacer()
-                    Text("\(Int(matchThreshold))%")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(hex: "#E94560"))
-                }
-
-                Slider(value: $matchThreshold, in: 40...90, step: 5)
-                    .tint(Color(hex: "#E94560"))
-                    .onChange(of: matchThreshold) { _, _ in
-                        refreshMatches()
-                    }
-            }
-
-            // 搜索半径
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("搜索半径")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.8))
-                    Spacer()
-                    Text(formatDistance(searchRadius))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(hex: "#E94560"))
-                }
-
-                Slider(value: $searchRadius, in: searchScope.minRadius...searchScope.maxRadius, step: searchScope.step)
-                    .tint(Color(hex: "#E94560"))
-                    .onChange(of: searchRadius) { _, _ in
-                        refreshMatches()
-                    }
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(hex: "#1A1A2E").opacity(0.95))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                // 收起状态：只显示小拉手
+                controlPanelHandle
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(hex: "#1A1A2E").opacity(0.95))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-        .padding(.horizontal, 16)
         .padding(.bottom, 100) // 为 TabBar 留空间
+    }
+
+    // MARK: - 控制面板拉手
+    private var controlPanelHandle: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                isControlPanelExpanded.toggle()
+            }
+        }) {
+            HStack(spacing: 8) {
+                // 左侧横线
+                Rectangle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 40, height: 2)
+                    .cornerRadius(1)
+
+                // 中间箭头
+                Image(systemName: isControlPanelExpanded ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+
+                // 右侧横线
+                Rectangle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 40, height: 2)
+                    .cornerRadius(1)
+            }
+            .frame(width: 120, height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color(hex: "#1A1A2E").opacity(0.9))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+        }
+        .padding(.vertical, isControlPanelExpanded ? 12 : 0)
     }
 
     // MARK: - 用户卡片弹窗
@@ -638,9 +805,30 @@ struct ConnectionView: View {
                         .stroke(matchScoreColor(user.matchScore), lineWidth: 3)
                         .frame(width: 90, height: 90)
 
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 36))
-                        .foregroundColor(matchScoreColor(user.matchScore))
+                    if let avatarUrl = user.avatarUrl, let url = URL(string: avatarUrl) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 84, height: 84)
+                                    .clipShape(Circle())
+                            case .failure(_), .empty:
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(matchScoreColor(user.matchScore))
+                            @unknown default:
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(matchScoreColor(user.matchScore))
+                            }
+                        }
+                    } else {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 36))
+                            .foregroundColor(matchScoreColor(user.matchScore))
+                    }
                 }
 
                 // 用户信息
@@ -707,8 +895,7 @@ struct ConnectionView: View {
 
                 // 开始对话按钮
                 Button(action: {
-                    // TODO: 跳转到聊天页面
-                    print("开始与 \(user.nickname) 对话")
+                    startConversation(with: user)
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "bubble.left.fill")
@@ -782,10 +969,33 @@ struct ConnectionView: View {
                             }
                         }) {
                             HStack(spacing: 12) {
-                                // 匹配度颜色标记
-                                Circle()
-                                    .fill(matchScoreColor(user.matchScore))
-                                    .frame(width: 8, height: 8)
+                                // 用户头像
+                                ZStack {
+                                    Circle()
+                                        .fill(matchScoreColor(user.matchScore).opacity(0.2))
+                                        .frame(width: 32, height: 32)
+
+                                    if let avatarUrl = user.avatarUrl, let url = URL(string: avatarUrl) {
+                                        AsyncImage(url: url) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 28, height: 28)
+                                                    .clipShape(Circle())
+                                            default:
+                                                Image(systemName: "person.fill")
+                                                    .font(.system(size: 14))
+                                                    .foregroundColor(matchScoreColor(user.matchScore))
+                                            }
+                                        }
+                                    } else {
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(matchScoreColor(user.matchScore))
+                                    }
+                                }
 
                                 // 用户信息
                                 VStack(alignment: .leading, spacing: 2) {
@@ -892,6 +1102,76 @@ struct ConnectionView: View {
         }
     }
 
+    // MARK: - 聊天相关方法
+
+    /// 开始与用户对话（先播放连线动画）
+    private func startConversation(with user: MatchingService.MatchedUser) {
+        print("🔵 [ConnectionView] 开始对话，用户ID: \(user.id), 是否测试用户: \(user.isTestUser)")
+
+        // 关闭用户卡片，播放连线动画
+        withAnimation(.spring(response: 0.3)) {
+            showUserCard = false
+            showConnectionAnimation = true
+        }
+    }
+
+    /// 连线动画完成后，继续对话流程
+    private func proceedToConversation(with user: MatchingService.MatchedUser) {
+        Task {
+            // 获取或创建对话
+            print("🔵 [ConnectionView] 正在获取/创建对话...")
+            if let conversation = await chatService.getOrCreateConversation(with: user.id) {
+                print("✅ [ConnectionView] 对话创建成功: \(conversation.id)")
+
+                // 检查是否已有消息（非首次对话）
+                await chatService.fetchMessages(conversationId: conversation.id)
+
+                if chatService.messages.isEmpty {
+                    // 首次对话 - 显示破冰界面
+                    print("🔵 [ConnectionView] 首次对话，显示破冰界面")
+                    withAnimation(.spring(response: 0.3)) {
+                        showIceBreaker = true
+                    }
+                } else {
+                    // 已有对话 - 直接进入聊天
+                    print("🔵 [ConnectionView] 已有对话，直接进入聊天")
+                    chatConversationId = conversation.id
+                    initialChatMessage = nil
+                    // 延迟导航，等待动画完成
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        hideTabBar.wrappedValue = true
+                        showChat = true
+                    }
+                }
+            } else {
+                print("❌ [ConnectionView] 创建对话失败")
+            }
+        }
+    }
+
+    /// 使用破冰话题开始聊天
+    private func startChatWithTopic(_ topic: String, user: MatchingService.MatchedUser) {
+        Task {
+            if let conversation = await chatService.getOrCreateConversation(with: user.id) {
+                // 保存破冰话题
+                await chatService.saveIceBreakers(conversationId: conversation.id, topics: [topic])
+
+                chatConversationId = conversation.id
+                initialChatMessage = topic
+
+                withAnimation(.spring(response: 0.3)) {
+                    showIceBreaker = false
+                }
+
+                // 延迟导航
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    hideTabBar.wrappedValue = true
+                    showChat = true
+                }
+            }
+        }
+    }
+
     /// 格式化距离显示
     private func formatDistance(_ km: Double) -> String {
         if km < 1 {
@@ -969,6 +1249,15 @@ struct ConnectionView: View {
     }
 }
 
+// MARK: - 头像响应模型
+private struct AvatarResponse: Codable {
+    let avatarUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case avatarUrl = "avatar_url"
+    }
+}
+
 // MARK: - 个人中心视图
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
@@ -978,6 +1267,11 @@ struct ProfileView: View {
     @State private var navigateToArchive = false
     @State private var navigateToInvite = false
 
+    // 头像上传相关状态
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var avatarUrl: String?
+    @State private var isUploadingAvatar = false
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -985,15 +1279,58 @@ struct ProfileView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // 头像
-                        Circle()
-                            .fill(Color.white.opacity(0.1))
+                        // 头像 - 可点击上传
+                        PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                            ZStack {
+                                if let avatarUrl = avatarUrl, let url = URL(string: avatarUrl) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                        case .failure(_):
+                                            defaultAvatarView
+                                        case .empty:
+                                            ProgressView()
+                                                .tint(.white)
+                                        @unknown default:
+                                            defaultAvatarView
+                                        }
+                                    }
+                                } else {
+                                    defaultAvatarView
+                                }
+
+                                // 上传中显示加载指示器
+                                if isUploadingAvatar {
+                                    Color.black.opacity(0.5)
+                                    ProgressView()
+                                        .tint(.white)
+                                        .scaleEffect(1.2)
+                                }
+                            }
                             .frame(width: 100, height: 100)
+                            .clipShape(Circle())
                             .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.white.opacity(0.6))
+                                Circle()
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 2)
                             )
+                            .overlay(
+                                // 编辑图标
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white)
+                                    .padding(8)
+                                    .background(Color(hex: "#E94560"))
+                                    .clipShape(Circle())
+                                    .offset(x: 35, y: 35)
+                            )
+                        }
+                        .disabled(isUploadingAvatar)
+                        .onChange(of: selectedPhoto) { _, newValue in
+                            Task { await uploadAvatar(newValue) }
+                        }
 
                         Text("我的")
                             .font(.system(size: 24, weight: .bold))
@@ -1123,6 +1460,11 @@ struct ProfileView: View {
             .navigationDestination(isPresented: $navigateToInvite) {
                 InviteFriendsView()
             }
+            .onAppear {
+                Task {
+                    await loadCurrentAvatar()
+                }
+            }
         }
     }
 
@@ -1141,6 +1483,116 @@ struct ProfileView: View {
             print("❌ 账户删除失败: \(authManager.errorMessage ?? "未知错误")")
             // 只有失败时才关闭遮罩，让用户可以重试
             isDeleting = false
+        }
+    }
+
+    // MARK: - 头像相关
+
+    // 默认头像视图
+    private var defaultAvatarView: some View {
+        Circle()
+            .fill(Color.white.opacity(0.1))
+            .overlay(
+                Image(systemName: "person.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(.white.opacity(0.6))
+            )
+    }
+
+    // 上传头像
+    private func uploadAvatar(_ item: PhotosPickerItem?) async {
+        guard let item = item else { return }
+        guard let userId = authManager.currentUser?.id.uuidString else {
+            print("❌ [ProfileView] 用户未登录，无法上传头像")
+            return
+        }
+
+        isUploadingAvatar = true
+        defer { isUploadingAvatar = false }
+
+        do {
+            // 1. 加载图片数据
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                print("❌ [ProfileView] 无法加载图片数据")
+                return
+            }
+
+            // 2. 压缩图片
+            guard let uiImage = UIImage(data: data),
+                  let compressedData = uiImage.jpegData(compressionQuality: 0.7) else {
+                print("❌ [ProfileView] 无法压缩图片")
+                return
+            }
+
+            print("📷 [ProfileView] 开始上传头像，大小: \(compressedData.count / 1024)KB")
+
+            // 3. 构建文件路径
+            let fileName = "\(userId)/avatar_\(Int(Date().timeIntervalSince1970)).jpg"
+
+            // 4. 上传到 Supabase Storage
+            let supabase = SupabaseClient(
+                supabaseURL: URL(string: AppConfig.Supabase.url)!,
+                supabaseKey: AppConfig.Supabase.anonKey
+            )
+
+            try await supabase.storage
+                .from("avatars")
+                .upload(
+                    path: fileName,
+                    file: compressedData,
+                    options: FileOptions(contentType: "image/jpeg", upsert: true)
+                )
+
+            // 5. 获取公开URL
+            let publicUrl = try supabase.storage
+                .from("avatars")
+                .getPublicURL(path: fileName)
+
+            print("✅ [ProfileView] 头像上传成功: \(publicUrl.absoluteString)")
+
+            // 6. 更新 user_locations 表
+            try await supabase
+                .from("user_locations")
+                .update(["avatar_url": publicUrl.absoluteString])
+                .eq("user_id", value: userId)
+                .execute()
+
+            print("✅ [ProfileView] 用户位置表更新成功")
+
+            // 7. 更新本地状态
+            await MainActor.run {
+                self.avatarUrl = publicUrl.absoluteString
+            }
+
+        } catch {
+            print("❌ [ProfileView] 头像上传失败: \(error)")
+        }
+    }
+
+    // 加载当前头像
+    private func loadCurrentAvatar() async {
+        guard let userId = authManager.currentUser?.id.uuidString else { return }
+
+        let supabase = SupabaseClient(
+            supabaseURL: URL(string: AppConfig.Supabase.url)!,
+            supabaseKey: AppConfig.Supabase.anonKey
+        )
+
+        do {
+            let response: [AvatarResponse] = try await supabase
+                .from("user_locations")
+                .select("avatar_url")
+                .eq("user_id", value: userId)
+                .execute()
+                .value
+
+            if let record = response.first, let url = record.avatarUrl {
+                await MainActor.run {
+                    self.avatarUrl = url
+                }
+            }
+        } catch {
+            print("❌ [ProfileView] 加载头像失败: \(error)")
         }
     }
 
