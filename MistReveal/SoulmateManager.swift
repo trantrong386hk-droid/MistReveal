@@ -100,7 +100,10 @@ class SoulmateManager: ObservableObject {
             state = .generating
             progressText = "凝聚灵力，化形中..."
 
-            let imageData = try await ImageGenerationService.shared.generateImage(prompt: soulmateData.imagePrompt)
+            let imageData = try await ImageGenerationService.shared.generateImage(
+                prompt: soulmateData.imagePrompt,
+                baziInfo: soulmateData.baziInfo  // 传入八字信息用于五行互补计算
+            )
 
             print("🔮 [SoulmateManager] 图片生成完成，大小: \(imageData.count) bytes")
 
@@ -207,7 +210,10 @@ class SoulmateManager: ObservableObject {
         progressText = "凝聚灵力，化形中..."
 
         do {
-            let imageData = try await ImageGenerationService.shared.generateImage(prompt: analysis.imagePrompt)
+            let imageData = try await ImageGenerationService.shared.generateImage(
+                prompt: analysis.imagePrompt,
+                baziInfo: analysis.baziInfo  // 传入八字信息用于五行互补计算
+            )
 
             print("🔮 [SoulmateManager] 图片生成完成，大小: \(imageData.count) bytes")
 

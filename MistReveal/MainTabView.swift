@@ -35,8 +35,7 @@ struct MainTabView: View {
                 case 0:
                     HomeView()
                 case 1:
-                    ConnectionView()
-                        .environment(\.hideTabBar, $hideTabBar)
+                    SoulmateFlipContainerView()
                 case 2:
                     ProfileView()
                 default:
@@ -55,17 +54,22 @@ struct MainTabView: View {
                 selectedTab = 0
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToSoulmateTab"))) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = 1
+            }
+        }
     }
 
     // MARK: - 自定义底部导航栏
     var customTabBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                // 首页
-                tabBarItem(icon: "house.fill", title: "首页", index: 0)
+                // 命理
+                tabBarItem(icon: "sparkles", title: "命理", index: 0)
 
-                // 缘分
-                tabBarItem(icon: "heart.circle", title: "缘分", index: 1)
+                // 灵犀 (中间突出)
+                soulmateTabItem
 
                 // 我的
                 tabBarItem(icon: "person", title: "我的", index: 2)
@@ -91,6 +95,42 @@ struct MainTabView: View {
                     alignment: .top
                 )
         )
+    }
+
+    // MARK: - 灵犀 Tab（中间放大突出）
+    var soulmateTabItem: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = 1
+            }
+        }) {
+            VStack(spacing: 4) {
+                ZStack {
+                    // 发光圆形背景
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                        .shadow(color: Color(hex: "#E94560").opacity(selectedTab == 1 ? 0.6 : 0.3), radius: selectedTab == 1 ? 12 : 8)
+
+                    // 图标
+                    Image(systemName: "heart.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(.white)
+                }
+                .offset(y: -12) // 向上突出
+
+                Text("灵犀")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(selectedTab == 1 ? .white : .white.opacity(0.4))
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 
     func tabBarItem(icon: String, title: String, index: Int) -> some View {
@@ -288,6 +328,8 @@ enum SearchScope: String, CaseIterable {
 
 // MARK: - 缘分视图（地图匹配）
 struct ConnectionView: View {
+    var onBackTap: (() -> Void)? = nil  // 从翻转容器传入的返回回调
+
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var matchingService = MatchingService.shared
     @StateObject private var archiveManager = SoulArchiveManager.shared
@@ -423,6 +465,65 @@ struct ConnectionView: View {
         }
     }
 
+    // MARK: - 地图空状态浮层
+    private var mapEmptyStateOverlay: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .stroke(Color(hex: "#E94560").opacity(0.15), lineWidth: 1)
+                    .frame(width: 120, height: 120)
+
+                Circle()
+                    .stroke(Color(hex: "#E94560").opacity(0.25), lineWidth: 1)
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "person.2.wave.2")
+                    .font(.system(size: 40))
+                    .foregroundColor(Color(hex: "#E94560").opacity(0.5))
+            }
+
+            VStack(spacing: 8) {
+                Text("附近暂无高频共振的灵魂")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+
+                Text("Ta（AI）正在陪你等待...")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+
+            if let onBackTap = onBackTap {
+                Button(action: onBackTap) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bubble.left.fill")
+                            .font(.system(size: 14))
+                        Text("回到灵犀对话")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(25)
+                }
+                .padding(.top, 8)
+            }
+
+            Spacer()
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color(hex: "#0A0A12").opacity(0.85))
+    }
+
     // MARK: - 未解锁视图
     private var unlockedView: some View {
         VStack(spacing: 24) {
@@ -540,6 +641,11 @@ struct ConnectionView: View {
                         .background(Color.white.opacity(0.1))
                         .clipShape(Circle())
                 }
+
+                // 罗盘返回按钮（从翻转容器进入时显示）
+                if let onBackTap = onBackTap {
+                    RotatingCompassButton(action: onBackTap)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
@@ -563,6 +669,11 @@ struct ConnectionView: View {
                     }
                 )
                 .ignoresSafeArea(edges: .bottom)
+
+                // 空状态浮层（无匹配用户时覆盖在地图上）
+                if !matchingService.isLoading && matchingService.nearbyMatches.isEmpty {
+                    mapEmptyStateOverlay
+                }
 
                 // 迷你列表弹窗
                 if showMiniList && !matchingService.nearbyMatches.isEmpty {

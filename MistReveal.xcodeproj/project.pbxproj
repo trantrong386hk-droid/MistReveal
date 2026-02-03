@@ -10,6 +10,41 @@
 		2239BF502F07C4C300B8997C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF4F2F07C4C300B8997C /* Supabase */; };
 		2239BF852F08A0AA00B8997C /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF842F08A0AA00B8997C /* GoogleSignIn */; };
 		2239BF872F08A0AA00B8997C /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF862F08A0AA00B8997C /* GoogleSignInSwift */; };
+		22E3E38B2F31B25C00F4107D /* DestinyDeductionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E36D2F31B25C00F4107D /* DestinyDeductionView.swift */; };
+		22E3E38C2F31B25C00F4107D /* MistRevealView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3792F31B25C00F4107D /* MistRevealView.swift */; };
+		22E3E38D2F31B25C00F4107D /* SoulArchiveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3812F31B25C00F4107D /* SoulArchiveManager.swift */; };
+		22E3E38E2F31B25C00F4107D /* MistRevealApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3782F31B25C00F4107D /* MistRevealApp.swift */; };
+		22E3E38F2F31B25C00F4107D /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3652F31B25C00F4107D /* AppConfig.swift */; };
+		22E3E3902F31B25C00F4107D /* CoordinatesInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E36B2F31B25C00F4107D /* CoordinatesInputView.swift */; };
+		22E3E3912F31B25C00F4107D /* MatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3772F31B25C00F4107D /* MatchingService.swift */; };
+		22E3E3922F31B25C00F4107D /* InviteFriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3722F31B25C00F4107D /* InviteFriendsView.swift */; };
+		22E3E3932F31B25C00F4107D /* IceBreakerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E36F2F31B25C00F4107D /* IceBreakerView.swift */; };
+		22E3E3942F31B25C00F4107D /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37C2F31B25C00F4107D /* ReportView.swift */; };
+		22E3E3952F31B25C00F4107D /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E36A2F31B25C00F4107D /* ChatView.swift */; };
+		22E3E3962F31B25C00F4107D /* PulseAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37A2F31B25C00F4107D /* PulseAnnotationView.swift */; };
+		22E3E3972F31B25C00F4107D /* InviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3732F31B25C00F4107D /* InviteService.swift */; };
+		22E3E3982F31B25C00F4107D /* MapViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3762F31B25C00F4107D /* MapViewRepresentable.swift */; };
+		22E3E3992F31B25C00F4107D /* SupabaseTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */; };
+		22E3E39A2F31B25C00F4107D /* DestinyConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E36C2F31B25C00F4107D /* DestinyConnectionView.swift */; };
+		22E3E39B2F31B25C00F4107D /* SupabaseSaveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3862F31B25C00F4107D /* SupabaseSaveService.swift */; };
+		22E3E39C2F31B25C00F4107D /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3752F31B25C00F4107D /* MainTabView.swift */; };
+		22E3E39D2F31B25C00F4107D /* GeneratedPortraitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E36E2F31B25C00F4107D /* GeneratedPortraitView.swift */; };
+		22E3E39E2F31B25C00F4107D /* SoulmateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3852F31B25C00F4107D /* SoulmateManager.swift */; };
+		22E3E39F2F31B25C00F4107D /* QuotaManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37B2F31B25C00F4107D /* QuotaManager.swift */; };
+		22E3E3A02F31B25C00F4107D /* SoulAnalysisModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37F2F31B25C00F4107D /* SoulAnalysisModels.swift */; };
+		22E3E3A12F31B25C00F4107D /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3692F31B25C00F4107D /* ChatService.swift */; };
+		22E3E3A22F31B25C00F4107D /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3682F31B25C00F4107D /* AuthView.swift */; };
+		22E3E3A32F31B25C00F4107D /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3742F31B25C00F4107D /* LocationManager.swift */; };
+		22E3E3A42F31B25C00F4107D /* TextGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3882F31B25C00F4107D /* TextGenerationService.swift */; };
+		22E3E3A52F31B25C00F4107D /* SoulArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3822F31B25C00F4107D /* SoulArchiveView.swift */; };
+		22E3E3A62F31B25C00F4107D /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3892F31B25C00F4107D /* WelcomeView.swift */; };
+		22E3E3A72F31B25C00F4107D /* SoulmateAIChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */; };
+		22E3E3A82F31B25C00F4107D /* SecretsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37D2F31B25C00F4107D /* SecretsManager.swift */; };
+		22E3E3AA2F31B25C00F4107D /* SoulmateAIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */; };
+		22E3E3AB2F31B25C00F4107D /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3672F31B25C00F4107D /* AuthManager.swift */; };
+		22E3E3AC2F31B25C00F4107D /* SoulArchiveDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3802F31B25C00F4107D /* SoulArchiveDetailView.swift */; };
+		22E3E3AD2F31B25C00F4107D /* ImageGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3702F31B25C00F4107D /* ImageGenerationService.swift */; };
+		22E3E4692F31E2D500F4107D /* LunarSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 22E3E4682F31E2D500F4107D /* LunarSwift */; };
 		AA000001 /* MistRevealApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001 /* MistRevealApp.swift */; };
 		AA000002 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002 /* MainTabView.swift */; };
 		AA000003 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003 /* WelcomeView.swift */; };
@@ -43,9 +78,84 @@
 		AA000020 /* IceBreakerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000020 /* IceBreakerView.swift */; };
 		AA000021 /* PulseAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021 /* PulseAnnotationView.swift */; };
 		AA000022 /* DestinyConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022 /* DestinyConnectionView.swift */; };
+		AA000030 /* SoulmateFlipContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030 /* SoulmateFlipContainerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		22E3E33B2F31A95500F4107D /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		22E3E33D2F31A95500F4107D /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		22E3E33E2F31A95500F4107D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		22E3E33F2F31A95500F4107D /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		22E3E3402F31A95500F4107D /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		22E3E3412F31A95500F4107D /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+		22E3E3422F31A95500F4107D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		22E3E3432F31A95500F4107D /* CoordinatesInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinatesInputView.swift; sourceTree = "<group>"; };
+		22E3E3442F31A95500F4107D /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
+		22E3E3452F31A95500F4107D /* DestinyDeductionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyDeductionView.swift; sourceTree = "<group>"; };
+		22E3E3462F31A95500F4107D /* GeneratedPortraitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedPortraitView.swift; sourceTree = "<group>"; };
+		22E3E3472F31A95500F4107D /* IceBreakerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IceBreakerView.swift; sourceTree = "<group>"; };
+		22E3E3482F31A95500F4107D /* ImageGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageGenerationService.swift; sourceTree = "<group>"; };
+		22E3E3492F31A95500F4107D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		22E3E34A2F31A95500F4107D /* InviteFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteFriendsView.swift; sourceTree = "<group>"; };
+		22E3E34B2F31A95500F4107D /* InviteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteService.swift; sourceTree = "<group>"; };
+		22E3E34C2F31A95500F4107D /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		22E3E34D2F31A95500F4107D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		22E3E34E2F31A95500F4107D /* MapViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewRepresentable.swift; sourceTree = "<group>"; };
+		22E3E34F2F31A95500F4107D /* MatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingService.swift; sourceTree = "<group>"; };
+		22E3E3502F31A95500F4107D /* MistRevealApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistRevealApp.swift; sourceTree = "<group>"; };
+		22E3E3512F31A95500F4107D /* MistRevealView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistRevealView.swift; sourceTree = "<group>"; };
+		22E3E3522F31A95500F4107D /* PulseAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseAnnotationView.swift; sourceTree = "<group>"; };
+		22E3E3532F31A95500F4107D /* QuotaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaManager.swift; sourceTree = "<group>"; };
+		22E3E3542F31A95500F4107D /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
+		22E3E3552F31A95500F4107D /* SecretsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsManager.swift; sourceTree = "<group>"; };
+		22E3E3572F31A95500F4107D /* SoulAnalysisModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulAnalysisModels.swift; sourceTree = "<group>"; };
+		22E3E3582F31A95500F4107D /* SoulArchiveDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveDetailView.swift; sourceTree = "<group>"; };
+		22E3E3592F31A95500F4107D /* SoulArchiveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveManager.swift; sourceTree = "<group>"; };
+		22E3E35A2F31A95500F4107D /* SoulArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveView.swift; sourceTree = "<group>"; };
+		22E3E35B2F31A95500F4107D /* SoulmateAIChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatService.swift; sourceTree = "<group>"; };
+		22E3E35C2F31A95500F4107D /* SoulmateAIChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatView.swift; sourceTree = "<group>"; };
+		22E3E35D2F31A95500F4107D /* SoulmateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateManager.swift; sourceTree = "<group>"; };
+		22E3E35E2F31A95500F4107D /* SupabaseSaveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSaveService.swift; sourceTree = "<group>"; };
+		22E3E35F2F31A95500F4107D /* SupabaseTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseTestView.swift; sourceTree = "<group>"; };
+		22E3E3602F31A95500F4107D /* TextGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextGenerationService.swift; sourceTree = "<group>"; };
+		22E3E3612F31A95500F4107D /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		22E3E3632F31B25C00F4107D /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		22E3E3652F31B25C00F4107D /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		22E3E3662F31B25C00F4107D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		22E3E3672F31B25C00F4107D /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		22E3E3682F31B25C00F4107D /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		22E3E3692F31B25C00F4107D /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+		22E3E36A2F31B25C00F4107D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		22E3E36B2F31B25C00F4107D /* CoordinatesInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinatesInputView.swift; sourceTree = "<group>"; };
+		22E3E36C2F31B25C00F4107D /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
+		22E3E36D2F31B25C00F4107D /* DestinyDeductionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyDeductionView.swift; sourceTree = "<group>"; };
+		22E3E36E2F31B25C00F4107D /* GeneratedPortraitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedPortraitView.swift; sourceTree = "<group>"; };
+		22E3E36F2F31B25C00F4107D /* IceBreakerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IceBreakerView.swift; sourceTree = "<group>"; };
+		22E3E3702F31B25C00F4107D /* ImageGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageGenerationService.swift; sourceTree = "<group>"; };
+		22E3E3712F31B25C00F4107D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		22E3E3722F31B25C00F4107D /* InviteFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteFriendsView.swift; sourceTree = "<group>"; };
+		22E3E3732F31B25C00F4107D /* InviteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteService.swift; sourceTree = "<group>"; };
+		22E3E3742F31B25C00F4107D /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		22E3E3752F31B25C00F4107D /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		22E3E3762F31B25C00F4107D /* MapViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViewRepresentable.swift; sourceTree = "<group>"; };
+		22E3E3772F31B25C00F4107D /* MatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingService.swift; sourceTree = "<group>"; };
+		22E3E3782F31B25C00F4107D /* MistRevealApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistRevealApp.swift; sourceTree = "<group>"; };
+		22E3E3792F31B25C00F4107D /* MistRevealView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistRevealView.swift; sourceTree = "<group>"; };
+		22E3E37A2F31B25C00F4107D /* PulseAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseAnnotationView.swift; sourceTree = "<group>"; };
+		22E3E37B2F31B25C00F4107D /* QuotaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaManager.swift; sourceTree = "<group>"; };
+		22E3E37C2F31B25C00F4107D /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
+		22E3E37D2F31B25C00F4107D /* SecretsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsManager.swift; sourceTree = "<group>"; };
+		22E3E37F2F31B25C00F4107D /* SoulAnalysisModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulAnalysisModels.swift; sourceTree = "<group>"; };
+		22E3E3802F31B25C00F4107D /* SoulArchiveDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveDetailView.swift; sourceTree = "<group>"; };
+		22E3E3812F31B25C00F4107D /* SoulArchiveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveManager.swift; sourceTree = "<group>"; };
+		22E3E3822F31B25C00F4107D /* SoulArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveView.swift; sourceTree = "<group>"; };
+		22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatService.swift; sourceTree = "<group>"; };
+		22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatView.swift; sourceTree = "<group>"; };
+		22E3E3852F31B25C00F4107D /* SoulmateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateManager.swift; sourceTree = "<group>"; };
+		22E3E3862F31B25C00F4107D /* SupabaseSaveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSaveService.swift; sourceTree = "<group>"; };
+		22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseTestView.swift; sourceTree = "<group>"; };
+		22E3E3882F31B25C00F4107D /* TextGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextGenerationService.swift; sourceTree = "<group>"; };
+		22E3E3892F31B25C00F4107D /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		AB000000 /* MistReveal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MistReveal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB000001 /* MistRevealApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistRevealApp.swift; sourceTree = "<group>"; };
 		AB000002 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
@@ -81,6 +191,7 @@
 		AB000020 /* IceBreakerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IceBreakerView.swift; sourceTree = "<group>"; };
 		AB000021 /* PulseAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseAnnotationView.swift; sourceTree = "<group>"; };
 		AB000022 /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
+		AB000030 /* SoulmateFlipContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateFlipContainerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,6 +200,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2239BF872F08A0AA00B8997C /* GoogleSignInSwift in Frameworks */,
+				22E3E4692F31E2D500F4107D /* LunarSwift in Frameworks */,
 				2239BF502F07C4C300B8997C /* Supabase in Frameworks */,
 				2239BF852F08A0AA00B8997C /* GoogleSignIn in Frameworks */,
 			);
@@ -97,9 +209,116 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		22E3E33C2F31A95500F4107D /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				22E3E33B2F31A95500F4107D /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		22E3E3622F31A95500F4107D /* MistReveal */ = {
+			isa = PBXGroup;
+			children = (
+				22E3E33C2F31A95500F4107D /* Preview Content */,
+				22E3E33D2F31A95500F4107D /* AppConfig.swift */,
+				22E3E33E2F31A95500F4107D /* Assets.xcassets */,
+				22E3E33F2F31A95500F4107D /* AuthManager.swift */,
+				22E3E3402F31A95500F4107D /* AuthView.swift */,
+				22E3E3412F31A95500F4107D /* ChatService.swift */,
+				22E3E3422F31A95500F4107D /* ChatView.swift */,
+				22E3E3432F31A95500F4107D /* CoordinatesInputView.swift */,
+				22E3E3442F31A95500F4107D /* DestinyConnectionView.swift */,
+				22E3E3452F31A95500F4107D /* DestinyDeductionView.swift */,
+				22E3E3462F31A95500F4107D /* GeneratedPortraitView.swift */,
+				22E3E3472F31A95500F4107D /* IceBreakerView.swift */,
+				22E3E3482F31A95500F4107D /* ImageGenerationService.swift */,
+				22E3E3492F31A95500F4107D /* Info.plist */,
+				22E3E34A2F31A95500F4107D /* InviteFriendsView.swift */,
+				22E3E34B2F31A95500F4107D /* InviteService.swift */,
+				22E3E34C2F31A95500F4107D /* LocationManager.swift */,
+				22E3E34D2F31A95500F4107D /* MainTabView.swift */,
+				22E3E34E2F31A95500F4107D /* MapViewRepresentable.swift */,
+				22E3E34F2F31A95500F4107D /* MatchingService.swift */,
+				22E3E3502F31A95500F4107D /* MistRevealApp.swift */,
+				22E3E3512F31A95500F4107D /* MistRevealView.swift */,
+				22E3E3522F31A95500F4107D /* PulseAnnotationView.swift */,
+				22E3E3532F31A95500F4107D /* QuotaManager.swift */,
+				22E3E3542F31A95500F4107D /* ReportView.swift */,
+				22E3E3552F31A95500F4107D /* SecretsManager.swift */,
+				22E3E3572F31A95500F4107D /* SoulAnalysisModels.swift */,
+				22E3E3582F31A95500F4107D /* SoulArchiveDetailView.swift */,
+				22E3E3592F31A95500F4107D /* SoulArchiveManager.swift */,
+				22E3E35A2F31A95500F4107D /* SoulArchiveView.swift */,
+				22E3E35B2F31A95500F4107D /* SoulmateAIChatService.swift */,
+				22E3E35C2F31A95500F4107D /* SoulmateAIChatView.swift */,
+				22E3E35D2F31A95500F4107D /* SoulmateManager.swift */,
+				22E3E35E2F31A95500F4107D /* SupabaseSaveService.swift */,
+				22E3E35F2F31A95500F4107D /* SupabaseTestView.swift */,
+				22E3E3602F31A95500F4107D /* TextGenerationService.swift */,
+				22E3E3612F31A95500F4107D /* WelcomeView.swift */,
+			);
+			path = MistReveal;
+			sourceTree = "<group>";
+		};
+		22E3E3642F31B25C00F4107D /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				22E3E3632F31B25C00F4107D /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		22E3E38A2F31B25C00F4107D /* MistReveal */ = {
+			isa = PBXGroup;
+			children = (
+				22E3E3642F31B25C00F4107D /* Preview Content */,
+				22E3E3652F31B25C00F4107D /* AppConfig.swift */,
+				22E3E3662F31B25C00F4107D /* Assets.xcassets */,
+				22E3E3672F31B25C00F4107D /* AuthManager.swift */,
+				22E3E3682F31B25C00F4107D /* AuthView.swift */,
+				22E3E3692F31B25C00F4107D /* ChatService.swift */,
+				22E3E36A2F31B25C00F4107D /* ChatView.swift */,
+				22E3E36B2F31B25C00F4107D /* CoordinatesInputView.swift */,
+				22E3E36C2F31B25C00F4107D /* DestinyConnectionView.swift */,
+				22E3E36D2F31B25C00F4107D /* DestinyDeductionView.swift */,
+				22E3E36E2F31B25C00F4107D /* GeneratedPortraitView.swift */,
+				22E3E36F2F31B25C00F4107D /* IceBreakerView.swift */,
+				22E3E3702F31B25C00F4107D /* ImageGenerationService.swift */,
+				22E3E3712F31B25C00F4107D /* Info.plist */,
+				22E3E3722F31B25C00F4107D /* InviteFriendsView.swift */,
+				22E3E3732F31B25C00F4107D /* InviteService.swift */,
+				22E3E3742F31B25C00F4107D /* LocationManager.swift */,
+				22E3E3752F31B25C00F4107D /* MainTabView.swift */,
+				22E3E3762F31B25C00F4107D /* MapViewRepresentable.swift */,
+				22E3E3772F31B25C00F4107D /* MatchingService.swift */,
+				22E3E3782F31B25C00F4107D /* MistRevealApp.swift */,
+				22E3E3792F31B25C00F4107D /* MistRevealView.swift */,
+				22E3E37A2F31B25C00F4107D /* PulseAnnotationView.swift */,
+				22E3E37B2F31B25C00F4107D /* QuotaManager.swift */,
+				22E3E37C2F31B25C00F4107D /* ReportView.swift */,
+				22E3E37D2F31B25C00F4107D /* SecretsManager.swift */,
+				22E3E37F2F31B25C00F4107D /* SoulAnalysisModels.swift */,
+				22E3E3802F31B25C00F4107D /* SoulArchiveDetailView.swift */,
+				22E3E3812F31B25C00F4107D /* SoulArchiveManager.swift */,
+				22E3E3822F31B25C00F4107D /* SoulArchiveView.swift */,
+				22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */,
+				22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */,
+				AB000030 /* SoulmateFlipContainerView.swift */,
+				22E3E3852F31B25C00F4107D /* SoulmateManager.swift */,
+				22E3E3862F31B25C00F4107D /* SupabaseSaveService.swift */,
+				22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */,
+				22E3E3882F31B25C00F4107D /* TextGenerationService.swift */,
+				22E3E3892F31B25C00F4107D /* WelcomeView.swift */,
+			);
+			path = MistReveal;
+			sourceTree = "<group>";
+		};
 		AD000001 = {
 			isa = PBXGroup;
 			children = (
+				22E3E38A2F31B25C00F4107D /* MistReveal */,
+				22E3E3622F31A95500F4107D /* MistReveal */,
 				AD000002 /* MistReveal */,
 				AD000003 /* Products */,
 			);
@@ -210,6 +429,7 @@
 			packageReferences = (
 				2239BF4E2F07C4C300B8997C /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				2239BF832F08A0AA00B8997C /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				22E3E4672F31E2D500F4107D /* XCRemoteSwiftPackageReference "lunar-swift" */,
 			);
 			productRefGroup = AD000003 /* Products */;
 			projectDirPath = "";
@@ -240,6 +460,40 @@
 				AA000001 /* MistRevealApp.swift in Sources */,
 				AA000002 /* MainTabView.swift in Sources */,
 				AA000003 /* WelcomeView.swift in Sources */,
+				22E3E38B2F31B25C00F4107D /* DestinyDeductionView.swift in Sources */,
+				22E3E38C2F31B25C00F4107D /* MistRevealView.swift in Sources */,
+				22E3E38D2F31B25C00F4107D /* SoulArchiveManager.swift in Sources */,
+				22E3E38E2F31B25C00F4107D /* MistRevealApp.swift in Sources */,
+				22E3E38F2F31B25C00F4107D /* AppConfig.swift in Sources */,
+				22E3E3902F31B25C00F4107D /* CoordinatesInputView.swift in Sources */,
+				22E3E3912F31B25C00F4107D /* MatchingService.swift in Sources */,
+				22E3E3922F31B25C00F4107D /* InviteFriendsView.swift in Sources */,
+				22E3E3932F31B25C00F4107D /* IceBreakerView.swift in Sources */,
+				22E3E3942F31B25C00F4107D /* ReportView.swift in Sources */,
+				22E3E3952F31B25C00F4107D /* ChatView.swift in Sources */,
+				22E3E3962F31B25C00F4107D /* PulseAnnotationView.swift in Sources */,
+				22E3E3972F31B25C00F4107D /* InviteService.swift in Sources */,
+				22E3E3982F31B25C00F4107D /* MapViewRepresentable.swift in Sources */,
+				22E3E3992F31B25C00F4107D /* SupabaseTestView.swift in Sources */,
+				22E3E39A2F31B25C00F4107D /* DestinyConnectionView.swift in Sources */,
+				22E3E39B2F31B25C00F4107D /* SupabaseSaveService.swift in Sources */,
+				22E3E39C2F31B25C00F4107D /* MainTabView.swift in Sources */,
+				22E3E39D2F31B25C00F4107D /* GeneratedPortraitView.swift in Sources */,
+				22E3E39E2F31B25C00F4107D /* SoulmateManager.swift in Sources */,
+				22E3E39F2F31B25C00F4107D /* QuotaManager.swift in Sources */,
+				22E3E3A02F31B25C00F4107D /* SoulAnalysisModels.swift in Sources */,
+				22E3E3A12F31B25C00F4107D /* ChatService.swift in Sources */,
+				22E3E3A22F31B25C00F4107D /* AuthView.swift in Sources */,
+				22E3E3A32F31B25C00F4107D /* LocationManager.swift in Sources */,
+				22E3E3A42F31B25C00F4107D /* TextGenerationService.swift in Sources */,
+				22E3E3A52F31B25C00F4107D /* SoulArchiveView.swift in Sources */,
+				22E3E3A62F31B25C00F4107D /* WelcomeView.swift in Sources */,
+				22E3E3A72F31B25C00F4107D /* SoulmateAIChatService.swift in Sources */,
+				22E3E3A82F31B25C00F4107D /* SecretsManager.swift in Sources */,
+				22E3E3AA2F31B25C00F4107D /* SoulmateAIChatView.swift in Sources */,
+				22E3E3AB2F31B25C00F4107D /* AuthManager.swift in Sources */,
+				22E3E3AC2F31B25C00F4107D /* SoulArchiveDetailView.swift in Sources */,
+				22E3E3AD2F31B25C00F4107D /* ImageGenerationService.swift in Sources */,
 				AA000004 /* CoordinatesInputView.swift in Sources */,
 				AA000005 /* ReportView.swift in Sources */,
 				AA000006 /* MistRevealView.swift in Sources */,
@@ -268,6 +522,7 @@
 				AA000020 /* IceBreakerView.swift in Sources */,
 				AA000021 /* PulseAnnotationView.swift in Sources */,
 				AA000022 /* DestinyConnectionView.swift in Sources */,
+				AA000030 /* SoulmateFlipContainerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -493,6 +748,14 @@
 				minimumVersion = 9.0.0;
 			};
 		};
+		22E3E4672F31E2D500F4107D /* XCRemoteSwiftPackageReference "lunar-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/6tail/lunar-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.8;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -510,6 +773,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2239BF832F08A0AA00B8997C /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		22E3E4682F31E2D500F4107D /* LunarSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 22E3E4672F31E2D500F4107D /* XCRemoteSwiftPackageReference "lunar-swift" */;
+			productName = LunarSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

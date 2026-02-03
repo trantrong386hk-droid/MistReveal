@@ -228,19 +228,48 @@ struct GeneratedPortraitView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.white.opacity(0.8))
 
-                // 分享按钮
-                Button(action: { showShareSheet = true }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 14))
-                        Text("分享")
-                            .font(.system(size: 14, weight: .medium))
+                // 按钮组
+                HStack(spacing: 16) {
+                    // 分享按钮
+                    Button(action: { showShareSheet = true }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 14))
+                            Text("分享")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.15))
+                        .cornerRadius(25)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 25)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 12)
-                    .background(Color(hex: "#E94560"))
-                    .cornerRadius(25)
+
+                    // 唤醒按钮 - 跳转到灵犀 Tab
+                    Button(action: awakenSoulmate) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.circle.fill")
+                                .font(.system(size: 14))
+                            Text("唤醒")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(25)
+                        .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 8, x: 0, y: 4)
+                    }
                 }
                 .padding(.top, 8)
             }
@@ -442,6 +471,24 @@ struct GeneratedPortraitView: View {
     func triggerReferrerRewardIfNeeded() async {
         guard let userId = await getCurrentUserId() else { return }
         await InviteService.shared.triggerReferrerReward(forInviteeId: userId)
+    }
+
+    // MARK: - 唤醒灵魂伴侣
+    func awakenSoulmate() {
+        // 触觉反馈
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+
+        // 返回主页并切换到灵犀 Tab
+        dismiss()
+
+        // 延迟发送通知，确保页面已关闭
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("SwitchToSoulmateTab"),
+                object: nil
+            )
+        }
     }
 
     private func getCurrentUserId() async -> String? {

@@ -1,11 +1,70 @@
 import Foundation
 
+/// 八字精准命理数据（由 lunar-swift 本地计算）
+struct BaZiInfo: Codable, Equatable {
+    // 四柱
+    let yearPillar: String       // 年柱，如 "甲子"
+    let monthPillar: String      // 月柱
+    let dayPillar: String        // 日柱
+    let timePillar: String       // 时柱
+
+    // 日主（日干）
+    let dayStem: String          // 日干，如 "甲"
+    let dayStemElement: String   // 日干五行，如 "木"
+    let dayStemDescription: String // 如 "甲木"
+
+    // 五行能量分布
+    let metalCount: Int          // 金的个数
+    let woodCount: Int           // 木的个数
+    let waterCount: Int          // 水的个数
+    let fireCount: Int           // 火的个数
+    let earthCount: Int          // 土的个数
+    let elementSummary: String   // 如 "金2 木1 水3 火0 土2"
+
+    // 缺失与旺衰
+    let missingElements: [String]  // 缺失的五行
+    let strongElements: [String]   // 偏旺的五行
+
+    // 喜用神
+    let xiYongShen: String       // 喜用神元素，如 "火"
+    let xiYongReason: String     // 推断理由
+
+    // 纳音
+    let yearNaYin: String        // 年柱纳音，如 "海中金"
+    let dayNaYin: String         // 日柱纳音
+
+    enum CodingKeys: String, CodingKey {
+        case yearPillar = "year_pillar"
+        case monthPillar = "month_pillar"
+        case dayPillar = "day_pillar"
+        case timePillar = "time_pillar"
+        case dayStem = "day_stem"
+        case dayStemElement = "day_stem_element"
+        case dayStemDescription = "day_stem_description"
+        case metalCount = "metal_count"
+        case woodCount = "wood_count"
+        case waterCount = "water_count"
+        case fireCount = "fire_count"
+        case earthCount = "earth_count"
+        case elementSummary = "element_summary"
+        case missingElements = "missing_elements"
+        case strongElements = "strong_elements"
+        case xiYongShen = "xi_yong_shen"
+        case xiYongReason = "xi_yong_reason"
+        case yearNaYin = "year_na_yin"
+        case dayNaYin = "day_na_yin"
+    }
+}
+
 /// 完整的灵魂分析结果
 struct SoulAnalysisResult: Codable, Equatable {
     // 命盘信息
     let hexagram: String                  // 卦象名称
-    let userElement: String               // 用户五行属性
+    let userElement: String               // 用户五行属性（日主五行）
     let soulmateElement: String           // 伴侣五行属性
+
+    // 八字精准命理（本地计算，不由 AI 返回）
+    var baziInfo: BaZiInfo?
 
     // 用户分析
     let personalityDescription: String    // 核心性格描述
@@ -32,6 +91,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         case hexagram
         case userElement = "user_element"
         case soulmateElement = "soulmate_element"
+        case baziInfo = "bazi_info"
         case personalityDescription = "personality_description"
         case personalityTraits = "personality_traits"
         case relationshipBehaviors = "relationship_behaviors"

@@ -629,13 +629,18 @@ class ChatService: ObservableObject {
 
     /// 调用文本生成 API
     private func callTextGeneration(prompt: String) async throws -> String {
+        // 从 SecretsManager 获取 API Key
+        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
+            throw NSError(domain: "ChatService", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法获取 API Key"])
+        }
+
         guard let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions") else {
             throw NSError(domain: "ChatService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(AppConfig.AliyunBailian.apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
 
