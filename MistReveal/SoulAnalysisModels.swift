@@ -187,7 +187,7 @@ struct SoulAnalysisResult: Codable, Equatable {
     // 命盘信息
     let hexagram: String                  // 卦象名称
     let userElement: String               // 用户五行属性（日主五行）
-    let soulmateElement: String           // 伴侣五行属性
+    var soulmateElement: String           // 伴侣五行属性（var: 允许代码层校正 LLM 覆写）
 
     // 八字精准命理（本地计算，不由 AI 返回）
     var baziInfo: BaZiInfo?

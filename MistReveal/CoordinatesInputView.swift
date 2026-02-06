@@ -377,32 +377,46 @@ struct CoordinatesInputView: View {
                 birthTime: currentBirthTime,
                 location: currentLocation
             ) {
-                print("✅ [CoordinatesInputView] 使用已有分析结果")
-                // 使用已有结果，补充本地计算的八字信息（数据库缓存可能缺失）
+                print("✅ [CoordinatesInputView] 找到已有分析结果，开始校验...")
+                // 始终计算八字（用于校验 + 补充）
                 var resultWithBaZi = existingResult
+                let recalculated = TextGenerationService.shared.calculateBaZi(birthDate: birthDateString, birthTime: currentBirthTime, location: currentLocation, gender: gender)
+
                 if resultWithBaZi.baziInfo == nil || resultWithBaZi.baziInfo?.targetAge == nil || resultWithBaZi.baziInfo?.isValid != true {
-                    let recalculated = TextGenerationService.shared.calculateBaZi(birthDate: birthDateString, birthTime: currentBirthTime, location: currentLocation, gender: gender)
                     resultWithBaZi.baziInfo = recalculated
                     print("🔵 [CoordinatesInputView] 补充八字信息: targetAge=\(recalculated?.targetAge ?? -1)")
                 }
-                soulmateManager.soulAnalysis = resultWithBaZi
-                soulmateManager.state = .analyzingSoulmate
 
-                // 添加到用户历史（不消耗配额）
-                let nickname = forFriend ? friendNickname : "我自己"
-                let isSelf = !forFriend
-                _ = await archiveManager.saveAnalysisResult(
-                    gender: gender,
-                    birthDate: birthDate,
-                    birthTime: currentBirthTime,
-                    location: currentLocation,
-                    analysisResult: existingResult,
-                    nickname: nickname,
-                    isSelf: isSelf
-                )
+                // ★ 校验：缓存的伴侣五行 vs 系统计算的喜用神
+                if let bazi = recalculated, resultWithBaZi.soulmateElement != bazi.xiYongShen {
+                    print("⚠️ [Cache] 缓存伴侣五行「\(resultWithBaZi.soulmateElement)」≠ 喜用神「\(bazi.xiYongShen)」→ 强制重新生成")
+                    await soulmateManager.startSoulAnalysis(
+                        birthDate: birthDateString,
+                        gender: gender,
+                        birthTime: currentBirthTime,
+                        location: currentLocation
+                    )
+                } else {
+                    print("✅ [Cache] 缓存校验通过，使用已有结果")
+                    soulmateManager.soulAnalysis = resultWithBaZi
+                    soulmateManager.state = .analyzingSoulmate
 
-                isAnalyzing = false
-                navigateToReport = true
+                    // 添加到用户历史（不消耗配额）
+                    let nickname = forFriend ? friendNickname : "我自己"
+                    let isSelf = !forFriend
+                    _ = await archiveManager.saveAnalysisResult(
+                        gender: gender,
+                        birthDate: birthDate,
+                        birthTime: currentBirthTime,
+                        location: currentLocation,
+                        analysisResult: existingResult,
+                        nickname: nickname,
+                        isSelf: isSelf
+                    )
+
+                    isAnalyzing = false
+                    navigateToReport = true
+                }
             } else {
                 // 调用 SoulmateManager 开始分析
                 await soulmateManager.startSoulAnalysis(

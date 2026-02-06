@@ -43,21 +43,21 @@ class ImageGenerationService {
             return VisualPalette(
                 lighting: "斑驳的林间光影透过密叶洒落，翠绿与金黄交织的自然光线",
                 environment: "葱茏的自然绿意环绕，古树盘根错节，苔藓覆石，空气中弥漫着草木与泥土的清新气息",
-                skinTone: "肌肤自然健康，白里透红，有阳光晒过的活力光泽，透着蓬勃生机",
+                skinTone: "肌肤自然健康，肤色均匀透着阳光晒过的活力光泽，蓬勃而有生机",
                 clothing: "身穿松绿色棉麻衬衫，或原色亚麻质地的自然系服饰，质朴而有生命力"
             )
         case "金":
             return VisualPalette(
                 lighting: "清冽的银白色光线，轮廓分明的侧光勾勒出骨骼结构，冷峻而通透",
                 environment: "极简素净的背景，带有冷调金属光泽的质感，空气清冽如高山之巅",
-                skinTone: "肤若凝脂，白皙透亮带冷调光泽，骨相在冷光下格外分明",
+                skinTone: "肌肤白皙透亮，带冷调光泽，骨相在冷光下格外分明",
                 clothing: "身穿银灰色的利落剪裁外套，或黑白分明的冷调质感面料"
             )
         case "水":
             return VisualPalette(
                 lighting: "朦胧的蓝调柔光弥漫，如月色笼罩水面，清冷而缥缈的光感",
                 environment: "水雾氤氲的意境，深蓝灰的色调如水墨晕染，远处有水面的粼粼反光",
-                skinTone: "肌肤水润细腻，透着清冷的光泽感，如月光映照下的玉石质地",
+                skinTone: "肌肤质地细致，透着清冷的光泽感，如月光映照下的玉石质地",
                 clothing: "身穿深藏蓝色真丝衬衫，或墨黑色的垂坠感面料，流畅如水"
             )
         case "土":
@@ -164,63 +164,46 @@ class ImageGenerationService {
 
     // MARK: - 十神人设映射（dominantGod → 外貌气质）
 
-    /// 根据命局主导十神返回人物骨相气质描述（中文，强调灵魂感而非偶像感）
-    /// 根据十神类型返回人设气质描述（中文）
-    /// 特殊处理：如果用户日柱包含寅木能量，为偏印/七杀添加温暖特质
-    func shishenPersona(_ dominantGod: String, baziInfo: BaZiInfo? = nil) -> String {
-        // 检查用户是否有寅木能量（日柱天干为甲，或日柱地支为寅）
-        let hasYinWoodEnergy: Bool = {
-            guard let bazi = baziInfo else { return false }
-            return bazi.dayPillar.contains("甲") || bazi.dayPillar.contains("寅")
-        }()
-
-        // 如果有寅木能量且十神为偏印/七杀，覆盖为温暖治愈特质
-        if hasYinWoodEnergy && (dominantGod == "偏印" || dominantGod == "七杀") {
-            return """
-            五官立体但柔和，面部轮廓带有自然的生动感，眼神明亮温暖带着隐藏的治愈力量，\
-            嘴角带着若有若无的浅笑，体态清瘦但充满活力，气质柔中带刚，\
-            散发着自然有机的温暖气息，如林间清风般舒适宜人
-            """
-        }
-
+    /// 根据命局主导十神返回人物气质描述（纯表情/姿态/神态，不含颜色词和骨骼词）
+    func shishenPersona(_ dominantGod: String) -> String {
         switch dominantGod {
         case "七杀":
-            return "眉峰锋利上扬，颧骨突出，下颌线转折硬朗有力，眼神深邃如鹰隼，身姿挺拔刚劲，浑身散发着不怒自威的压迫感"
+            return "表情坚毅果断，眉宇间英气外露，眼神锐利有穿透力，姿态挺拔刚劲，浑身散发着不怒自威的气场"
         case "正官":
-            return "额头饱满开阔，五官端正大气，眉宇间舒展从容，眼神沉稳有智慧，身姿挺拔但不紧绷，周身散发着温文儒雅的从容气场"
+            return "表情从容端正，眉宇间舒展有度，眼神沉稳清澈，身姿挺拔但不紧绷，周身散发着从容儒雅的气场"
         case "正财":
-            return "面部线条柔和敦厚，笑容温暖真诚，眼神中带着踏实可靠的安定感，体态匀称健康，身姿挺拔可靠，散发着沉稳的力量感"
+            return "表情安稳真诚，笑容自然坦荡，眼神踏实笃定，体态放松可靠，散发着让人安心的沉稳气场"
         case "偏财":
-            return "五官鲜明有辨识度，笑容爽朗有感染力，眼神灵动明亮带着几分不羁，体态灵活有活力，周身散发着不拘小节的豪爽气场"
+            return "表情生动爽朗，笑容有感染力，眼神灵活明亮带着几分不羁，姿态轻松不拘束，周身散发着豪爽气场"
         case "食神":
-            return "面容圆润舒展，眉眼之间松弛自在，嘴角天然带着一抹浅笑，眼神柔和慵懒，体态放松自然，整个人散发着让人想靠近的治愈气息"
+            return "表情松弛舒展，眉眼之间自在放松，嘴角天然上扬，眼神柔和慵懒，体态放松自然，整个人散发着让人想靠近的气息"
         case "伤官":
-            return "颧骨线条分明，眉眼锐利而有光彩，下颌线棱角清晰，眼神中带着不服输的倔强与灵气，体态清瘦有张力，气质桀骜中带着文艺感"
+            return "表情清冽不羁，眉眼锐利而有光彩，眼神中带着不服输的倔强与灵气，姿态有张力，气质桀骜中带着文艺感"
         case "正印":
-            return "面容柔和温润如玉，鹅蛋脸型线条流畅，眼神清澈而笃定，眉宇间舒展，体态从容优雅，周身散发着书卷气的温和气息"
+            return "表情温和从容，眼神清澈而笃定，眉宇间舒展，体态从容优雅，周身散发着沉静的书卷气"
         case "偏印":
-            return "五官立体深邃，面部轮廓带有独特的棱角感，眼神深远如渊，似在看向另一个维度，体态清瘦，气质孤冷疏离，如世外独行者"
+            return "表情沉思内敛，眼神深远有洞察力，神态独立疏离，体态清瘦有棱角，如不动声色的观察者"
         case "比肩":
-            return "五官大气端正，眉眼之间坦荡磊落，目光直视前方带着天然的自信，体态挺拔有力，整个人散发着无需证明的从容与笃定"
+            return "表情坦荡磊落，目光直视前方带着自信，姿态挺拔有力，整个人散发着无需证明的从容与笃定"
         case "劫财":
-            return "眉峰高挑带着攻击性，眼神锐利如猎豹，下颌线收紧有力，体态矫健紧实，周身散发着蓄势待发的竞争力与野心"
+            return "表情锐利警觉，眼神如猎豹般专注，姿态矫健紧实，周身散发着蓄势待发的竞争力"
         default:
             return "五官端正自然，眉眼之间带着平和的力量，神态从容自信"
         }
     }
 
-    /// 根据夫妻星类型返回骨相体态强制约束（中文）
+    /// 根据夫妻星类型返回骨骼体态约束（纯骨骼结构，不含表情/颜色）
     func spouseStarAppearance(_ spouseStarType: String?) -> String? {
         guard let star = spouseStarType else { return nil }
         switch star {
         case "七杀":
-            return "骨相硬朗鲜明，颧骨突出，下颌线转折有力，眉峰锋利上扬，眼窝深邃目光如炬，身材健硕挺拔有肌肉张力"
+            return "骨架挺拔有力，轮廓清晰立体，下颌线转折分明，肩宽体健，身材匀称有肌肉线条"
         case "正官":
-            return "五官端正大气，额头宽阔饱满，眼神沉稳清澈有定力，体格匀称挺拔有分量感，面部线条端正而有分量感"
+            return "五官端正比例协调，额头宽阔饱满，体格匀称挺拔有分量感，面部骨骼正直大气"
         case "正财":
-            return "面部线条温和但不软弱，眼神温暖真诚，体态敦实健康有保护感，整体气质踏实可靠，朴素中透着厚重"
+            return "面部骨骼线条圆润柔和，体态匀称敦实健康，骨架给人安稳踏实的感觉"
         case "偏财":
-            return "五官鲜明有辨识度，笑容灿烂有感染力，眼神灵活明亮，体态灵活有张力，整体气质洒脱有活力"
+            return "五官骨骼鲜明有辨识度，体态匀称灵活有张力，骨架轻盈不沉重"
         default:
             return nil
         }
@@ -271,69 +254,31 @@ class ImageGenerationService {
         prompt = prompt.replacingOccurrences(of: ",,", with: ",")
         prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // === 🔥 兜底保护：强制清理冷色调词汇（防御性编程，三层防御的最后防线） ===
+        // === 温度泄漏监控（如果上游三轴分离正确，此处不应触发） ===
         if let bazi = baziInfo, (bazi.xiYongShen == "木" || bazi.xiYongShen == "火") {
-            let coldToWarmMapping: [String: String] = [
-                "白皙透亮": "肌肤自然健康，白里透红",
-                "银灰": "松绿色",
-                "金属光泽": "自然光泽",
-                "目光如刃": "眼神温润而坚定",
-                "冷峻": "温润",
-                "骨相突出": "骨架舒展",
-                "轮廓分明下颌线清晰": "面部线条流畅自然",
-                "眼神清冷": "眼神温暖明亮",
-                "清冷": "温暖",
-                "冷调": "暖调",
-                "银白": "琥珀"
-            ]
-
-            var hasReplacement = false
-            for (cold, warm) in coldToWarmMapping {
-                if prompt.contains(cold) {
-                    prompt = prompt.replacingOccurrences(of: cold, with: warm)
-                    hasReplacement = true
-                    print("🔥 [ImageGen] 兜底清理: \"\(cold)\" → \"\(warm)\"")
+            let coldIndicators = ["清冷", "冷峻", "银灰", "冰冷", "银白"]
+            for indicator in coldIndicators {
+                if prompt.contains(indicator) {
+                    print("⚠️ [ImageGen] 温度泄漏: \"\(indicator)\" (xiYongShen=\(bazi.xiYongShen))，需检查上游")
                 }
             }
-
-            if !hasReplacement {
-                print("✅ [ImageGen] 兜底检查: 未检测到冷色调词汇（LLM 已遵守规则）")
-            }
         }
 
-        // === 五行调色盘（只用喜用神单元素，确保确定性） ===
+        // === 五行调色盘安全网（确保正确的颜色始终存在） ===
         let palette: VisualPalette
         if let bazi = baziInfo {
-            // 🔥 特殊处理：如果用户日柱有寅木能量，强制使用温暖调色盘（覆盖冷色调）
-            let hasYinWoodEnergy = bazi.dayPillar.contains("甲") || bazi.dayPillar.contains("寅")
-
-            if hasYinWoodEnergy && (bazi.xiYongShen == "金" || bazi.xiYongShen == "水") {
-                // 寅木用户需要温暖调色盘，覆盖金/水的冷色调
-                palette = VisualPalette(
-                    lighting: "黄金时刻的温暖阳光洒落，琥珀色与蜜糖色的柔和光线弥漫，带来舒适宜人的光感",
-                    environment: "森林边缘的自然绿意，远处有古木参天，温暖的光线穿透树冠，空气中弥漫着草木清香",
-                    skinTone: "肌肤自然健康，白里透红，泛着阳光亲吻过的温润光泽，透着蓬勃生机",
-                    clothing: "身穿柔和的琥珀色或橄榄绿色棉麻质地服饰，自然质朴而有生命力"
-                )
-                print("🔵 [ImageGen] 🌳 寅木能量覆盖: 原喜用神=\(bazi.xiYongShen) → 强制使用温暖森林调色盘")
-            } else {
-                palette = elementToPalette(bazi.xiYongShen)
-                print("🔵 [ImageGen] 单元素调色盘: \(bazi.xiYongShen)")
-            }
+            palette = elementToPalette(bazi.xiYongShen)
+            print("🔵 [ImageGen] 调色盘安全网: \(bazi.xiYongShen)")
         } else {
             palette = elementToPalette("")
-            print("🔵 [ImageGen] 无八字信息，使用中性调色盘")
         }
+        let paletteOverlay = "，\(palette.skinTone)，\(palette.clothing)，\(palette.lighting)，\(palette.environment)"
+        prompt += paletteOverlay
 
-        // === 融合：prompt + 调色盘 + 摄影后缀（不含十神/夫妻星） ===
-        let visualSuffix = """
-        ，\(palette.skinTone)，\(palette.clothing)，\
-        \(palette.lighting)，\(palette.environment)
-        """
+        // === 摄影后缀（安全网） ===
+        let soulSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调，自然深棕色瞳孔"
 
-        let soulSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调"
-
-        let finalPrompt = prompt + visualSuffix + soulSuffix
+        let finalPrompt = prompt + soulSuffix
 
         return finalPrompt
     }
@@ -404,7 +349,7 @@ class ImageGenerationService {
         // === 十神人设气质 ===
         let personaSuffix: String
         if let bazi = baziInfo {
-            let persona = shishenPersona(bazi.dominantGod, baziInfo: bazi)
+            let persona = shishenPersona(bazi.dominantGod)
             personaSuffix = "，\(persona)"
             print("🔵 [ImageGen] 十神人设: \(bazi.dominantGod) → \(persona.prefix(50))...")
         } else {
