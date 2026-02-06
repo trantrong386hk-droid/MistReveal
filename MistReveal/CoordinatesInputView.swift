@@ -10,8 +10,21 @@ struct CoordinatesInputView: View {
     // 数据状态
     @State private var birthDate = Date()
     @State private var gender: String = "" // 男 / 女
-    @State private var location: String = ""
-    @State private var birthTime: String = "子时"
+
+    // 时间输入（精确 HH:mm 或传统时辰）
+    @State private var birthTimeDate: Date = {
+        // 默认 12:00
+        var components = DateComponents()
+        components.hour = 12
+        components.minute = 0
+        return Calendar.current.date(from: components) ?? Date()
+    }()
+    @State private var useTraditionalTime: Bool = false
+    @State private var traditionalTime: String = "子时 (23:00-01:00)"
+
+    // 省市选择
+    @State private var selectedProvince: String = ""
+    @State private var selectedCity: String = ""
 
     // 加载状态
     @State private var isAnalyzing = false
@@ -25,6 +38,7 @@ struct CoordinatesInputView: View {
     // 导航
     @State private var navigateToReport = false
 
+    // 时辰列表（回退模式用）
     let timeSlots = [
         "子时 (23:00-01:00)",
         "丑时 (01:00-03:00)",
@@ -39,6 +53,32 @@ struct CoordinatesInputView: View {
         "戌时 (19:00-21:00)",
         "亥时 (21:00-23:00)"
     ]
+
+    /// 统一输出 birthTime 字符串（供下游使用）
+    var birthTimeString: String {
+        if useTraditionalTime {
+            return traditionalTime
+        } else {
+            let h = Calendar.current.component(.hour, from: birthTimeDate)
+            let m = Calendar.current.component(.minute, from: birthTimeDate)
+            return String(format: "%02d:%02d", h, m)
+        }
+    }
+
+    /// 统一输出 location 字符串（供下游使用）
+    var locationString: String {
+        if !selectedCity.isEmpty {
+            return selectedCity
+        } else if !selectedProvince.isEmpty {
+            return selectedProvince
+        }
+        return ""
+    }
+
+    /// 当前省份下的城市列表
+    var availableCities: [ChinaCityData.City] {
+        ChinaCityData.cities[selectedProvince] ?? []
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -90,23 +130,94 @@ struct CoordinatesInputView: View {
                                     .colorMultiply(.white)
                             }
 
-                            // 时辰选择
-                            inputCard(title: "出生时辰") {
-                                Picker("时辰", selection: $birthTime) {
-                                    ForEach(timeSlots, id: \.self) { time in
-                                        Text(time).tag(time)
+                            // 出生时间
+                            inputCard(title: "出生时间") {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    if useTraditionalTime {
+                                        // 时辰回退模式
+                                        Picker("时辰", selection: $traditionalTime) {
+                                            ForEach(timeSlots, id: \.self) { time in
+                                                Text(time).tag(time)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .accentColor(.white)
+                                    } else {
+                                        // 精确 HH:mm 滚轮
+                                        DatePicker("", selection: $birthTimeDate, displayedComponents: .hourAndMinute)
+                                            .datePickerStyle(.wheel)
+                                            .labelsHidden()
+                                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                                            .frame(height: 120)
+                                            .clipped()
+                                            .colorInvert()
+                                            .colorMultiply(.white)
+                                    }
+
+                                    // 时辰回退开关
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            useTraditionalTime.toggle()
+                                        }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: useTraditionalTime ? "checkmark.square.fill" : "square")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(useTraditionalTime ? Color(hex: "#E94560") : .white.opacity(0.5))
+                                            Text("不确定具体时间，按时辰选择")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.white.opacity(0.5))
+                                        }
                                     }
                                 }
-                                .pickerStyle(.menu)
-                                .accentColor(.white)
                             }
 
-                            // 地点输入
+                            // 出生坐标（省市联动）
                             inputCard(title: "现世坐标") {
-                                TextField("输入出生城市", text: $location)
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 16))
-                                    .tint(Color(hex: "#E94560"))
+                                VStack(alignment: .leading, spacing: 12) {
+                                    // 省份选择
+                                    HStack {
+                                        Text("省份")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.white.opacity(0.6))
+                                        Spacer()
+                                        Picker("省份", selection: $selectedProvince) {
+                                            Text("请选择").tag("")
+                                            ForEach(ChinaCityData.provinces, id: \.self) { province in
+                                                Text(province).tag(province)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .accentColor(.white)
+                                    }
+
+                                    // 城市选择（省份选定后显示）
+                                    if !selectedProvince.isEmpty && availableCities.count > 1 {
+                                        HStack {
+                                            Text("城市")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.white.opacity(0.6))
+                                            Spacer()
+                                            Picker("城市", selection: $selectedCity) {
+                                                Text("请选择").tag("")
+                                                ForEach(availableCities, id: \.name) { city in
+                                                    Text(city.name).tag(city.name)
+                                                }
+                                            }
+                                            .pickerStyle(.menu)
+                                            .accentColor(.white)
+                                        }
+                                    }
+                                }
+                            }
+                            .onChange(of: selectedProvince) { _, _ in
+                                // 省份变化时重置城市
+                                let cities = ChinaCityData.cities[selectedProvince] ?? []
+                                if cities.count == 1 {
+                                    selectedCity = cities[0].name
+                                } else {
+                                    selectedCity = ""
+                                }
                             }
                         }
                         .padding(.horizontal, 24)
@@ -148,8 +259,8 @@ struct CoordinatesInputView: View {
             ReportView(
                 birthDate: birthDate,
                 gender: gender,
-                birthTime: birthTime,
-                location: location
+                birthTime: birthTimeString,
+                location: locationString
             )
         }
         .onChange(of: soulmateManager.soulAnalysis) { _, newValue in
@@ -162,8 +273,8 @@ struct CoordinatesInputView: View {
                     _ = await archiveManager.saveAnalysisResult(
                         gender: gender,
                         birthDate: birthDate,
-                        birthTime: birthTime,
-                        location: location,
+                        birthTime: birthTimeString,
+                        location: locationString,
                         analysisResult: result,
                         nickname: nickname,
                         isSelf: isSelf
@@ -251,6 +362,9 @@ struct CoordinatesInputView: View {
         formatter.dateFormat = "yyyy年M月d日"
         let birthDateString = formatter.string(from: birthDate)
 
+        let currentBirthTime = birthTimeString
+        let currentLocation = locationString
+
         // 显示加载动画
         isAnalyzing = true
         loadingProgress = 0
@@ -260,12 +374,18 @@ struct CoordinatesInputView: View {
             if let existingResult = await archiveManager.checkExistingRecord(
                 gender: gender,
                 birthDate: birthDate,
-                birthTime: birthTime,
-                location: location
+                birthTime: currentBirthTime,
+                location: currentLocation
             ) {
                 print("✅ [CoordinatesInputView] 使用已有分析结果")
-                // 使用已有结果
-                soulmateManager.soulAnalysis = existingResult
+                // 使用已有结果，补充本地计算的八字信息（数据库缓存可能缺失）
+                var resultWithBaZi = existingResult
+                if resultWithBaZi.baziInfo == nil || resultWithBaZi.baziInfo?.targetAge == nil || resultWithBaZi.baziInfo?.isValid != true {
+                    let recalculated = TextGenerationService.shared.calculateBaZi(birthDate: birthDateString, birthTime: currentBirthTime, location: currentLocation, gender: gender)
+                    resultWithBaZi.baziInfo = recalculated
+                    print("🔵 [CoordinatesInputView] 补充八字信息: targetAge=\(recalculated?.targetAge ?? -1)")
+                }
+                soulmateManager.soulAnalysis = resultWithBaZi
                 soulmateManager.state = .analyzingSoulmate
 
                 // 添加到用户历史（不消耗配额）
@@ -274,8 +394,8 @@ struct CoordinatesInputView: View {
                 _ = await archiveManager.saveAnalysisResult(
                     gender: gender,
                     birthDate: birthDate,
-                    birthTime: birthTime,
-                    location: location,
+                    birthTime: currentBirthTime,
+                    location: currentLocation,
                     analysisResult: existingResult,
                     nickname: nickname,
                     isSelf: isSelf
@@ -288,8 +408,8 @@ struct CoordinatesInputView: View {
                 await soulmateManager.startSoulAnalysis(
                     birthDate: birthDateString,
                     gender: gender,
-                    birthTime: birthTime,
-                    location: location
+                    birthTime: currentBirthTime,
+                    location: currentLocation
                 )
             }
         }

@@ -25,6 +25,7 @@ struct ChatView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let topSafeArea = geometry.safeAreaInsets.top
             let bottomSafeArea = geometry.safeAreaInsets.bottom
 
             ZStack {
@@ -33,8 +34,9 @@ struct ChatView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // 导航栏
+                    // 导航栏 - 需要顶部安全区 padding
                     navigationBar
+                        .padding(.top, topSafeArea)
 
                     // 消息列表 - 占据所有剩余空间
                     messageList
@@ -42,13 +44,13 @@ struct ChatView: View {
 
                     // 输入框 - 固定在底部
                     inputBar
-                        .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - bottomSafeArea : bottomSafeArea)
+                        .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - bottomSafeArea : max(bottomSafeArea, 90))
                         .animation(.easeOut(duration: 0.25), value: keyboardHeight)
                 }
             }
+            .ignoresSafeArea()
         }
         .navigationBarHidden(true)
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .onAppear {
             setupChat()
         }

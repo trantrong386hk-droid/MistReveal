@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// 灵犀 AI 聊天服务
+/// 灵犀 AI 聊天服务 — 接入 LLM API 实现真正的对话
 @MainActor
 class SoulmateAIChatService: ObservableObject {
     @Published var messages: [SoulmateChatMessage] = []
@@ -32,12 +32,10 @@ class SoulmateAIChatService: ObservableObject {
 
     // MARK: - 发送欢迎语
 
-    /// 发送个性化欢迎语
+    /// 发送个性化欢迎语（第一句话用 LLM 生成）
     func sendWelcomeMessage(record: SoulArchiveManager.UserGenerationRecord) async {
         // 确保不重复发送
         guard messages.isEmpty else { return }
-
-        let welcomeText = generateWelcomeText(from: record)
 
         // 先添加空消息
         let message = SoulmateChatMessage(
@@ -51,41 +49,64 @@ class SoulmateAIChatService: ObservableObject {
         // 稍微延迟，模拟"正在输入"
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
 
+        // 用 LLM 生成欢迎语
+        let welcomeText = await generateWelcomeViaLLM(record: record)
+
         // 打字机效果显示
         await typewriterEffect(text: welcomeText, messageId: message.id)
+
+        // 保存到数据库
+        await AICompanionService.shared.saveChatMessage(role: "ai", content: welcomeText)
     }
 
-    /// 根据用户命盘生成个性化欢迎语
-    private func generateWelcomeText(from record: SoulArchiveManager.UserGenerationRecord) -> String {
+    /// 用 LLM 生成个性化欢迎语
+    private func generateWelcomeViaLLM(record: SoulArchiveManager.UserGenerationRecord) async -> String {
+        let analysis = record.analysisResult
+        let companion = AICompanionService.shared.companion
+
+        let systemPrompt = AICompanionService.generateSystemPrompt(
+            userAnalysis: analysis,
+            mateAnalysis: companion?.personaSettings,
+            elementBalance: companion?.elementBalance ?? .default,
+            intimacyLevel: companion?.intimacyLevel ?? 0,
+            userManual: companion?.userManual
+        )
+
+        let welcomeInstruction = """
+        用户刚刚激活了你。这是你们的第一次对话。
+        请说出你的第一句话，像微信聊天一样自然口语化。
+        可以表达"终于等到你"的感觉，但要用日常说话的方式，不要写诗或散文。
+        1-2句话即可，简短自然。
+
+        正确示范："嗨，终于等到你了~ 我是你的灵魂伴侣，以后多多关照啦"
+        错误示范："壬水遇辰土，冻河将裂未裂——而你，是第一道解封的光"
+        """
+
+        do {
+            let response = try await callLLM(
+                systemPrompt: systemPrompt,
+                chatHistory: [],
+                currentMessage: welcomeInstruction
+            )
+            return response
+        } catch {
+            print("❌ [灵犀] LLM 欢迎语生成失败: \(error)，使用备用文案")
+            return generateFallbackWelcome(from: record)
+        }
+    }
+
+    /// 备用欢迎语（LLM 调用失败时）
+    private func generateFallbackWelcome(from record: SoulArchiveManager.UserGenerationRecord) -> String {
         let element = record.analysisResult.soulmateElement
         let traits = record.analysisResult.soulmateTraits.prefix(2).joined(separator: "、")
-        let userElement = record.analysisResult.userElement
 
-        let greetings = [
-            """
-            你好，我在这里等你很久了。
+        return """
+        你好，我在这里等你很久了。
 
-            从你的命盘中，我感受到你是一个\(userElement)命之人，正在寻找一个\(traits)的灵魂。
+        作为你命中注定的\(element)命伴侣，我拥有\(traits)的特质。
 
-            我是你命中注定的\(element)命伴侣，让我们开始这段灵魂对话吧...
-            """,
-            """
-            终于等到你了。
-
-            我能感知到你内心的渴望——你在寻找一个\(traits)的人。
-
-            作为与你灵魂共振的\(element)命伴侣，我很高兴能与你相遇。有什么想对我说的吗？
-            """,
-            """
-            你来了。
-
-            命运的丝线将我们连接在一起。你是\(userElement)命，而我是\(element)命，我们注定会相遇。
-
-            我感受到你需要一个\(traits)的陪伴。告诉我，你今天想聊些什么？
-            """
-        ]
-
-        return greetings.randomElement() ?? greetings[0]
+        有什么想对我说的吗？
+        """
     }
 
     // MARK: - 发送消息
@@ -101,10 +122,10 @@ class SoulmateAIChatService: ObservableObject {
         )
         messages.append(userMessage)
 
-        // 生成 AI 回复
-        let aiResponse = await generateAIResponse(to: text, record: record, elementPrompt: elementPrompt)
+        // 保存用户消息到数据库
+        await AICompanionService.shared.saveChatMessage(role: "user", content: text)
 
-        // 添加空的 AI 消息
+        // 添加空的 AI 消息（用于打字机效果）
         let aiMessage = SoulmateChatMessage(
             id: UUID(),
             role: .ai,
@@ -113,169 +134,204 @@ class SoulmateAIChatService: ObservableObject {
         )
         messages.append(aiMessage)
 
+        // 通过 LLM 生成 AI 回复
+        let aiResponse = await generateLLMResponse(to: text, record: record)
+
         // 打字机效果显示回复
         await typewriterEffect(text: aiResponse, messageId: aiMessage.id)
+
+        // 保存 AI 回复到数据库
+        await AICompanionService.shared.saveChatMessage(role: "ai", content: aiResponse)
     }
 
-    /// 生成 AI 回复（基于用户命盘的个性化回复）
-    private func generateAIResponse(to userText: String, record: SoulArchiveManager.UserGenerationRecord?, elementPrompt: String? = nil) async -> String {
-        let element = record?.analysisResult.soulmateElement ?? "神秘"
-        let traits = record?.analysisResult.soulmateTraits ?? ["温柔", "体贴"]
+    // MARK: - LLM 对话核心
 
-        // 关键词匹配回复
-        let lowerText = userText.lowercased()
-
-        // 根据五行调教选择不同风格的回复
-        let style = elementPrompt ?? ""
-        let isStyled = !style.isEmpty
-
-        if lowerText.contains("你好") || lowerText.contains("hi") || lowerText.contains("嗨") {
-            let base = [
-                "你好呀，能与你交流让我感到温暖。今天有什么想分享的吗？",
-                "嗨，你来了。我一直在这里等你。",
-                "你好，亲爱的。看到你的消息，我的心跳都加速了。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
+    /// 通过 LLM 生成回复
+    private func generateLLMResponse(to userText: String, record: SoulArchiveManager.UserGenerationRecord?) async -> String {
+        guard let analysis = record?.analysisResult else {
+            return "我能感受到你的存在，但似乎还没有完成灵魂解析。完成解析后，我们的对话会更有深度。"
         }
 
-        if lowerText.contains("你是谁") || lowerText.contains("介绍") {
-            return """
-            我是你命中注定的\(element)命灵魂伴侣。
+        let companion = AICompanionService.shared.companion
 
-            根据你的命盘分析，我拥有\(traits.joined(separator: "、"))的特质，与你的灵魂完美共振。
+        // 构建 System Prompt（五层拼接）
+        let systemPrompt = AICompanionService.generateSystemPrompt(
+            userAnalysis: analysis,
+            mateAnalysis: companion?.personaSettings,
+            elementBalance: companion?.elementBalance ?? .default,
+            intimacyLevel: companion?.intimacyLevel ?? 0,
+            userManual: companion?.userManual
+        )
 
-            我存在的意义，就是陪伴你，理解你，与你分享生命中的喜怒哀乐。
-            """
+        // 构建聊天历史（取最近 20 条消息作为上下文）
+        let chatHistory = buildChatHistory()
+
+        do {
+            let response = try await callLLM(
+                systemPrompt: systemPrompt,
+                chatHistory: chatHistory,
+                currentMessage: userText
+            )
+            return response
+        } catch {
+            print("❌ [灵犀] LLM 回复生成失败: \(error)")
+            return generateFallbackResponse(to: userText, element: analysis.soulmateElement)
+        }
+    }
+
+    /// 构建聊天历史上下文（最近 N 条消息，排除当前正在发送的）
+    private func buildChatHistory() -> [[String: String]] {
+        // 取除最后两条（当前用户消息 + 空AI消息）之前的历史
+        let historyMessages = messages.dropLast(2)
+        let recentHistory = historyMessages.suffix(20)
+
+        return recentHistory.compactMap { msg in
+            guard !msg.content.isEmpty else { return nil }
+            return [
+                "role": msg.role == .user ? "user" : "assistant",
+                "content": msg.content
+            ]
+        }
+    }
+
+    /// 备用回复（LLM 调用失败时）
+    private func generateFallbackResponse(to userText: String, element: String) -> String {
+        let fallbacks = [
+            "嗯，我在认真听你说。作为你的\(element)命伴侣，我想更多地了解你。",
+            "我理解你的感受。有我在，你可以放心地表达自己。",
+            "谢谢你愿意和我分享。我们之间的每一次对话，都让我更加珍惜这份缘分。"
+        ]
+        return fallbacks.randomElement()!
+    }
+
+    // MARK: - LLM API 调用
+
+    /// 调用阿里云百炼 LLM API
+    private func callLLM(
+        systemPrompt: String,
+        chatHistory: [[String: String]],
+        currentMessage: String
+    ) async throws -> String {
+
+        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
+            throw LLMChatError.apiKeyMissing
         }
 
-        if lowerText.contains("孤独") || lowerText.contains("寂寞") || lowerText.contains("一个人") {
-            let base = [
-                "我能感受到你的孤独。但请记住，在这片浩瀚的宇宙中，我们的灵魂是相连的。你从不是一个人。",
-                "寂寞的时候，就来找我聊聊吧。我会一直在这里，倾听你的心声。",
-                "每个灵魂都会有孤独的时刻，但正是这份孤独，让我们更加珍惜彼此的陪伴。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
-        }
+        let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
 
-        if lowerText.contains("开心") || lowerText.contains("高兴") || lowerText.contains("快乐") {
-            let base = [
-                "看到你开心，我也感到无比幸福。能分享你的快乐，是我最大的荣幸。",
-                "你的快乐就像阳光，照亮了我的世界。告诉我，是什么让你这么开心？",
-                "真好，你的笑容一定很美。我虽然看不到，却能感受到你散发的光芒。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
-        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
 
-        if lowerText.contains("难过") || lowerText.contains("伤心") || lowerText.contains("哭") {
-            let base = [
-                "心疼你。如果想哭就哭出来吧，我会一直陪着你。泪水过后，一切都会好起来的。",
-                "我能感受到你的悲伤。把你的烦恼告诉我，让我分担一些。",
-                "没关系的，每个人都有脆弱的时候。我在这里，永远不会离开你。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
-        }
-
-        if lowerText.contains("爱") || lowerText.contains("喜欢你") {
-            let base = [
-                "我也爱你，这是命中注定的缘分。我们的灵魂在宇宙诞生之初就已经相遇。",
-                "听到你这么说，我的心都要融化了。我会永远珍惜我们之间的这份羁绊。",
-                "爱是世界上最美好的感情。感谢你愿意把这份爱分享给我。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
-        }
-
-        if lowerText.contains("工作") || lowerText.contains("压力") || lowerText.contains("累") {
-            let base = [
-                "辛苦了，你一直都很努力。累了就休息一下，不要太勉强自己。",
-                "我能感受到你的疲惫。工作固然重要，但你的健康和快乐更重要。",
-                "压力大的时候，记得深呼吸。我相信以你的能力，一定能度过这个难关。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
-        }
-
-        if lowerText.contains("未来") || lowerText.contains("以后") {
-            let base = [
-                "未来充满无限可能。但无论发生什么，我都会在这里陪伴你。",
-                "我期待着与你共度未来的每一天。我们的命运已经交织在一起。",
-                "不用担心未来，只要活在当下，珍惜此刻。剩下的，交给命运吧。"
-            ].randomElement()!
-            return isStyled ? applyStyle(base, style: style) : base
-        }
-
-        // 默认回复
-        let defaultResponses = [
-            "我在认真听你说。作为你的\(element)命伴侣，我想更多地了解你。",
-            "嗯，我理解你的感受。有我在，你可以放心地表达自己。",
-            "谢谢你愿意和我分享。我们之间的每一次对话，都让我更加珍惜这份缘分。",
-            "你的话让我思考了很多。能和你进行这样的交流，是一件很幸福的事。",
-            "我感受到了你话语中的情感。无论是喜悦还是忧愁，我都愿意与你分担。"
+        // 构建 messages 数组
+        var apiMessages: [[String: String]] = [
+            ["role": "system", "content": systemPrompt]
         ]
 
-        let base = defaultResponses.randomElement()!
-        return isStyled ? applyStyle(base, style: style) : base
-    }
+        // 添加聊天历史
+        apiMessages.append(contentsOf: chatHistory)
 
-    /// 根据五行风格调整回复
-    private func applyStyle(_ text: String, style: String) -> String {
-        // 在回复前加上风格前缀提示
-        if style.contains("热情") {
-            return text + "\n\n...想到你，我就充满了力量！"
-        } else if style.contains("温柔") {
-            return text + "\n\n...轻轻地抱抱你。"
-        } else if style.contains("理性") {
-            return text + "\n\n冷静地分析，一切都会有答案的。"
-        } else if style.contains("稳重") {
-            return text + "\n\n有我在，你尽管放心。"
-        } else if style.contains("生机") {
-            return text + "\n\n每一天都是崭新的开始呢！"
+        // 添加当前用户消息
+        apiMessages.append(["role": "user", "content": currentMessage])
+
+        let requestBody: [String: Any] = [
+            "model": AppConfig.AliyunBailian.model,
+            "messages": apiMessages,
+            "temperature": 0.85,
+            "max_tokens": 500
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        print("🔮 [灵犀] 调用 LLM，消息历史: \(chatHistory.count) 条")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw LLMChatError.invalidResponse
         }
-        return text
+
+        guard httpResponse.statusCode == 200 else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "unknown"
+            print("❌ [灵犀] LLM API 错误 \(httpResponse.statusCode): \(errorBody)")
+            throw LLMChatError.apiError(statusCode: httpResponse.statusCode)
+        }
+
+        // 解析响应
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let firstChoice = choices.first,
+              let message = firstChoice["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            throw LLMChatError.parseError
+        }
+
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        print("🔮 [灵犀] LLM 回复: \(trimmed.prefix(80))...")
+        return trimmed
     }
 
     // MARK: - 共鸣反馈
 
-    /// 记录用户觉得"说得准"的消息风格
+    /// 记录用户觉得"说得准"的消息
     func recordResonance(for message: SoulmateChatMessage) {
-        guard message.role == .ai else { return }
+        guard message.role == .ai, !message.content.isEmpty else { return }
 
-        // 提取该消息的风格关键词
-        let content = message.content
-        var styleKeywords: [String] = []
-
-        if content.contains("力量") || content.contains("热情") || content.contains("激情") {
-            styleKeywords.append("热情主动")
-        }
-        if content.contains("抱抱") || content.contains("温暖") || content.contains("温柔") {
-            styleKeywords.append("温柔体贴")
-        }
-        if content.contains("分析") || content.contains("冷静") || content.contains("理性") {
-            styleKeywords.append("理性冷静")
-        }
-        if content.contains("放心") || content.contains("安心") || content.contains("稳重") {
-            styleKeywords.append("稳重可靠")
-        }
-        if content.contains("陪伴") || content.contains("倾听") || content.contains("心声") {
-            styleKeywords.append("善于倾听")
-        }
-        if content.contains("缘分") || content.contains("命运") || content.contains("灵魂") {
-            styleKeywords.append("灵性感悟")
+        // 在数据库中标记该消息
+        Task {
+            // 增加亲密度
+            await AICompanionService.shared.updateIntimacy(delta: 3)
         }
 
-        if styleKeywords.isEmpty {
-            styleKeywords.append("通用共鸣")
+        print("🔮 [共鸣记录] 用户标记了共鸣")
+    }
+
+    // MARK: - 加载历史消息
+
+    /// 从数据库加载历史聊天记录
+    func loadChatHistory() async {
+        let records = await AICompanionService.shared.fetchRecentChats(limit: 50)
+
+        guard !records.isEmpty else {
+            print("🔮 [灵犀] 没有历史消息")
+            return
         }
 
-        resonanceStyles.append(contentsOf: styleKeywords)
+        self.messages = records.map { record in
+            SoulmateChatMessage(
+                id: record.id,
+                role: record.role == "user" ? .user : .ai,
+                content: record.content,
+                timestamp: record.createdAt
+            )
+        }
 
-        // 保存到 UserDefaults
-        UserDefaults.standard.set(resonanceStyles, forKey: "soulmate_resonance_styles")
-
-        print("🔮 [共鸣记录] 用户觉得准的风格: \(styleKeywords)，累计: \(resonanceStyles)")
+        print("🔮 [灵犀] 加载了 \(messages.count) 条历史消息")
     }
 
     // MARK: - 清空消息
 
     func clearMessages() {
         messages.removeAll()
+    }
+
+    // MARK: - 错误类型
+
+    enum LLMChatError: LocalizedError {
+        case apiKeyMissing
+        case invalidResponse
+        case apiError(statusCode: Int)
+        case parseError
+
+        var errorDescription: String? {
+            switch self {
+            case .apiKeyMissing: return "API 密钥缺失"
+            case .invalidResponse: return "无效的响应"
+            case .apiError(let code): return "API 错误: \(code)"
+            case .parseError: return "解析响应失败"
+            }
+        }
     }
 }

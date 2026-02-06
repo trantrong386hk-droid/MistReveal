@@ -391,7 +391,7 @@ struct GeneratedPortraitView: View {
 
             // 生成图片
             if soulmateManager.soulAnalysis != nil {
-                await soulmateManager.continueWithImageGeneration(birthDate: birthDateString)
+                await soulmateManager.continueWithImageGeneration(birthDate: birthDateString, birthTime: birthTime, gender: gender, location: location)
             } else {
                 await soulmateManager.generateSoulmate(
                     birthDate: birthDateString,

@@ -199,10 +199,23 @@ class SoulmateManager: ObservableObject {
     }
 
     /// 继续生成画像（第二阶段：基于已有的灵魂分析生成图片）
-    func continueWithImageGeneration(birthDate: String) async {
-        guard let analysis = soulAnalysis else {
+    func continueWithImageGeneration(birthDate: String, birthTime: String = "未知", gender: String = "未知", location: String = "未知") async {
+        guard var analysis = soulAnalysis else {
             print("❌ [SoulmateManager] 没有灵魂分析结果，无法生成画像")
             return
+        }
+
+        // 如果 baziInfo 为 nil 或无效（例如从数据库缓存加载的旧记录），重新计算
+        if analysis.baziInfo == nil || analysis.baziInfo?.isValid != true {
+            print("⚠️ [SoulmateManager] baziInfo 为 nil 或无效，重新计算八字...")
+            let recalculated = TextGenerationService.shared.calculateBaZi(birthDate: birthDate, birthTime: birthTime, location: location, gender: gender)
+            analysis.baziInfo = recalculated
+            soulAnalysis = analysis
+            if recalculated != nil {
+                print("✅ [SoulmateManager] 八字重算成功，targetAge=\(recalculated?.targetAge ?? -1)")
+            } else {
+                print("❌ [SoulmateManager] 八字重算失败")
+            }
         }
 
         print("🔮 [SoulmateManager] 开始生成画像...")

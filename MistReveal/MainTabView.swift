@@ -332,7 +332,7 @@ struct ConnectionView: View {
 
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var matchingService = MatchingService.shared
-    @StateObject private var archiveManager = SoulArchiveManager.shared
+    @ObservedObject private var archiveManager = SoulArchiveManager.shared
     @StateObject private var chatService = ChatService.shared
 
     @Environment(\.hideTabBar) private var hideTabBar
@@ -484,14 +484,15 @@ struct ConnectionView: View {
                     .foregroundColor(Color(hex: "#E94560").opacity(0.5))
             }
 
-            VStack(spacing: 8) {
-                Text("附近暂无高频共振的灵魂")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+            VStack(spacing: 12) {
+                Text("你的命定之人尚未出现")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
 
-                Text("Ta（AI）正在陪你等待...")
+                Text("AI 灵体正在陪你练习如何去爱...")
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
             }
 
             if let onBackTap = onBackTap {

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // MARK: - 聊天消息模型
 struct SoulmateChatMessage: Identifiable, Equatable {
@@ -22,51 +23,12 @@ struct SoulmateAIChatView: View {
     var onCompassTap: (() -> Void)? = nil  // 翻转到地图的回调
 
     @StateObject private var chatService = SoulmateAIChatService()
-    @StateObject private var archiveManager = SoulArchiveManager.shared
+    @ObservedObject private var archiveManager = SoulArchiveManager.shared
 
     @State private var inputText = ""
     @State private var hasTriggeredWelcome = false
-    @State private var selectedElement: FiveElement? = nil
+    @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
-
-    // 五行元素枚举
-    enum FiveElement: String, CaseIterable {
-        case metal = "金"
-        case wood = "木"
-        case water = "水"
-        case fire = "火"
-        case earth = "土"
-
-        var icon: String {
-            switch self {
-            case .metal: return "circle.fill"      // 金 - 圆形
-            case .wood: return "leaf.fill"         // 木 - 叶子
-            case .water: return "drop.fill"        // 水 - 水滴
-            case .fire: return "flame.fill"        // 火 - 火焰
-            case .earth: return "mountain.2.fill"  // 土 - 山
-            }
-        }
-
-        var color: Color {
-            switch self {
-            case .metal: return Color(hex: "#FFD700")  // 金色
-            case .wood: return Color(hex: "#4CAF50")   // 绿色
-            case .water: return Color(hex: "#2196F3")  // 蓝色
-            case .fire: return Color(hex: "#FF5722")   // 红橙色
-            case .earth: return Color(hex: "#8B4513")  // 棕色
-            }
-        }
-
-        var prompt: String {
-            switch self {
-            case .metal: return "请以更加理性、冷静、有条理的方式回复"
-            case .wood: return "请以更加温和、有生机、富有成长感的方式回复"
-            case .water: return "请以更加温柔、包容、善解人意的方式回复"
-            case .fire: return "请以更加热情、主动、充满激情的方式回复"
-            case .earth: return "请以更加稳重、踏实、让人安心的方式回复"
-            }
-        }
-    }
 
     var body: some View {
         ZStack {
@@ -91,8 +53,13 @@ struct SoulmateAIChatView: View {
         .onAppear {
             Task {
                 await archiveManager.fetchUserRecords()
-                // 如果 myRecord 已经存在（从缓存加载），直接触发欢迎语
-                if let record = archiveManager.myRecord, !hasTriggeredWelcome {
+                // 加载 AI 伴侣数据（必须在发送消息前加载，否则消息无法保存）
+                await AICompanionService.shared.fetchCompanion()
+                // 加载历史聊天记录
+                await chatService.loadChatHistory()
+
+                // 只有历史为空时才发送欢迎语
+                if chatService.messages.isEmpty, let record = archiveManager.myRecord, !hasTriggeredWelcome {
                     hasTriggeredWelcome = true
                     await chatService.sendWelcomeMessage(record: record)
                 }
@@ -105,6 +72,14 @@ struct SoulmateAIChatView: View {
                 Task {
                     await chatService.sendWelcomeMessage(record: newRecord!)
                 }
+            }
+        }
+        // 监听高匹配用户出现的通知
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("HighMatchUserAppeared"))) { _ in
+            Task {
+                // 延迟一点，让用户看到消息
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                // TODO: 实现高匹配通知处理
             }
         }
     }
@@ -125,8 +100,8 @@ struct SoulmateAIChatView: View {
                             .scaledToFill()
                             .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                             .clipped()
-                            .blur(radius: 30)
-                            .overlay(Color.black.opacity(0.55))
+                            .blur(radius: 15)
+                            .overlay(Color.black.opacity(0.35))
                     case .failure(_), .empty:
                         defaultBackground
                     @unknown default:
@@ -197,7 +172,7 @@ struct SoulmateAIChatView: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 16)
+        .padding(.top, 60)  // 增加顶部间距，避免与状态栏重叠
         .padding(.bottom, 12)
     }
 
@@ -254,90 +229,65 @@ struct SoulmateAIChatView: View {
             .padding(.top, 8)
 
             Spacer()
-            Spacer()
         }
+        .padding(.bottom, 100)  // 给 TabBar 留空间
     }
 
     // MARK: - 聊天内容视图
     private var chatContentView: some View {
-        VStack(spacing: 0) {
-            // 聊天消息列表
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(chatService.messages) { message in
-                            ChatBubbleView(message: message) {
-                                chatService.recordResonance(for: message)
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(chatService.messages) { message in
+                                ChatBubbleView(message: message) {
+                                    chatService.recordResonance(for: message)
+                                }
+                                .id(message.id)
                             }
-                            .id(message.id)
-                        }
 
-                        // 打字指示器
-                        if chatService.isTyping {
-                            TypingIndicator()
-                                .id("typing")
-                        }
+                            // 打字指示器
+                            if chatService.isTyping {
+                                TypingIndicator()
+                                    .id("typing")
+                            }
 
-                        // 底部留白，避免被输入框遮挡
-                        Color.clear.frame(height: 20)
+                            // 底部留白
+                            Color.clear.frame(height: 20)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .scrollDismissesKeyboard(.interactively)
+                    .onTapGesture {
+                        isInputFocused = false
+                    }
+                    .onChange(of: chatService.messages.count) { _, _ in
+                        scrollToBottom(proxy: proxy)
+                    }
+                    .onChange(of: chatService.messages.last?.content) { _, _ in
+                        scrollToBottom(proxy: proxy)
+                    }
+                    .onChange(of: keyboardHeight) { _, _ in
+                        // 键盘高度变化时滚动到底部
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            scrollToBottom(proxy: proxy)
+                        }
+                    }
                 }
-                .scrollDismissesKeyboard(.interactively) // 滑动时可以收起键盘
-                .onTapGesture {
-                    // 点击空白区域收起键盘
-                    isInputFocused = false
-                }
-                .onChange(of: chatService.messages.count) { _, _ in
-                    scrollToBottom(proxy: proxy)
-                }
-                .onChange(of: chatService.messages.last?.content) { _, _ in
-                    scrollToBottom(proxy: proxy)
-                }
+
+                // 底部输入框
+                inputBar
             }
-
-            // 五行调教选择器
-            elementSelector
-
-            // 底部输入框
-            inputBar
-                .padding(.bottom, isInputFocused ? 0 : 80) // 键盘弹出时不需要 TabBar 空间
+            // 键盘弹出时上移，收起时给 TabBar 留空间
+            .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - geometry.safeAreaInsets.bottom : 90)
         }
-    }
-
-    // MARK: - 五行调教选择器
-    private var elementSelector: some View {
-        HStack(spacing: 20) {
-            ForEach(FiveElement.allCases, id: \.self) { element in
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        if selectedElement == element {
-                            selectedElement = nil  // 再次点击取消选中
-                        } else {
-                            selectedElement = element
-                        }
-                    }
-                }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: element.icon)
-                            .font(.system(size: 16))
-                            .foregroundColor(selectedElement == element ? element.color : .white.opacity(0.4))
-
-                        Text(element.rawValue)
-                            .font(.system(size: 10))
-                            .foregroundColor(selectedElement == element ? element.color : .white.opacity(0.4))
-                    }
-                    .frame(width: 40, height: 40)
-                    .background(
-                        Circle()
-                            .fill(selectedElement == element ? element.color.opacity(0.2) : Color.clear)
-                    )
-                }
+        .onReceive(Publishers.keyboardHeight) { height in
+            withAnimation(.easeOut(duration: 0.25)) {
+                self.keyboardHeight = height
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
@@ -354,15 +304,18 @@ struct SoulmateAIChatView: View {
     private var inputBar: some View {
         HStack(spacing: 12) {
             // 输入框
-            TextField("说点什么...", text: $inputText, axis: .vertical)
+            TextField("说点什么...", text: $inputText)
                 .font(.system(size: 15))
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.white.opacity(0.1))
                 .cornerRadius(24)
-                .lineLimit(1...4)
                 .focused($isInputFocused)
+                .submitLabel(.send)  // 键盘回车键显示"发送"
+                .onSubmit {
+                    sendMessage()  // 按回车键发送消息
+                }
 
             // 发送按钮
             Button(action: sendMessage) {
@@ -409,10 +362,8 @@ struct SoulmateAIChatView: View {
         inputText = ""
         isInputFocused = false
 
-        let elementPrompt = selectedElement?.prompt
-
         Task {
-            await chatService.sendMessage(text, record: archiveManager.myRecord, elementPrompt: elementPrompt)
+            await chatService.sendMessage(text, record: archiveManager.myRecord)
         }
     }
 }
@@ -446,15 +397,15 @@ struct ChatBubbleView: View {
                             HStack(spacing: 4) {
                                 Text("🔮")
                                     .font(.system(size: 12))
-                                Text(hasResonance ? "有共鸣" : "说得准")
+                                Text("有共鸣")
                                     .font(.system(size: 10))
-                                    .foregroundColor(hasResonance ? Color(hex: "#E94560") : .white.opacity(0.4))
+                                    .foregroundColor(hasResonance ? Color(hex: "#E94560") : .white.opacity(0.5))
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(
                                 Capsule()
-                                    .fill(hasResonance ? Color(hex: "#E94560").opacity(0.2) : Color.white.opacity(0.1))
+                                    .fill(hasResonance ? Color(hex: "#E94560").opacity(0.2) : Color.white.opacity(0.08))
                             )
                         }
                         .disabled(hasResonance)
@@ -567,6 +518,22 @@ struct TypingIndicator: View {
     private func animationOffset(for index: Int) -> CGFloat {
         let delay = Double(index) * 0.15
         return animationOffset * cos(delay * .pi)
+    }
+}
+
+// MARK: - 键盘高度监听
+extension Publishers {
+    static var keyboardHeight: AnyPublisher<CGFloat, Never> {
+        let willShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+            .map { notification -> CGFloat in
+                (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
+            }
+
+        let willHide = NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+            .map { _ -> CGFloat in 0 }
+
+        return MergeMany(willShow, willHide)
+            .eraseToAnyPublisher()
     }
 }
 

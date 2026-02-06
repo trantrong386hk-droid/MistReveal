@@ -211,7 +211,7 @@ class SoulArchiveManager: ObservableObject {
 
             try await supabase
                 .from("user_generations")
-                .insert(userGeneration)
+                .upsert(userGeneration, onConflict: "user_id,record_id")
                 .execute()
 
             print("✅ [SoulArchiveManager] 添加用户历史记录")

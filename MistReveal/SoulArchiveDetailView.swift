@@ -471,7 +471,8 @@ struct SoulArchiveDetailView: View {
         createdAt: Date()
     )
 
-    return NavigationStack {
+    
+    NavigationStack {
         SoulArchiveDetailView(record: mockRecord)
     }
 }
