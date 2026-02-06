@@ -47,7 +47,6 @@
 		AA000020 /* IceBreakerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000020 /* IceBreakerView.swift */; };
 		AA000021 /* PulseAnnotationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021 /* PulseAnnotationView.swift */; };
 		AA000022 /* DestinyConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022 /* DestinyConnectionView.swift */; };
-		AA000030 /* SoulmateFlipContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030 /* SoulmateFlipContainerView.swift */; };
 		AA000031 /* AICompanionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031 /* AICompanionModels.swift */; };
 		AA000032 /* AICompanionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032 /* AICompanionService.swift */; };
 		AA000033 /* UserManualService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033 /* UserManualService.swift */; };
@@ -165,7 +164,6 @@
 		AB000020 /* IceBreakerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IceBreakerView.swift; sourceTree = "<group>"; };
 		AB000021 /* PulseAnnotationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseAnnotationView.swift; sourceTree = "<group>"; };
 		AB000022 /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
-		AB000030 /* SoulmateFlipContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateFlipContainerView.swift; sourceTree = "<group>"; };
 		AB000031 /* AICompanionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICompanionModels.swift; sourceTree = "<group>"; };
 		AB000032 /* AICompanionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICompanionService.swift; sourceTree = "<group>"; };
 		AB000033 /* UserManualService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManualService.swift; sourceTree = "<group>"; };
@@ -283,7 +281,6 @@
 				22E3E3822F31B25C00F4107D /* SoulArchiveView.swift */,
 				22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */,
 				22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */,
-				AB000030 /* SoulmateFlipContainerView.swift */,
 				AB000031 /* AICompanionModels.swift */,
 				AB000032 /* AICompanionService.swift */,
 				AB000033 /* UserManualService.swift */,
@@ -476,7 +473,6 @@
 				AA000020 /* IceBreakerView.swift in Sources */,
 				AA000021 /* PulseAnnotationView.swift in Sources */,
 				AA000022 /* DestinyConnectionView.swift in Sources */,
-				AA000030 /* SoulmateFlipContainerView.swift in Sources */,
 				AA000031 /* AICompanionModels.swift in Sources */,
 				AA000032 /* AICompanionService.swift in Sources */,
 				AA000033 /* UserManualService.swift in Sources */,
