@@ -20,8 +20,6 @@ struct SoulmateChatMessage: Identifiable, Equatable {
 
 // MARK: - 灵犀聊天主视图
 struct SoulmateAIChatView: View {
-    var onCompassTap: (() -> Void)? = nil  // 翻转到地图的回调
-
     @StateObject private var chatService = SoulmateAIChatService()
     @ObservedObject private var archiveManager = SoulArchiveManager.shared
 
@@ -150,11 +148,6 @@ struct SoulmateAIChatView: View {
             }
 
             Spacer()
-
-            // 罗盘按钮（仅完成分析后显示）
-            if archiveManager.myRecord != nil, let onCompassTap = onCompassTap {
-                RotatingCompassButton(action: onCompassTap)
-            }
 
             // 清空对话按钮
             if !chatService.messages.isEmpty {

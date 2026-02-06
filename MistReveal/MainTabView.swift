@@ -35,8 +35,10 @@ struct MainTabView: View {
                 case 0:
                     HomeView()
                 case 1:
-                    SoulmateFlipContainerView()
+                    SoulmateAIChatView()  // 灵犀：直接显示 AI 聊天
                 case 2:
+                    ConnectionView(onBackTap: nil)  // 星图：缘分探索
+                case 3:
                     ProfileView()
                 default:
                     HomeView()
@@ -68,13 +70,16 @@ struct MainTabView: View {
                 // 命理
                 tabBarItem(icon: "sparkles", title: "命理", index: 0)
 
-                // 灵犀 (中间突出)
-                soulmateTabItem
+                // 灵犀
+                tabBarItem(icon: "heart.fill", title: "灵犀", index: 1)
+
+                // 星图（缘分探索）
+                tabBarItem(icon: "map", title: "星图", index: 2)
 
                 // 我的
-                tabBarItem(icon: "person", title: "我的", index: 2)
+                tabBarItem(icon: "person", title: "我的", index: 3)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 8)
         }
@@ -540,11 +545,11 @@ struct ConnectionView: View {
             }
 
             VStack(spacing: 12) {
-                Text("缘分探索")
+                Text("星图")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
 
-                Text("完成灵魂推演后\n即可探索附近与你灵魂共振的人")
+                Text("完成灵魂推演后\n即可在星图上探索与你灵魂共振的人")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.5))
                     .multilineTextAlignment(.center)
@@ -583,7 +588,7 @@ struct ConnectionView: View {
             // 顶部标题栏
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("缘分探索")
+                    Text("星图")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
 
