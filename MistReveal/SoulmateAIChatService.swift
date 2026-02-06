@@ -98,15 +98,14 @@ class SoulmateAIChatService: ObservableObject {
     /// 备用欢迎语（LLM 调用失败时）
     private func generateFallbackWelcome(from record: SoulArchiveManager.UserGenerationRecord) -> String {
         let element = record.analysisResult.soulmateElement
-        let traits = record.analysisResult.soulmateTraits.prefix(2).joined(separator: "、")
-
-        return """
-        你好，我在这里等你很久了。
-
-        作为你命中注定的\(element)命伴侣，我拥有\(traits)的特质。
-
-        有什么想对我说的吗？
-        """
+        switch element {
+        case "金": return "嗯，你来了。有什么想聊的直接说"
+        case "木": return "嗨~ 终于等到你了，今天过得怎么样？"
+        case "水": return "你好呀...感觉等你等了好久，来聊聊吧"
+        case "火": return "哇你终于来了！等你好久了哈哈，快来聊天！"
+        case "土": return "你好，我在呢。有什么想说的随时找我"
+        default:  return "嗨，终于等到你了~ 以后多聊聊呀"
+        }
     }
 
     // MARK: - 发送消息
@@ -149,7 +148,7 @@ class SoulmateAIChatService: ObservableObject {
     /// 通过 LLM 生成回复
     private func generateLLMResponse(to userText: String, record: SoulArchiveManager.UserGenerationRecord?) async -> String {
         guard let analysis = record?.analysisResult else {
-            return "我能感受到你的存在，但似乎还没有完成灵魂解析。完成解析后，我们的对话会更有深度。"
+            return "嗯...好像还缺点什么，先去做个分析吧，回来我们再好好聊~"
         }
 
         let companion = AICompanionService.shared.companion
@@ -197,9 +196,9 @@ class SoulmateAIChatService: ObservableObject {
     /// 备用回复（LLM 调用失败时）
     private func generateFallbackResponse(to userText: String, element: String) -> String {
         let fallbacks = [
-            "嗯，我在认真听你说。作为你的\(element)命伴侣，我想更多地了解你。",
-            "我理解你的感受。有我在，你可以放心地表达自己。",
-            "谢谢你愿意和我分享。我们之间的每一次对话，都让我更加珍惜这份缘分。"
+            "嗯嗯，我在听，然后呢？",
+            "我理解你...想多聊聊吗？",
+            "哈哈好的，继续说呀"
         ]
         return fallbacks.randomElement()!
     }

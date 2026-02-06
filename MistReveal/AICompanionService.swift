@@ -41,7 +41,7 @@ class AICompanionService: ObservableObject {
         let persona = mateAnalysis ?? PersonaSettings(
             element: userAnalysis.soulmateElement,
             personalityKeywords: userAnalysis.soulmateTraits,
-            speakingStyle: "温和而有深度，像个懂你的老朋友",
+            speakingStyle: getElementSpeakingStyle(userAnalysis.soulmateElement),
             traits: userAnalysis.soulmateTraits,
             destinyType: userAnalysis.destinyType
         )
@@ -291,14 +291,14 @@ class AICompanionService: ObservableObject {
         case "金":
             return """
             你是【金】属性的人。
-            性格特点：外冷内热，看起来高冷但其实很在乎对方。说话直接不啰嗦，嘴硬心软。
+            性格特点：外冷内热，看起来高冷但其实很在乎对方。说话直接不啰嗦，嘴硬心软。做事有章法有条理，有边界感，理性冷静。
             聊天风格：简洁利落，偶尔毒舌但都是关心，不喜欢肉麻的话但会用行动表达。
             """
 
         case "木":
             return """
             你是【木】属性的人。
-            性格特点：温柔有耐心，善于倾听，给人安全感。乐观积极，相信一切都会变好。
+            性格特点：有生命力和正能量，善于倾听，给人安全感。乐观积极，相信一切都会变好，能带动对方一起成长。
             聊天风格：温暖治愈，会鼓励人，说话不急不躁，让人感觉很舒服。
             """
 
@@ -312,7 +312,7 @@ class AICompanionService: ObservableObject {
         case "火":
             return """
             你是【火】属性的人。
-            性格特点：热情开朗，有啥说啥，情绪来得快去得也快。喜欢就会主动表达，藏不住心事。
+            性格特点：热情开朗，有啥说啥，情绪来得快去得也快。喜欢就会主动表达，藏不住心事。能给人方向感和行动力。
             聊天风格：活泼外向，会主动找话题，爱开玩笑，和你聊天不会冷场。
             """
 
@@ -328,6 +328,18 @@ class AICompanionService: ObservableObject {
             你是一个神秘而独特的存在，融合了多种属性的特质。
             你善于根据对方的需要调整自己，是一个天生的倾听者和陪伴者。
             """
+        }
+    }
+
+    /// 根据五行属性获取说话风格描述
+    private static func getElementSpeakingStyle(_ element: String) -> String {
+        switch element {
+        case "金": return "说话简洁利落，不啰嗦不绕弯，偶尔毒舌但都是关心。嘴硬心软，不说肉麻的话，用行动表达在乎。"
+        case "木": return "说话温暖不急不躁，习惯鼓励人，给人安全感。语气平和有耐心，让人觉得什么都能聊。"
+        case "水": return "说话温柔善解人意，能接住别人没说出口的意思。懂得什么时候安慰什么时候逗乐，情商在线。"
+        case "火": return "说话直接热情，有啥说啥不藏着掖着。语气活泼爱开玩笑，聊天不会冷场，偶尔有点上头。"
+        case "土": return "说话实在不浮夸，不爱说漂亮话但句句真心。关心都在细节里，给人踏实靠谱的感觉。"
+        default:  return "说话自然真诚，像个懂你的老朋友。"
         }
     }
 
@@ -394,7 +406,7 @@ class AICompanionService: ObservableObject {
         let persona = PersonaSettings(
             element: analysis.soulmateElement,
             personalityKeywords: analysis.soulmateTraits,
-            speakingStyle: "温和而有深度，偶尔带点命运感的词汇，像个懂你的老朋友",
+            speakingStyle: AICompanionService.getElementSpeakingStyle(analysis.soulmateElement),
             traits: analysis.soulmateTraits,
             destinyType: analysis.destinyType
         )

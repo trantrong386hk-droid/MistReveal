@@ -79,7 +79,7 @@ struct PersonaSettings: Codable, Equatable {
     static let `default` = PersonaSettings(
         element: "木",
         personalityKeywords: ["温柔", "包容", "善解人意"],
-        speakingStyle: "温和而富有诗意，偶尔带点命运感的词汇，像个懂你的老朋友",
+        speakingStyle: "说话温暖不急不躁，习惯鼓励人，给人安全感。语气平和有耐心，让人觉得什么都能聊。",
         traits: ["体贴", "耐心"]
     )
 }
