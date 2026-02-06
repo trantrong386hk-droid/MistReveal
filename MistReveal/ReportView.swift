@@ -161,11 +161,15 @@ struct ReportView: View {
 
     // 命盘圆环
     var destinyCircle: some View {
-        ZStack {
+        let userElement = soulmateManager.soulAnalysis?.userElement ?? ""
+        let soulmateElement = soulmateManager.soulAnalysis?.soulmateElement ?? ""
+        let xiYongShen = soulmateManager.soulAnalysis?.baziInfo?.xiYongShen ?? ""
+
+        return ZStack {
             // 外圈
             Circle()
                 .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                .frame(width: 200, height: 200)
+                .frame(width: 160, height: 160)
 
             // 内圈动态
             Circle()
@@ -174,46 +178,133 @@ struct ReportView: View {
                         colors: [Color(hex: "#E94560"), Color(hex: "#16213E"), Color(hex: "#E94560")],
                         center: .center
                     ),
-                    lineWidth: 3
+                    lineWidth: 2
                 )
-                .frame(width: 160, height: 160)
+                .frame(width: 120, height: 120)
                 .rotationEffect(.degrees(showContent ? 360 : 0))
                 .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: showContent)
 
             // 中心内容
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Text(gender.isEmpty ? "你" : gender)
-                    .font(.system(size: 36, weight: .light))
+                    .font(.system(size: 28, weight: .light))
                     .foregroundColor(.white)
                     .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
 
                 Text(formattedBirthDate)
-                    .font(.system(size: 12))
+                    .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.9))
                     .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
 
                 Text(birthTime)
-                    .font(.system(size: 11))
+                    .font(.system(size: 9))
                     .foregroundColor(Color(hex: "#E94560"))
                     .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
             }
 
-            // 五行元素标记
+            // 五行元素标记（带状态样式）
             ForEach(0..<5) { i in
                 let angle = Double(i) * 72 - 90
                 let element = ["金", "木", "水", "火", "土"][i]
+                let isUserElement = element == userElement
+                let isSoulmateElement = element == soulmateElement
+                let isXiYongShen = element == xiYongShen
 
-                Text(element)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
-                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-                    .offset(
-                        x: cos(angle * .pi / 180) * 90,
-                        y: sin(angle * .pi / 180) * 90
-                    )
+                elementNode(
+                    element: element,
+                    angle: angle,
+                    isUserElement: isUserElement,
+                    isSoulmateElement: isSoulmateElement,
+                    isXiYongShen: isXiYongShen
+                )
             }
         }
-        .frame(height: 220)
+        .frame(height: 240)
+    }
+
+    // 五行节点视图
+    func elementNode(element: String, angle: Double, isUserElement: Bool, isSoulmateElement: Bool, isXiYongShen: Bool) -> some View {
+        let xOffset = cos(angle * .pi / 180) * 105
+        let yOffset = sin(angle * .pi / 180) * 105
+
+        return ZStack {
+            // 用户本命 - 粉红光晕
+            if isUserElement {
+                Circle()
+                    .fill(Color(hex: "#E94560").opacity(0.3))
+                    .frame(width: 52, height: 52)
+                    .blur(radius: 10)
+
+                Circle()
+                    .fill(Color(hex: "#E94560").opacity(0.2))
+                    .frame(width: 44, height: 44)
+            }
+
+            // 伴侣五行 - 蓝紫色背景
+            if isSoulmateElement && !isUserElement {
+                Circle()
+                    .fill(Color(hex: "#8B5CF6").opacity(0.3))
+                    .frame(width: 48, height: 48)
+                    .blur(radius: 8)
+
+                Circle()
+                    .fill(Color(hex: "#8B5CF6").opacity(0.2))
+                    .frame(width: 40, height: 40)
+            }
+
+            // 喜用神 - 金色边框
+            if isXiYongShen && !isUserElement {
+                Circle()
+                    .stroke(Color(hex: "#FFD700"), lineWidth: 2)
+                    .frame(width: 40, height: 40)
+            }
+
+            // 元素文字
+            Text(element)
+                .font(.system(size: isUserElement || isSoulmateElement ? 20 : 18, weight: isUserElement ? .bold : .medium))
+                .foregroundColor(elementTextColor(isUserElement: isUserElement, isSoulmateElement: isSoulmateElement, isXiYongShen: isXiYongShen))
+                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+
+            // 标签
+            if isUserElement {
+                Text("我")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: "#E94560"))
+                    .cornerRadius(4)
+                    .offset(y: 22)
+            } else if isSoulmateElement {
+                Text("TA")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: "#8B5CF6"))
+                    .cornerRadius(4)
+                    .offset(y: 22)
+            } else if isXiYongShen {
+                Text("喜用")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundColor(Color(hex: "#FFD700"))
+                    .offset(y: 20)
+            }
+        }
+        .offset(x: xOffset, y: yOffset)
+    }
+
+    // 元素文字颜色
+    func elementTextColor(isUserElement: Bool, isSoulmateElement: Bool, isXiYongShen: Bool) -> Color {
+        if isUserElement {
+            return Color(hex: "#E94560")
+        } else if isSoulmateElement {
+            return Color(hex: "#8B5CF6")
+        } else if isXiYongShen {
+            return Color(hex: "#FFD700")
+        } else {
+            return .white.opacity(0.5)
+        }
     }
 
     // 你的灵魂印记

@@ -494,7 +494,7 @@ struct ConnectionView: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(.white.opacity(0.8))
 
-                Text("AI 灵体正在陪你练习如何去爱...")
+                Text("在遇见 Ta 之前，先遇见自己...")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.5))
                     .multilineTextAlignment(.center)

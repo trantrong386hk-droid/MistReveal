@@ -29,25 +29,22 @@ struct SoulmateAIChatView: View {
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
-        ZStack {
-            // 背景 - 模糊的灵魂伴侣画像
-            backgroundView
+        // 主内容
+        VStack(spacing: 0) {
+            // 顶部标题栏
+            headerView
 
-            // 主内容
-            VStack(spacing: 0) {
-                // 顶部标题栏
-                headerView
-
-                // 检查是否已完成灵魂分析
-                if archiveManager.myRecord == nil {
-                    // 未完成分析的提示
-                    unlockedView
-                } else {
-                    // 聊天内容
-                    chatContentView
-                }
+            // 检查是否已完成灵魂分析
+            if archiveManager.myRecord == nil {
+                // 未完成分析的提示
+                unlockedView
+            } else {
+                // 聊天内容
+                chatContentView
             }
         }
+        // 使用 background 修饰符，背景不参与布局计算
+        .background(backgroundView)
         .onAppear {
             Task {
                 await archiveManager.fetchUserRecords()
@@ -84,30 +81,32 @@ struct SoulmateAIChatView: View {
 
     // MARK: - 背景视图
     private var backgroundView: some View {
-        ZStack {
-            // 底色兜底，防止白色露出
-            Color(hex: "#0A0A12")
+        GeometryReader { geometry in
+            ZStack {
+                // 底色兜底，防止白色露出
+                Color(hex: "#0A0A12")
 
-            if let imageUrl = archiveManager.myRecord?.imageUrl,
-               let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-                            .clipped()
-                            .blur(radius: 15)
-                            .overlay(Color.black.opacity(0.35))
-                    case .failure(_), .empty:
-                        defaultBackground
-                    @unknown default:
-                        defaultBackground
+                if let imageUrl = archiveManager.myRecord?.imageUrl,
+                   let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .clipped()
+                                .blur(radius: 15)
+                                .overlay(Color.black.opacity(0.35))
+                        case .failure(_), .empty:
+                            defaultBackground
+                        @unknown default:
+                            defaultBackground
+                        }
                     }
+                } else {
+                    defaultBackground
                 }
-            } else {
-                defaultBackground
             }
         }
         .ignoresSafeArea()
@@ -148,21 +147,6 @@ struct SoulmateAIChatView: View {
             }
 
             Spacer()
-
-            // 清空对话按钮
-            if !chatService.messages.isEmpty {
-                Button(action: {
-                    chatService.clearMessages()
-                    hasTriggeredWelcome = false
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.6))
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                }
-            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 60)  // 增加顶部间距，避免与状态栏重叠
@@ -273,7 +257,7 @@ struct SoulmateAIChatView: View {
                 // 底部输入框
                 inputBar
             }
-            // 键盘弹出时上移，收起时给 TabBar 留空间
+            // 键盘弹出时紧贴键盘顶部（减去底部安全区域），收起时给 TabBar 留 90pt 空间
             .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - geometry.safeAreaInsets.bottom : 90)
         }
         .onReceive(Publishers.keyboardHeight) { height in
