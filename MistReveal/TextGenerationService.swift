@@ -506,9 +506,19 @@ class TextGenerationService {
                 visualAgeText = ""
             }
 
-            // 提取时柱地支的五行，确保文案基于计算后的柱数据
-            let timePillarZhi = String(bazi.timePillar.suffix(1))
-            let timePillarElement = zhiToElement[timePillarZhi] ?? "未知"
+            // 判断是否为三柱推命模式
+            let isThreePillar = (bazi.timePillar == "未知")
+
+            // 提取时柱地支的五行（三柱模式下跳过）
+            let timePillarZhi: String
+            let timePillarElement: String
+            if isThreePillar {
+                timePillarZhi = ""
+                timePillarElement = ""
+            } else {
+                timePillarZhi = String(bazi.timePillar.suffix(1))
+                timePillarElement = zhiToElement[timePillarZhi] ?? "未知"
+            }
 
             // 构建视觉注入数据（原 enhancePrompt 的核心逻辑，前置注入给 LLM）
             let imageGen = ImageGenerationService.shared
@@ -525,15 +535,38 @@ class TextGenerationService {
                 spouseBlock = ""
             }
 
+            // 排盘数据区：三柱 vs 四柱
+            let pillarDataBlock: String
+            if isThreePillar {
+                pillarDataBlock = """
+                三柱：\(bazi.yearPillar) \(bazi.monthPillar) \(bazi.dayPillar)（出生时间未知，无时柱）
+                日主：\(bazi.dayStem)（\(bazi.dayStemElement)命）
+                年柱纳音：\(bazi.yearNaYin)
+                日柱纳音：\(bazi.dayNaYin)
+                """
+            } else {
+                pillarDataBlock = """
+                四柱：\(bazi.yearPillar) \(bazi.monthPillar) \(bazi.dayPillar) \(bazi.timePillar)
+                日主：\(bazi.dayStem)（\(bazi.dayStemElement)命）
+                时柱地支五行：\(timePillarZhi)\(timePillarElement)
+                年柱纳音：\(bazi.yearNaYin)
+                日柱纳音：\(bazi.dayNaYin)
+                """
+            }
+
+            // 强制规则第5条：三柱模式下聚焦日主月令，四柱模式下引用时柱
+            let rule5: String
+            if isThreePillar {
+                rule5 = "5. 注意：用户出生时间未知，请勿引用时柱或推测出生时辰。所有性格分析聚焦于日主和月令，基于上方三柱数据"
+            } else {
+                rule5 = "5. 所有性格分析和五行描述必须严格基于上方四柱数据，尤其是时柱\"\(bazi.timePillar)\"（\(timePillarZhi)\(timePillarElement)），不要使用用户输入的原始时间"
+            }
+
             userMessage = """
             我已经通过专业历法引擎完成了这位用户的精准八字排盘（已经过真太阳时经度修正）。以下是硬核数据，请直接采用，不要自行推算：
 
             ═══ 系统排盘数据（真太阳时修正后）═══
-            四柱：\(bazi.yearPillar) \(bazi.monthPillar) \(bazi.dayPillar) \(bazi.timePillar)
-            日主：\(bazi.dayStem)（\(bazi.dayStemElement)命）
-            时柱地支五行：\(timePillarZhi)\(timePillarElement)
-            年柱纳音：\(bazi.yearNaYin)
-            日柱纳音：\(bazi.dayNaYin)
+            \(pillarDataBlock)
             五行能量分布：\(bazi.elementSummary)
             五行缺失：\(bazi.missingElements.isEmpty ? "无" : bazi.missingElements.joined(separator: "、"))
             五行偏旺：\(bazi.strongElements.isEmpty ? "均衡" : bazi.strongElements.joined(separator: "、"))
@@ -577,7 +610,7 @@ class TextGenerationService {
                 print(forbidden)
                 return forbidden
             }())
-            5. 所有性格分析和五行描述必须严格基于上方四柱数据，尤其是时柱"\(bazi.timePillar)"（\(timePillarZhi)\(timePillarElement)），不要使用用户输入的原始时间
+            \(rule5)
             6. 伴侣画像的气质必须匹配主导十神"\(bazi.dominantGod)"对应的人设方向（参见第七层B部分）
             7. \(bazi.spouseStarType != nil ? "夫妻星为\(bazi.spouseStarType!)，伴侣的骨相、眼神、体态必须严格遵守第五层约束和上方视觉注入的夫妻星骨相约束" : "无夫妻星，以主导十神气质为主导")
             8. 严禁使用"清秀、精致、韩系、网红、甜美、白净、小清新"等词描述伴侣，伴侣必须有"五行能量感"而非"偶像感"
@@ -806,10 +839,16 @@ class TextGenerationService {
         }
 
         // === 第一步：解析 birthTime ===
+        let birthTimeUnknown = (birthTime == "未知")
         var hour: Int
         var minute: Int = 0
 
-        if birthTime.contains(":") {
+        if birthTimeUnknown {
+            // 三柱推命：跳过时辰，用午时占位仅供 LunarSwift 调用（不参与得分）
+            hour = 12
+            minute = 0
+            print("🔮 [BaZi] 出生时间未知，使用三柱推命模式")
+        } else if birthTime.contains(":") {
             // 新格式 "14:30"
             let parts = birthTime.split(separator: ":")
             hour = Int(parts[0]) ?? 12
@@ -882,7 +921,7 @@ class TextGenerationService {
         let yearPillar = eightChar.year    // 使用 yearInGanZhiExact，立春换年
         let monthPillar = eightChar.month  // 使用 monthInGanZhiExact，节气换月
         let dayPillar = eightChar.day      // sect=1 时，晚子时算次日
-        let timePillar = eightChar.time
+        let timePillar = birthTimeUnknown ? "未知" : eightChar.time
 
         // 日主（日干）
         let dayStem = eightChar.dayGan
@@ -895,7 +934,9 @@ class TextGenerationService {
         var elementScores: [String: Double] = ["金": 0, "木": 0, "水": 0, "火": 0, "土": 0]
 
         // 天干：每个 10 分，直接归属对应五行
-        let allGan = [eightChar.yearGan, eightChar.monthGan, eightChar.dayGan, eightChar.timeGan]
+        let allGan = birthTimeUnknown
+            ? [eightChar.yearGan, eightChar.monthGan, eightChar.dayGan]
+            : [eightChar.yearGan, eightChar.monthGan, eightChar.dayGan, eightChar.timeGan]
         for gan in allGan {
             if let e = ganToElement[gan] {
                 elementScores[e, default: 0] += 10.0
@@ -904,7 +945,12 @@ class TextGenerationService {
 
         // 地支：按藏干比例分配得分
         // 月支权重 40 分（月令司令，命理核心），其余各 15 分
-        let zhiBranches: [(String, Double)] = [
+        let zhiBranches: [(String, Double)] = birthTimeUnknown ? [
+            (eightChar.yearZhi, 15.0),   // 年支
+            (eightChar.monthZhi, 40.0),  // 月支（月令）
+            (eightChar.dayZhi, 15.0)     // 日支
+            // 时支：出生时间未知，不含时支
+        ] : [
             (eightChar.yearZhi, 15.0),   // 年支
             (eightChar.monthZhi, 40.0),  // 月支（月令）
             (eightChar.dayZhi, 15.0),    // 日支
@@ -949,7 +995,10 @@ class TextGenerationService {
         // === 第四步：十神计算 ===
 
         // 天干十神（日干是自己，跳过）
-        let ganPillars: [(name: String, stem: String)] = [
+        let ganPillars: [(name: String, stem: String)] = birthTimeUnknown ? [
+            ("年柱", eightChar.yearGan),
+            ("月柱", eightChar.monthGan)
+        ] : [
             ("年柱", eightChar.yearGan),
             ("月柱", eightChar.monthGan),
             ("时柱", eightChar.timeGan)
@@ -962,7 +1011,11 @@ class TextGenerationService {
         }
 
         // 地支藏干十神（含日支 = 配偶宫）
-        let zhiPillarNames: [(name: String, zhi: String, score: Double)] = [
+        let zhiPillarNames: [(name: String, zhi: String, score: Double)] = birthTimeUnknown ? [
+            ("年柱", eightChar.yearZhi, 15.0),
+            ("月柱", eightChar.monthZhi, 40.0),
+            ("日柱", eightChar.dayZhi, 15.0)
+        ] : [
             ("年柱", eightChar.yearZhi, 15.0),
             ("月柱", eightChar.monthZhi, 40.0),
             ("日柱", eightChar.dayZhi, 15.0),
@@ -1039,18 +1092,35 @@ class TextGenerationService {
         // === 第六步：伴侣目标年龄推算 ===
         print("🔵 [BaZi] 开始计算伴侣目标年龄, birthDate=\"\(birthDate)\"")
         let userAge = calculateAge(from: birthDate)
-        let (agePref, ageOffset) = inferAgePreference(
-            spouseStarPillars: spouseStarPillars,
-            dayStemElement: dayStemElement,
-            elementScores: elementScores
-        )
         let targetAge: Int?
-        if let age = userAge {
-            targetAge = max(18, age + ageOffset)
-            print("🔵 [BaZi] 用户\(age)岁, \(agePref)(offset=\(ageOffset)) → targetAge=\(targetAge!)")
+        let agePref: String
+        let ageOffset: Int
+
+        if birthTimeUnknown {
+            // 时辰未知，默认同龄
+            if let age = userAge {
+                targetAge = max(18, age)
+            } else {
+                targetAge = nil
+            }
+            agePref = "时辰未知(同龄默认)"
+            ageOffset = 0
+            print("🔵 [BaZi] 时辰未知，使用同龄默认: targetAge=\(targetAge ?? -1)")
         } else {
-            targetAge = nil
-            print("❌ [BaZi] calculateAge 返回 nil, targetAge 将为 nil!")
+            let (_agePref, _ageOffset) = inferAgePreference(
+                spouseStarPillars: spouseStarPillars,
+                dayStemElement: dayStemElement,
+                elementScores: elementScores
+            )
+            agePref = _agePref
+            ageOffset = _ageOffset
+            if let age = userAge {
+                targetAge = max(18, age + ageOffset)
+                print("🔵 [BaZi] 用户\(age)岁, \(agePref)(offset=\(ageOffset)) → targetAge=\(targetAge!)")
+            } else {
+                targetAge = nil
+                print("❌ [BaZi] calculateAge 返回 nil, targetAge 将为 nil!")
+            }
         }
 
         let baziInfo = BaZiInfo(
@@ -1085,7 +1155,7 @@ class TextGenerationService {
         print("   北京时间: \(year)年\(month)月\(day)日 \(hour):\(String(format: "%02d", minute))")
         print("   真太阳时: \(correctedYear)年\(correctedMonth)月\(correctedDay)日 \(trueSolar.hour):\(String(format: "%02d", trueSolar.minute)) (dayOffset=\(trueSolar.dayOffset))")
         print("   农历: \(lunar.description)")
-        print("   四柱: \(yearPillar) \(monthPillar) \(dayPillar) \(timePillar)")
+        print("   \(birthTimeUnknown ? "三柱" : "四柱"): \(yearPillar) \(monthPillar) \(dayPillar) \(birthTimeUnknown ? "(时柱未知)" : timePillar)")
         print("   日主: \(dayStem)\(dayStemElement)  五行分布: \(summary)")
         print("   喜用神: \(xiYong) (\(xiReason))")
         print("   年纳音: \(yearNaYin)  日纳音: \(dayNaYin)")

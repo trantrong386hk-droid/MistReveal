@@ -11,7 +11,13 @@ struct CoordinatesInputView: View {
     @State private var birthDate = Date()
     @State private var gender: String = "" // 男 / 女
 
-    // 时间输入（精确 HH:mm 或传统时辰）
+    // 时间输入模式
+    enum BirthTimeMode {
+        case precise         // 精确 HH:mm
+        case traditional     // 按时辰选择
+        case unknown         // 不知道
+    }
+
     @State private var birthTimeDate: Date = {
         // 默认 12:00
         var components = DateComponents()
@@ -19,7 +25,7 @@ struct CoordinatesInputView: View {
         components.minute = 0
         return Calendar.current.date(from: components) ?? Date()
     }()
-    @State private var useTraditionalTime: Bool = false
+    @State private var birthTimeMode: BirthTimeMode = .precise
     @State private var traditionalTime: String = "子时 (23:00-01:00)"
 
     // 省市选择
@@ -56,9 +62,12 @@ struct CoordinatesInputView: View {
 
     /// 统一输出 birthTime 字符串（供下游使用）
     var birthTimeString: String {
-        if useTraditionalTime {
+        switch birthTimeMode {
+        case .unknown:
+            return "未知"
+        case .traditional:
             return traditionalTime
-        } else {
+        case .precise:
             let h = Calendar.current.component(.hour, from: birthTimeDate)
             let m = Calendar.current.component(.minute, from: birthTimeDate)
             return String(format: "%02d:%02d", h, m)
@@ -133,7 +142,7 @@ struct CoordinatesInputView: View {
                             // 出生时间
                             inputCard(title: "出生时间") {
                                 VStack(alignment: .leading, spacing: 12) {
-                                    if useTraditionalTime {
+                                    if birthTimeMode == .traditional {
                                         // 时辰回退模式
                                         Picker("时辰", selection: $traditionalTime) {
                                             ForEach(timeSlots, id: \.self) { time in
@@ -142,7 +151,7 @@ struct CoordinatesInputView: View {
                                         }
                                         .pickerStyle(.menu)
                                         .accentColor(.white)
-                                    } else {
+                                    } else if birthTimeMode == .precise {
                                         // 精确 HH:mm 滚轮
                                         DatePicker("", selection: $birthTimeDate, displayedComponents: .hourAndMinute)
                                             .datePickerStyle(.wheel)
@@ -153,18 +162,35 @@ struct CoordinatesInputView: View {
                                             .colorInvert()
                                             .colorMultiply(.white)
                                     }
+                                    // unknown 模式不显示任何时间选择器
 
                                     // 时辰回退开关
                                     Button(action: {
                                         withAnimation(.easeInOut(duration: 0.2)) {
-                                            useTraditionalTime.toggle()
+                                            birthTimeMode = birthTimeMode == .traditional ? .precise : .traditional
                                         }
                                     }) {
                                         HStack(spacing: 6) {
-                                            Image(systemName: useTraditionalTime ? "checkmark.square.fill" : "square")
+                                            Image(systemName: birthTimeMode == .traditional ? "checkmark.square.fill" : "square")
                                                 .font(.system(size: 14))
-                                                .foregroundColor(useTraditionalTime ? Color(hex: "#E94560") : .white.opacity(0.5))
+                                                .foregroundColor(birthTimeMode == .traditional ? Color(hex: "#E94560") : .white.opacity(0.5))
                                             Text("不确定具体时间，按时辰选择")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.white.opacity(0.5))
+                                        }
+                                    }
+
+                                    // 完全不知道出生时间
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            birthTimeMode = birthTimeMode == .unknown ? .precise : .unknown
+                                        }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: birthTimeMode == .unknown ? "checkmark.square.fill" : "square")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(birthTimeMode == .unknown ? Color(hex: "#E94560") : .white.opacity(0.5))
+                                            Text("完全不知道出生时间")
                                                 .font(.system(size: 12))
                                                 .foregroundColor(.white.opacity(0.5))
                                         }

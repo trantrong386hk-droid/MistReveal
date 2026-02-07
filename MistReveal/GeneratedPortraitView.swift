@@ -27,9 +27,9 @@ struct GeneratedPortraitView: View {
     @State private var textTimer: Timer?
     @State private var glowExpanding = true
 
-    // 分享
-    @State private var showShareSheet = false
-    @State private var showSaveSuccess = false
+    // 保存状态
+    enum SaveStatus { case idle, saved, failed }
+    @State private var saveStatus: SaveStatus = .idle
 
     // 加载文字
     private let loadingTexts = [
@@ -59,21 +59,6 @@ struct GeneratedPortraitView: View {
                     Spacer()
                 }
 
-                // 保存成功提示
-                if showSaveSuccess {
-                    VStack {
-                        Spacer()
-                        Text("已保存到相册")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(Color(hex: "#E94560"))
-                            .cornerRadius(25)
-                            .padding(.bottom, 100)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
             }
         }
         .navigationBarHidden(true)
@@ -87,12 +72,6 @@ struct GeneratedPortraitView: View {
         .onChange(of: soulmateManager.state) { _, newState in
             if newState == .completed {
                 startRevealAnimation()
-            }
-        }
-        .sheet(isPresented: $showShareSheet) {
-            if let result = soulmateManager.result,
-               let uiImage = UIImage(data: result.imageData) {
-                ShareSheet(items: [uiImage])
             }
         }
     }
@@ -230,24 +209,25 @@ struct GeneratedPortraitView: View {
 
                 // 按钮组
                 HStack(spacing: 16) {
-                    // 分享按钮
-                    Button(action: { showShareSheet = true }) {
+                    // 保存按钮
+                    Button(action: saveImage) {
                         HStack(spacing: 8) {
-                            Image(systemName: "square.and.arrow.up")
+                            Image(systemName: saveStatus == .saved ? "checkmark" : "arrow.down.to.line")
                                 .font(.system(size: 14))
-                            Text("分享")
+                            Text(saveStatus == .saved ? "已保存" : "保存到相册")
                                 .font(.system(size: 14, weight: .medium))
                         }
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.15))
+                        .background(saveStatus == .saved ? Color(hex: "#E94560").opacity(0.6) : Color.white.opacity(0.15))
                         .cornerRadius(25)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
                                 .stroke(Color.white.opacity(0.3), lineWidth: 1)
                         )
                     }
+                    .disabled(saveStatus == .saved)
 
                     // 唤醒按钮 - 跳转到灵犀 Tab
                     Button(action: awakenSoulmate) {
@@ -419,7 +399,8 @@ struct GeneratedPortraitView: View {
     // MARK: - 保存和分享
 
     func saveImage() {
-        guard let result = soulmateManager.result,
+        guard saveStatus == .idle,
+              let result = soulmateManager.result,
               let uiImage = UIImage(data: result.imageData) else { return }
 
         UIImageWriteToSavedPhotosAlbum(uiImage, nil, nil, nil)
@@ -428,13 +409,13 @@ struct GeneratedPortraitView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
 
-        // 显示成功提示
+        // 按钮变为"已保存"，2秒后恢复
         withAnimation {
-            showSaveSuccess = true
+            saveStatus = .saved
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation {
-                showSaveSuccess = false
+                saveStatus = .idle
             }
         }
     }

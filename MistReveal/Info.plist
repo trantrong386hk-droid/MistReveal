@@ -22,5 +22,7 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>我们需要您的位置来发现附近与您灵魂共振的人</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>保存灵魂伴侣画像到您的相册</string>
 </dict>
 </plist>
