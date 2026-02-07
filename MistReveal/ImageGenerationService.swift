@@ -29,43 +29,43 @@ class ImageGenerationService {
         let clothing: String    // 服饰色调
     }
 
-    /// 单元素 → 视觉调色盘（强调氛围能量感，非相机参数）
+    /// 单元素 → 视觉调色盘（氛围感受词，不指定具体颜色）
     func elementToPalette(_ element: String) -> VisualPalette {
         switch element {
         case "火":
             return VisualPalette(
-                lighting: "暖阳下的柔焦质感，丁达尔效应的金色光束穿透画面，琥珀色的暖光笼罩全身",
-                environment: "壁炉旁的暖褐色氛围，远处落日将天空染成熔金与绯红，温暖的光晕弥漫空气中",
-                skinTone: "肌肤红润通透，泛着健康的暖光，如同被炉火映照，从内而外散发温度",
-                clothing: "身穿暗红色羊绒衫，或深琥珀色的厚实面料，带有金色暗纹点缀"
+                lighting: "暖调柔光，有温度的光晕",
+                environment: "温暖的场景氛围",
+                skinTone: "肌肤红润通透，散发健康光泽",
+                clothing: "暖调厚实的面料，有温度感"
             )
         case "木":
             return VisualPalette(
-                lighting: "斑驳的林间光影透过密叶洒落，翠绿与金黄交织的自然光线",
-                environment: "葱茏的自然绿意环绕，古树盘根错节，苔藓覆石，空气中弥漫着草木与泥土的清新气息",
-                skinTone: "肌肤自然健康，肤色均匀透着阳光晒过的活力光泽，蓬勃而有生机",
-                clothing: "身穿松绿色棉麻衬衫，或原色亚麻质地的自然系服饰，质朴而有生命力"
+                lighting: "自然光影，清新的空气感",
+                environment: "有生命力的自然场景",
+                skinTone: "肌肤自然健康，透着活力光泽",
+                clothing: "自然质朴的面料，有肌理感"
             )
         case "金":
             return VisualPalette(
-                lighting: "清冽的银白色光线，轮廓分明的侧光勾勒出骨骼结构，冷峻而通透",
-                environment: "极简素净的背景，带有冷调金属光泽的质感，空气清冽如高山之巅",
-                skinTone: "肌肤白皙透亮，带冷调光泽，骨相在冷光下格外分明",
-                clothing: "身穿银灰色的利落剪裁外套，或黑白分明的冷调质感面料"
+                lighting: "清冽通透的光线",
+                environment: "干净利落的场景",
+                skinTone: "肌肤白皙通透，骨相分明",
+                clothing: "利落剪裁，有结构感"
             )
         case "水":
             return VisualPalette(
-                lighting: "朦胧的蓝调柔光弥漫，如月色笼罩水面，清冷而缥缈的光感",
-                environment: "水雾氤氲的意境，深蓝灰的色调如水墨晕染，远处有水面的粼粼反光",
-                skinTone: "肌肤质地细致，透着清冷的光泽感，如月光映照下的玉石质地",
-                clothing: "身穿深藏蓝色真丝衬衫，或墨黑色的垂坠感面料，流畅如水"
+                lighting: "朦胧柔光，沉静光感",
+                environment: "安静深邃的场景",
+                skinTone: "肌肤细致，有清润光泽",
+                clothing: "柔软有垂感，线条流畅"
             )
         case "土":
             return VisualPalette(
-                lighting: "午后温厚的琥珀色光线，如阳光打在石墙上的沉稳暖意",
-                environment: "沉稳厚实的大地色氛围，陶土与原木的质感，空气中弥漫着温暖踏实的安全感",
-                skinTone: "小麦色或蜜糖色的健康肤色，质感厚实温润，透着大地般的沉稳力量",
-                clothing: "身穿驼色毛呢大衣，或陶土色的厚实棉质面料，沉稳而有质感"
+                lighting: "温厚的琥珀调光线",
+                environment: "沉稳厚实的场景",
+                skinTone: "健康暖色调肤色，质感温润",
+                clothing: "敦实有分量的面料"
             )
         default:
             return VisualPalette(
@@ -88,73 +88,73 @@ class ImageGenerationService {
         switch sortedKey {
         case "木+火":
             return VisualPalette(
-                lighting: "暖阳穿透茂密树冠的丁达尔光束，翠绿与金黄交织，空气中漂浮着细碎的光粒",
-                environment: "阳光穿透树冠的温暖森林，琥珀色的光粒悬浮在温润的空气中，远处有野花的芬芳",
-                skinTone: "肌肤被阳光亲吻过的金色光泽，健康红润，散发着自然的活力",
-                clothing: "身穿暖琥珀色或橄榄绿的自然质感面料，带有手工编织的粗犷纹理"
+                lighting: "暖阳穿透树冠的光束，空气中漂浮着细碎光粒",
+                environment: "温暖的森林场景，空气温润有野花芬芳",
+                skinTone: "肌肤被阳光亲吻，健康红润，散发自然活力",
+                clothing: "自然质感面料，带有手工编织的粗犷纹理，温暖而有生命力"
             )
         case "木+水":
             return VisualPalette(
-                lighting: "竹林间的朦胧晨光，翠绿与水蓝交融的清凉光线，水珠折射出细碎光点",
-                environment: "雨后青苔上的水珠折射着绿光，林木旁的溪流潺潺，晨雾笼罩着碧绿的水面",
-                skinTone: "肌肤清透水润，如雨后新荷般清新，带着翠玉般的通透感",
-                clothing: "身穿青碧色的丝质衬衫，或烟雨蓝的水洗棉麻，清爽而有生机"
+                lighting: "林间朦胧晨光，水珠折射出细碎光点",
+                environment: "雨后林间溪畔，晨雾笼罩，空气清凉湿润",
+                skinTone: "肌肤清透水润，如雨后新荷般清新通透",
+                clothing: "具有流动感的深色系面料，呈现晨露润湿树皮般的细腻光泽，温润且有生长力"
             )
         case "火+金":
             return VisualPalette(
-                lighting: "熔金般的落日余晖打在冷调金属表面，明暗对比强烈，光影冲突而震撼",
-                environment: "落日映照下的玻璃幕墙，暖色与冷调在空气中碰撞，火花般的金色光点散落",
-                skinTone: "肌肤在暖光中泛着金色光泽，冷调的骨相被暖光柔化，冷暖交织",
-                clothing: "身穿黑色面料配熔金色点缀，或深酒红配银色暗线的对撞色调"
+                lighting: "落日余晖与冷调光面交汇，明暗对比强烈",
+                environment: "暖光与冷调碰撞的戏剧性场景",
+                skinTone: "肌肤在暖光中有光泽，冷调骨相被暖光柔化",
+                clothing: "冷暖对撞的面料搭配，硬朗廓形中透着锋利的温度"
             )
         case "火+土":
             return VisualPalette(
-                lighting: "炉火映照在陶土墙面上的深琥珀色暖光，温厚而令人安心",
-                environment: "壁炉旁的暖褐色书房，烛光在陶土墙面上跳动，原木与暖石散发着沉静的温度",
-                skinTone: "肌肤泛着深金琥珀色的温暖光泽，从内到外透着厚实的温度",
-                clothing: "身穿深陶土色或焦糖色的手工编织面料，厚实温暖，带有匠人质感"
+                lighting: "炉火映照在墙面上的暖光，温厚而安心",
+                environment: "壁炉旁的温暖空间，原木与暖石散发沉静温度",
+                skinTone: "肌肤泛着温暖光泽，从内到外透着厚实温度",
+                clothing: "手工编织感的厚实面料，温暖敦实，带有匠人质感"
             )
         case "土+金":
             return VisualPalette(
-                lighting: "秋日阳光打在温石上的金灰色调，温润与冷峻在光线中优雅交汇",
-                environment: "秋日旷野上的金色麦浪，远处是秋光中的石砌城堡，空气沉稳而高贵",
-                skinTone: "白皙中带暖调的象牙肤色，骨相优雅而分明",
-                clothing: "身穿香槟金或暖灰色的高质感面料，沉稳中带着贵气"
+                lighting: "秋日暖光与冷冽空气交汇的光感",
+                environment: "秋日旷野，空气沉稳而高贵",
+                skinTone: "白皙中带暖调，骨相优雅分明",
+                clothing: "高质感面料，沉稳中带着克制的贵气"
             )
         case "水+金":
             return VisualPalette(
-                lighting: "月光洒在静水面上的银蓝色光芒，清冽通透，如冰雪初融",
-                environment: "月光洒在雪原上的银蓝世界，远处有雪峰的冷银轮廓，空气清冽纯净如水晶",
-                skinTone: "肌肤白皙如瓷，月光映照下泛着冷润的银色光泽，骨相锋利分明",
-                clothing: "身穿深夜蓝或液态银色的垂坠面料，冷峻而有质感"
+                lighting: "月光映照静水面的清冽光感",
+                environment: "清冽纯净的冷调场景，空气如水晶般通透",
+                skinTone: "肌肤白皙如瓷，有冷润光泽，骨相锋利分明",
+                clothing: "冷峻有质感的垂坠面料，线条利落如水"
             )
         case "水+火":
             return VisualPalette(
-                lighting: "暖色烛火与冷蓝水雾的交织，蒸汽将暖光柔化成朦胧的光晕",
-                environment: "温泉升腾的暖雾中透出的烛光，雨后的路面倒映着冷暖交融的光影",
-                skinTone: "肌肤内部透出暖光，表面带着冷调的水润质感，明暗对比鲜明",
-                clothing: "身穿深紫色或暗绯红色面料，搭配墨黑色的冷调衬里"
+                lighting: "暖光与水雾交织，蒸汽将光线柔化成朦胧光晕",
+                environment: "冷暖交融的氤氲场景",
+                skinTone: "肌肤内透暖光，表面有冷调水润质感",
+                clothing: "深色系面料，冷暖交织的沉郁质感"
             )
         case "土+水":
             return VisualPalette(
-                lighting: "阴天厚云中偶然透出的暖琥珀色光线，沉稳而湿润",
-                environment: "雨后泥土气息弥漫的河畔小镇，湿漉漉的青石板反射着暖黄灯笼光",
-                skinTone: "橄榄色或蜜色的温润肤质，带着雨后的清新水润感",
-                clothing: "身穿深青灰色或暖灰褐色的厚实面料，沉稳中透着润泽"
+                lighting: "厚云偶透的暖光，沉稳而湿润",
+                environment: "雨后泥土气息弥漫的场景，湿润空气中有暖意",
+                skinTone: "温润肤质，带着雨后的清新水润感",
+                clothing: "厚实面料，沉稳中透着润泽"
             )
         case "木+金":
             return VisualPalette(
-                lighting: "深秋的清冽光线，金色落叶与银色树干之间的通透空气感",
-                environment: "银杏林中金叶纷飞，冷清的空气中弥漫着秋天的肃穆与生机",
-                skinTone: "白皙健康的肤色，自然红润，清爽而有生机",
-                clothing: "身穿象牙白或淡金色面料，配以松绿色点缀和银质细扣"
+                lighting: "深秋清冽光线，通透的空气感",
+                environment: "秋林中肃穆与生机并存的场景",
+                skinTone: "白皙健康，自然红润，清爽有生机",
+                clothing: "自然与利落并存的质感面料，有结构但不生硬"
             )
         case "木+土":
             return VisualPalette(
-                lighting: "田园午后的金绿色暖光，空气中漂浮着花粉与泥土的微粒",
-                environment: "山间茶园的晨雾中透出的泥土芬芳，院落里的大树浓荫，藤蔓攀附着风化的石墙",
-                skinTone: "阳光亲吻过的自然暖褐色肌肤，带着泥土般的厚实质感",
-                clothing: "身穿暖褐色或苔绿色的天然棉麻面料，质朴而接地气"
+                lighting: "田园午后的暖光，空气中有花粉与泥土微粒",
+                environment: "山间茶园或院落浓荫，泥土芬芳弥漫",
+                skinTone: "阳光亲吻过的自然暖色调肌肤，厚实质感",
+                clothing: "天然面料，质朴而接地气，有手作感"
             )
         default:
             // 无匹配的复合 → 回退到主元素
@@ -209,9 +209,23 @@ class ImageGenerationService {
         }
     }
 
-    // MARK: - 方案C：仅追加调色盘 + 摄影参数
+    // MARK: - 救赎光影
 
-    /// 方案C后处理：年龄校准 + 清理冗余词 + 五行调色盘 + 摄影后缀
+    /// 喜用神 → 救赎光影关键词（后处理阶段追加到 prompt 末尾）
+    func redemptionLighting(_ xiYongShen: String) -> String {
+        switch xiYongShen {
+        case "火": return "，sunset golden hour, warm glow"
+        case "水": return "，soft misty moonlight, cool ethereal light"
+        case "木": return "，dappled forest light, fresh morning glow"
+        case "金": return "，crisp autumn light, silver-edged clarity"
+        case "土": return "，amber afternoon light, earthy warmth"
+        default: return ""
+        }
+    }
+
+    // MARK: - 后处理：年龄校准 + 清理 + 救赎光影 + 摄影后缀
+
+    /// 后处理：年龄校准 + 清理冗余词 + 救赎光影 + 摄影后缀
     /// 十神人设和夫妻星骨相由 LLM 在原始 prompt 中融入，此处不重复追加
     private func appendPaletteAndPhoto(_ rawPrompt: String, baziInfo: BaZiInfo?) -> String {
         var prompt = rawPrompt
@@ -264,19 +278,14 @@ class ImageGenerationService {
             }
         }
 
-        // === 五行调色盘安全网（确保正确的颜色始终存在） ===
-        let palette: VisualPalette
+        // === 救赎光影（根据喜用神追加对应光影关键词） ===
         if let bazi = baziInfo {
-            palette = elementToPalette(bazi.xiYongShen)
-            print("🔵 [ImageGen] 调色盘安全网: \(bazi.xiYongShen)")
-        } else {
-            palette = elementToPalette("")
+            prompt += redemptionLighting(bazi.xiYongShen)
+            print("🔵 [ImageGen] 救赎光影: \(bazi.xiYongShen)")
         }
-        let paletteOverlay = "，\(palette.skinTone)，\(palette.clothing)，\(palette.lighting)，\(palette.environment)"
-        prompt += paletteOverlay
 
-        // === 摄影后缀（安全网） ===
-        let soulSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调，自然深棕色瞳孔"
+        // === 摄影后缀 + 审美去廉价化 ===
+        let soulSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调，自然深棕色瞳孔，high-end fashion editorial style, cinematic texture, avoid high-saturation colors, subtle and sophisticated color palette"
 
         let finalPrompt = prompt + soulSuffix
 
@@ -435,7 +444,7 @@ class ImageGenerationService {
             print("🔵 [ImageGen] 无八字信息，使用中性色调")
         }
 
-        // 方案C：追加五行调色盘 + 摄影参数（十神/夫妻星由 LLM 负责）
+        // 后处理：年龄校准 + 清理 + 救赎光影 + 摄影后缀
         let finalPrompt = appendPaletteAndPhoto(prompt, baziInfo: baziInfo)
         print("🔵 [ImageGen] LLM 原始 Prompt: \(prompt)")
         print("🔵 [ImageGen] 最终 Prompt: \(finalPrompt)")
