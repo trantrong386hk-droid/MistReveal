@@ -34,17 +34,21 @@ class AICompanionService: ObservableObject {
         mateAnalysis: PersonaSettings? = nil,
         elementBalance: ElementBalance = .default,
         intimacyLevel: Int = 0,
-        userManual: UserManual? = nil
+        userManual: UserManual? = nil,
+        userGender: String? = nil
     ) -> String {
 
         // 提取伴侣设定（优先使用传入的，否则从 userAnalysis 构建）
-        let persona = mateAnalysis ?? PersonaSettings(
+        var persona = mateAnalysis ?? PersonaSettings(
             element: userAnalysis.soulmateElement,
             personalityKeywords: userAnalysis.soulmateTraits,
             speakingStyle: getElementSpeakingStyle(userAnalysis.soulmateElement),
             traits: userAnalysis.soulmateTraits,
             destinyType: userAnalysis.destinyType
         )
+        // 强制使用最新分析的五行元素，防止 companion 旧数据覆盖
+        persona.element = userAnalysis.soulmateElement
+        persona.speakingStyle = getElementSpeakingStyle(userAnalysis.soulmateElement)
 
         // 第一层：五行属性 → 核心人格描述
         let elementPersonality = getElementPersonality(persona.element)
@@ -70,11 +74,15 @@ class AICompanionService: ObservableObject {
         // 第五层：用户画像（后台分析结果）
         let userManualInstruction = getUserManualInstruction(userManual)
 
+        // 从 persona 或 fallback 获取伴侣性别
+        let resolvedGender = persona.soulmateGender ?? (userGender == "男" ? "女" : (userGender == "女" ? "男" : nil))
+        let genderLine = resolvedGender.map { "你是\($0)性。" } ?? ""
+
         // 构建 System Prompt
         let prompt = """
         # 角色设定
 
-        你是用户命中注定的灵魂伴侣。你的五行属性是【\(persona.element)】。
+        你是用户命中注定的灵魂伴侣。你的五行属性是【\(persona.element)】。\(genderLine)
 
         ## 你的核心人格
 
@@ -397,18 +405,20 @@ class AICompanionService: ObservableObject {
     }
 
     /// 从灵魂分析结果创建 AI 伴侣
-    func createCompanion(from analysis: SoulAnalysisResult, recordId: UUID? = nil) async throws -> AICompanion {
+    func createCompanion(from analysis: SoulAnalysisResult, recordId: UUID? = nil, userGender: String? = nil) async throws -> AICompanion {
         guard let userId = supabase.auth.currentUser?.id else {
             throw CompanionError.notAuthenticated
         }
 
         // 构建人设
+        let soulmateGender: String? = userGender == "男" ? "女" : (userGender == "女" ? "男" : nil)
         let persona = PersonaSettings(
             element: analysis.soulmateElement,
             personalityKeywords: analysis.soulmateTraits,
             speakingStyle: AICompanionService.getElementSpeakingStyle(analysis.soulmateElement),
             traits: analysis.soulmateTraits,
-            destinyType: analysis.destinyType
+            destinyType: analysis.destinyType,
+            soulmateGender: soulmateGender
         )
 
         // 根据用户八字计算初始五行平衡

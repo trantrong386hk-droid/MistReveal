@@ -168,7 +168,24 @@ class SoulArchiveManager: ObservableObject {
 
             if let existing = existingRecords.first, let id = existing.id {
                 recordId = id
-                print("✅ [SoulArchiveManager] 使用已有记录: \(recordId)")
+                // 更新分析结果（用户重新分析可能得到新结果）
+                struct AnalysisUpdate: Codable {
+                    let analysisResult: SoulAnalysisResult
+                    let updatedAt: String
+                    enum CodingKeys: String, CodingKey {
+                        case analysisResult = "analysis_result"
+                        case updatedAt = "updated_at"
+                    }
+                }
+                try await supabase
+                    .from("soul_analysis_records")
+                    .update(AnalysisUpdate(
+                        analysisResult: analysisResult,
+                        updatedAt: ISO8601DateFormatter().string(from: Date())
+                    ))
+                    .eq("id", value: id)
+                    .execute()
+                print("✅ [SoulArchiveManager] 更新已有记录: \(recordId)")
             } else {
                 // 插入新记录
                 let newRecord = SoulAnalysisDBRecord(

@@ -26,6 +26,7 @@ struct GeneratedPortraitView: View {
     @State private var glowTimer: Timer?
     @State private var textTimer: Timer?
     @State private var glowExpanding = true
+    @State private var gradientRotation: Double = 0
 
     // 保存状态
     enum SaveStatus { case idle, saved, failed }
@@ -138,7 +139,40 @@ struct GeneratedPortraitView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 30)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(
+                                AngularGradient(
+                                    gradient: Gradient(colors: [
+                                        Color(hex: "#E94560").opacity(0.8),
+                                        Color(hex: "#8B5CF6").opacity(0.6),
+                                        Color(hex: "#3B82F6").opacity(0.4),
+                                        Color(hex: "#E94560").opacity(0.1),
+                                        Color(hex: "#E94560").opacity(0.8)
+                                    ]),
+                                    center: .center,
+                                    startAngle: .degrees(gradientRotation),
+                                    endAngle: .degrees(gradientRotation + 360)
+                                ),
+                                lineWidth: 2
+                            )
+                    )
+                    .background(
+                        RoundedRectangle(cornerRadius: 30)
+                            .stroke(
+                                AngularGradient(
+                                    gradient: Gradient(colors: [
+                                        Color(hex: "#E94560").opacity(0.5),
+                                        Color(hex: "#8B5CF6").opacity(0.3),
+                                        Color(hex: "#3B82F6").opacity(0.2),
+                                        Color(hex: "#E94560").opacity(0.05),
+                                        Color(hex: "#E94560").opacity(0.5)
+                                    ]),
+                                    center: .center,
+                                    startAngle: .degrees(gradientRotation),
+                                    endAngle: .degrees(gradientRotation + 360)
+                                ),
+                                lineWidth: 4
+                            )
+                            .blur(radius: 8)
                     )
             }
 
@@ -324,6 +358,11 @@ struct GeneratedPortraitView: View {
                 loadingTextIndex = (loadingTextIndex + 1) % loadingTexts.count
             }
         }
+
+        // 渐变边框持续旋转
+        withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+            gradientRotation = 360
+        }
     }
 
     func stopLoadingAnimation() {
@@ -332,6 +371,7 @@ struct GeneratedPortraitView: View {
         textTimer?.invalidate()
         textTimer = nil
         glowScale = 1.0
+        gradientRotation = 0
     }
 
     func startRevealAnimation() {
@@ -443,6 +483,16 @@ struct GeneratedPortraitView: View {
                 )
 
                 await triggerReferrerRewardIfNeeded()
+
+                // 同步 AI 伴侣（确保灵犀使用最新人格设定）
+                if let analysis = soulmateManager.soulAnalysis {
+                    do {
+                        _ = try await AICompanionService.shared.createCompanion(from: analysis, userGender: gender)
+                        print("✅ [GeneratedPortraitView] AI 伴侣已同步更新")
+                    } catch {
+                        print("⚠️ [GeneratedPortraitView] AI 伴侣同步失败: \(error)")
+                    }
+                }
             } catch {
                 print("❌ [GeneratedPortraitView] 保存失败: \(error.localizedDescription)")
             }

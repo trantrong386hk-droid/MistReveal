@@ -36,7 +36,7 @@ class ImageGenerationService {
             return VisualPalette(
                 lighting: "暖调柔光，有温度的光晕",
                 environment: "温暖的场景氛围",
-                skinTone: "肌肤红润通透，散发健康光泽",
+                skinTone: "肌肤通透有光泽，散发健康温暖感",
                 clothing: "暖调厚实的面料，有温度感"
             )
         case "木":
@@ -50,14 +50,14 @@ class ImageGenerationService {
             return VisualPalette(
                 lighting: "清冽通透的光线",
                 environment: "干净利落的场景",
-                skinTone: "肌肤白皙通透，骨相分明",
+                skinTone: "肌肤干净通透，骨相分明，有健康光泽",
                 clothing: "利落剪裁，有结构感"
             )
         case "水":
             return VisualPalette(
                 lighting: "朦胧柔光，沉静光感",
                 environment: "安静深邃的场景",
-                skinTone: "肌肤细致，有清润光泽",
+                skinTone: "肌肤细致匀净，有清润健康光泽",
                 clothing: "柔软有垂感，线条流畅"
             )
         case "土":
@@ -88,15 +88,15 @@ class ImageGenerationService {
         switch sortedKey {
         case "木+火":
             return VisualPalette(
-                lighting: "暖阳穿透树冠的光束，空气中漂浮着细碎光粒",
-                environment: "温暖的森林场景，空气温润有野花芬芳",
-                skinTone: "肌肤被阳光亲吻，健康红润，散发自然活力",
+                lighting: "清晨暖阳的光束，空气中漂浮着细碎光粒",
+                environment: "温暖的户外场景，空气温润有野花芬芳",
+                skinTone: "肌肤被阳光亲吻，健康有光泽，散发自然活力",
                 clothing: "自然质感面料，带有手工编织的粗犷纹理，温暖而有生命力"
             )
         case "木+水":
             return VisualPalette(
-                lighting: "林间朦胧晨光，水珠折射出细碎光点",
-                environment: "雨后林间溪畔，晨雾笼罩，空气清凉湿润",
+                lighting: "朦胧的清晨光线，水珠折射出细碎光点",
+                environment: "雨后清新的溪畔，晨雾笼罩，空气清凉湿润",
                 skinTone: "肌肤清透水润，如雨后新荷般清新通透",
                 clothing: "具有流动感的深色系面料，呈现晨露润湿树皮般的细腻光泽，温润且有生长力"
             )
@@ -118,14 +118,14 @@ class ImageGenerationService {
             return VisualPalette(
                 lighting: "秋日暖光与冷冽空气交汇的光感",
                 environment: "秋日旷野，空气沉稳而高贵",
-                skinTone: "白皙中带暖调，骨相优雅分明",
+                skinTone: "干净匀净中带暖调，骨相优雅分明",
                 clothing: "高质感面料，沉稳中带着克制的贵气"
             )
         case "水+金":
             return VisualPalette(
-                lighting: "月光映照静水面的清冽光感",
-                environment: "清冽纯净的冷调场景，空气如水晶般通透",
-                skinTone: "肌肤白皙如瓷，有冷润光泽，骨相锋利分明",
+                lighting: "清冽通透的柔光，静谧的光感",
+                environment: "清冽纯净的通透场景，空气如水晶般干净",
+                skinTone: "肌肤干净如瓷，有清润光泽，骨相锋利分明",
                 clothing: "冷峻有质感的垂坠面料，线条利落如水"
             )
         case "水+火":
@@ -145,14 +145,14 @@ class ImageGenerationService {
         case "木+金":
             return VisualPalette(
                 lighting: "深秋清冽光线，通透的空气感",
-                environment: "秋林中肃穆与生机并存的场景",
-                skinTone: "白皙健康，自然红润，清爽有生机",
+                environment: "深秋中肃穆与生机并存的场景",
+                skinTone: "干净健康，自然有光泽，清爽有生机",
                 clothing: "自然与利落并存的质感面料，有结构但不生硬"
             )
         case "木+土":
             return VisualPalette(
                 lighting: "田园午后的暖光，空气中有花粉与泥土微粒",
-                environment: "山间茶园或院落浓荫，泥土芬芳弥漫",
+                environment: "山间院落，泥土芬芳弥漫，午后安定的空气",
                 skinTone: "阳光亲吻过的自然暖色调肌肤，厚实质感",
                 clothing: "天然面料，质朴而接地气，有手作感"
             )
@@ -214,12 +214,26 @@ class ImageGenerationService {
     /// 喜用神 → 救赎光影关键词（后处理阶段追加到 prompt 末尾）
     func redemptionLighting(_ xiYongShen: String) -> String {
         switch xiYongShen {
-        case "火": return "，sunset golden hour, warm glow"
-        case "水": return "，soft misty moonlight, cool ethereal light"
-        case "木": return "，dappled forest light, fresh morning glow"
-        case "金": return "，crisp autumn light, silver-edged clarity"
-        case "土": return "，amber afternoon light, earthy warmth"
+        case "火": return "，warm golden hour light, soft radiant glow"
+        case "水": return "，soft diffused light, calm serene atmosphere"
+        case "木": return "，fresh natural light, gentle morning glow"
+        case "金": return "，crisp clear light, clean refined atmosphere"
+        case "土": return "，warm amber light, grounded steady atmosphere"
         default: return ""
+        }
+    }
+
+    // MARK: - 五行服饰风格（英文，直接影响图像模型）
+
+    /// 喜用神 → 英文服饰风格关键词（替代旧的统一 "high-end fashion editorial style"）
+    func elementClothingStyle(_ element: String) -> String {
+        switch element {
+        case "火": return ", warm rich amber tones, cozy thick knit and wool fabrics, vintage warmth"
+        case "木": return ", natural earthy organic tones, relaxed linen and cotton textures, outdoor fresh"
+        case "金": return ", cool minimal monochrome palette, sharp tailored clean lines, structured"
+        case "水": return ", deep moody blue-grey tones, soft flowing draped fabrics, fluid elegance"
+        case "土": return ", earthy warm terracotta tones, substantial heavy textured fabrics, grounded"
+        default: return ", cinematic texture, natural color palette"
         }
     }
 
@@ -284,10 +298,19 @@ class ImageGenerationService {
             print("🔵 [ImageGen] 救赎光影: \(bazi.xiYongShen)")
         }
 
-        // === 摄影后缀 + 审美去廉价化 ===
-        let soulSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调，自然深棕色瞳孔，high-end fashion editorial style, cinematic texture, avoid high-saturation colors, subtle and sophisticated color palette"
+        // === 五行服饰风格后缀（英文，直接影响图像模型） ===
+        let clothingStyleSuffix: String
+        if let element = baziInfo?.xiYongShen {
+            clothingStyleSuffix = elementClothingStyle(element)
+            print("🔵 [ImageGen] 五行服饰风格: \(element) → \(clothingStyleSuffix)")
+        } else {
+            clothingStyleSuffix = ", cinematic texture, natural color palette"
+        }
 
-        let finalPrompt = prompt + soulSuffix
+        // === 通用摄影后缀（不含服饰风格词） ===
+        let photoSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调，自然深棕色瞳孔，natural black hair or dark brown hair, hair color must be natural East Asian hair color, person in sharp focus with blurred background separation, healthy warm glowing skin tone"
+
+        let finalPrompt = prompt + clothingStyleSuffix + photoSuffix
 
         return finalPrompt
     }
@@ -453,6 +476,7 @@ class ImageGenerationService {
         let submitBody: [String: Any] = [
             "req_key": reqKey,
             "prompt": finalPrompt,
+            "negative_prompt": "green hair, blue hair, purple hair, silver hair, gray hair, pink hair, unnatural hair color, green tint on hair, blue tint on hair, colored hair, dyed hair, anime hair, green skin, blue skin, pale ashen skin",
             "return_url": true
         ]
         let submitData = try JSONSerialization.data(withJSONObject: submitBody, options: [])

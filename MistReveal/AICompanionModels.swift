@@ -67,12 +67,16 @@ struct PersonaSettings: Codable, Equatable {
     /// 缘分类型
     var destinyType: String?
 
+    /// 伴侣性别（可选，兼容旧数据）
+    var soulmateGender: String?
+
     enum CodingKeys: String, CodingKey {
         case element
         case personalityKeywords = "personality_keywords"
         case speakingStyle = "speaking_style"
         case traits
         case destinyType = "destiny_type"
+        case soulmateGender = "soulmate_gender"
     }
 
     /// 默认设定

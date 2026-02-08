@@ -69,7 +69,8 @@ class SoulmateAIChatService: ObservableObject {
             mateAnalysis: companion?.personaSettings,
             elementBalance: companion?.elementBalance ?? .default,
             intimacyLevel: companion?.intimacyLevel ?? 0,
-            userManual: companion?.userManual
+            userManual: companion?.userManual,
+            userGender: record.gender
         )
 
         let welcomeInstruction = """
@@ -159,7 +160,8 @@ class SoulmateAIChatService: ObservableObject {
             mateAnalysis: companion?.personaSettings,
             elementBalance: companion?.elementBalance ?? .default,
             intimacyLevel: companion?.intimacyLevel ?? 0,
-            userManual: companion?.userManual
+            userManual: companion?.userManual,
+            userGender: record?.gender
         )
 
         // 构建聊天历史（取最近 20 条消息作为上下文）
