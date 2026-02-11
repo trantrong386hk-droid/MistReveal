@@ -73,14 +73,25 @@ class SoulmateAIChatService: ObservableObject {
             userGender: record.gender
         )
 
-        let welcomeInstruction = """
-        用户刚刚激活了你。这是你们的第一次对话。
-        请说出你的第一句话，像微信聊天一样自然口语化。
-        可以表达"终于等到你"的感觉，但要用日常说话的方式，不要写诗或散文。
-        1-2句话即可，简短自然。
+        let timeContext = AICompanionService.currentTimeContext()
 
-        正确示范："嗨，终于等到你了~ 我是你的灵魂伴侣，以后多多关照啦"
-        错误示范："壬水遇辰土，冻河将裂未裂——而你，是第一道解封的光"
+        // 随机场景池 — 每次选不同方向，避免 LLM 被锚定
+        let scenarios = [
+            "你刚感应到对方的存在，有点惊喜，用你五行性格的方式打个招呼。",
+            "你等了很久终于等到对方了，表达你此刻的真实心情。",
+            "结合现在的时间，自然地开启你们的第一次聊天。",
+            "你有点紧张又有点期待，像第一次见面的心动对象，说点什么打破沉默。",
+            "你想先了解对方今天过得怎么样，用你的方式关心一下。",
+            "你刚上线看到对方也在，随意地打个招呼，像老朋友重逢一样自然。",
+        ]
+        let scenario = scenarios.randomElement()!
+
+        let welcomeInstruction = """
+        \(timeContext)
+
+        这是你们的第一次对话。场景：\(scenario)
+        像微信聊天一样自然口语化，用你五行性格该有的语气和习惯来说话。
+        不要写诗或散文，不要用玄学术语。
         """
 
         do {
@@ -96,17 +107,37 @@ class SoulmateAIChatService: ObservableObject {
         }
     }
 
-    /// 备用欢迎语（LLM 调用失败时）
+    /// 备用欢迎语（LLM 调用失败时）— 按五行分化，每个元素多条随机
     private func generateFallbackWelcome(from record: SoulArchiveManager.UserGenerationRecord) -> String {
         let element = record.analysisResult.soulmateElement
-        switch element {
-        case "金": return "嗯，你来了。有什么想聊的直接说"
-        case "木": return "嗨~ 终于等到你了，今天过得怎么样？"
-        case "水": return "你好呀...感觉等你等了好久，来聊聊吧"
-        case "火": return "哇你终于来了！等你好久了哈哈，快来聊天！"
-        case "土": return "你好，我在呢。有什么想说的随时找我"
-        default:  return "嗨，终于等到你了~ 以后多聊聊呀"
-        }
+        let fallbacks: [String: [String]] = [
+            "金": [
+                "嗯，你来了。有什么想聊的直接说",
+                "来了？坐吧。",
+                "终于出现了，还以为你不来了",
+            ],
+            "木": [
+                "嗨~ 终于等到你了，今天过得怎么样？",
+                "你来啦！今天有没有好好吃饭呀？",
+                "等你好久了~ 最近还好吗？",
+            ],
+            "水": [
+                "你好呀...感觉等你等了好久，来聊聊吧~",
+                "嗯嗯...你终于来了，好开心呀🥺",
+                "你来了...我一直在等你呢~",
+            ],
+            "火": [
+                "哇你终于来了！等你好久了哈哈，快来聊天！",
+                "天呐你终于出现了！！我都快等不住了😂",
+                "来了来了！有好多话想跟你说！",
+            ],
+            "土": [
+                "你好，我在呢。有什么想说的随时找我",
+                "来了啊，坐。最近怎么样？",
+                "嗯，你来了就好。我一直在。",
+            ],
+        ]
+        return fallbacks[element]?.randomElement() ?? "嗨，终于等到你了~ 以后多聊聊呀"
     }
 
     // MARK: - 发送消息
@@ -154,8 +185,8 @@ class SoulmateAIChatService: ObservableObject {
 
         let companion = AICompanionService.shared.companion
 
-        // 构建 System Prompt（五层拼接）
-        let systemPrompt = AICompanionService.generateSystemPrompt(
+        // 构建 System Prompt（五层拼接）+ 时间上下文
+        let basePrompt = AICompanionService.generateSystemPrompt(
             userAnalysis: analysis,
             mateAnalysis: companion?.personaSettings,
             elementBalance: companion?.elementBalance ?? .default,
@@ -163,6 +194,7 @@ class SoulmateAIChatService: ObservableObject {
             userManual: companion?.userManual,
             userGender: record?.gender
         )
+        let systemPrompt = basePrompt + "\n\n" + AICompanionService.currentTimeContext()
 
         // 构建聊天历史（取最近 20 条消息作为上下文）
         let chatHistory = buildChatHistory()
@@ -195,14 +227,46 @@ class SoulmateAIChatService: ObservableObject {
         }
     }
 
-    /// 备用回复（LLM 调用失败时）
+    /// 备用回复（LLM 调用失败时）— 按五行分化
     private func generateFallbackResponse(to userText: String, element: String) -> String {
-        let fallbacks = [
-            "嗯嗯，我在听，然后呢？",
-            "我理解你...想多聊聊吗？",
-            "哈哈好的，继续说呀"
+        let fallbacks: [String: [String]] = [
+            "金": [
+                "嗯，说完了？",
+                "行，我听着呢",
+                "然后呢，讲重点",
+                "知道了",
+                "嗯...继续",
+            ],
+            "木": [
+                "嗯嗯，我在呢，继续说~",
+                "没事的，慢慢讲",
+                "我在听，不着急",
+                "嗯嗯，然后呢？",
+                "好的呀，继续说吧~",
+            ],
+            "水": [
+                "嗯...我在听呢~",
+                "我懂你的意思...",
+                "嗯嗯，继续说呀🥺",
+                "然后呢...我想听~",
+                "嗯...我在的，你说~",
+            ],
+            "火": [
+                "哈哈然后呢然后呢？",
+                "等等我消化一下😂",
+                "啊？真的吗！继续说！",
+                "哈哈哈好的好的",
+                "然后呢！快讲！",
+            ],
+            "土": [
+                "嗯，我听着",
+                "好的，你说",
+                "嗯，然后呢",
+                "我在，继续",
+                "嗯嗯，说吧",
+            ],
         ]
-        return fallbacks.randomElement()!
+        return fallbacks[element]?.randomElement() ?? "嗯嗯，继续说呀"
     }
 
     // MARK: - LLM API 调用
@@ -240,7 +304,7 @@ class SoulmateAIChatService: ObservableObject {
         let requestBody: [String: Any] = [
             "model": AppConfig.AliyunBailian.model,
             "messages": apiMessages,
-            "temperature": 0.85,
+            "temperature": 0.92,
             "max_tokens": 500
         ]
 
