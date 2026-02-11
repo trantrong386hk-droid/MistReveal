@@ -192,6 +192,9 @@ struct SoulAnalysisResult: Codable, Equatable {
     // 八字精准命理（本地计算，不由 AI 返回）
     var baziInfo: BaZiInfo?
 
+    // 提示词版本（用于缓存失效）
+    var promptVersion: String?
+
     // 用户分析
     let personalityDescription: String    // 核心性格描述
     let personalityTraits: [String]       // 性格特质标签
@@ -219,6 +222,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         userElement: String,
         soulmateElement: String,
         baziInfo: BaZiInfo? = nil,
+        promptVersion: String? = nil,
         personalityDescription: String,
         personalityTraits: [String],
         relationshipBehaviors: [String],
@@ -235,6 +239,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         self.userElement = userElement
         self.soulmateElement = soulmateElement
         self.baziInfo = baziInfo
+        self.promptVersion = promptVersion
         self.personalityDescription = personalityDescription
         self.personalityTraits = personalityTraits
         self.relationshipBehaviors = relationshipBehaviors
@@ -253,6 +258,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         case userElement = "user_element"
         case soulmateElement = "soulmate_element"
         case baziInfo = "bazi_info"
+        case promptVersion = "prompt_version"
         case personalityDescription = "personality_description"
         case personalityTraits = "personality_traits"
         case relationshipBehaviors = "relationship_behaviors"

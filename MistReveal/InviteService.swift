@@ -33,15 +33,6 @@ class InviteService: ObservableObject {
         }
     }
 
-    // MARK: - Supabase 客户端
-
-    private var supabase: SupabaseClient {
-        SupabaseClient(
-            supabaseURL: URL(string: "https://zbsqbarlzzqhhdcroxsp.supabase.co")!,
-            supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpic3FiYXJsenpxaGhkY3JveHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNDkxMjAsImV4cCI6MjA4MjkyNTEyMH0.7NbknaHqgs-6W0xOCgb5rtGHBRcSy51dKOSSt5SboSc"
-        )
-    }
-
     // MARK: - 初始化
 
     private init() {}

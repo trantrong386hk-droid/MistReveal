@@ -79,11 +79,11 @@ class SoulmateManager: ObservableObject {
         progressText = "连山易推演中..."
 
         do {
-            // 第一步：调用阿里云百炼，获取分析文字和生图提示词
-            print("🔮 [SoulmateManager] 第一步：调用文本生成服务...")
+            // 第一步：调用阿里云百炼，获取灵魂分析与生图提示词（新版）
+            print("🔮 [SoulmateManager] 第一步：调用灵魂分析服务...")
             progressText = "推算艮卦山势..."
 
-            let soulmateData = try await TextGenerationService.shared.fetchSoulmateData(
+            let soulAnalysis = try await TextGenerationService.shared.fetchSoulAnalysis(
                 birthDate: birthDate,
                 gender: gender,
                 birthTime: birthTime,
@@ -91,9 +91,9 @@ class SoulmateManager: ObservableObject {
             )
 
             print("🔮 [SoulmateManager] 文本生成完成")
-            print("   - 卦象: \(soulmateData.hexagram)")
-            print("   - 分析文字: \(soulmateData.analysis.prefix(50))...")
-            print("   - 生图提示词: \(soulmateData.imagePrompt.prefix(50))...")
+            print("   - 卦象: \(soulAnalysis.hexagram)")
+            print("   - 分析文字: \(soulAnalysis.soulmateAnalysis.prefix(50))...")
+            print("   - 生图提示词: \(soulAnalysis.imagePrompt.prefix(50))...")
 
             // 第二步：调用火山引擎即梦，生成图片
             print("🔮 [SoulmateManager] 第二步：调用图片生成服务...")
@@ -101,17 +101,17 @@ class SoulmateManager: ObservableObject {
             progressText = "凝聚灵力，化形中..."
 
             let imageData = try await ImageGenerationService.shared.generateImage(
-                prompt: soulmateData.imagePrompt,
-                baziInfo: soulmateData.baziInfo  // 传入八字信息用于五行互补计算
+                prompt: soulAnalysis.imagePrompt,
+                baziInfo: soulAnalysis.baziInfo  // 传入八字信息用于五行互补计算
             )
 
             print("🔮 [SoulmateManager] 图片生成完成，大小: \(imageData.count) bytes")
 
             // 组合结果
             let finalResult = SoulmateResult(
-                hexagram: soulmateData.hexagram,
-                analysis: soulmateData.analysis,
-                imagePrompt: soulmateData.imagePrompt,
+                hexagram: soulAnalysis.hexagram,
+                analysis: soulAnalysis.soulmateAnalysis,
+                imagePrompt: soulAnalysis.imagePrompt,
                 imageData: imageData,
                 birthDate: birthDate
             )

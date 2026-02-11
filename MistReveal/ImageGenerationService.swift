@@ -41,8 +41,8 @@ class ImageGenerationService {
             )
         case "木":
             return VisualPalette(
-                lighting: "自然光影，清新的空气感",
-                environment: "有生命力的自然场景",
+                lighting: "中性暖光，清爽通透的光感",
+                environment: "室内或城市质感场景，背景干净克制",
                 skinTone: "肌肤自然健康，透着活力光泽",
                 clothing: "自然质朴的面料，有肌理感"
             )
@@ -216,7 +216,7 @@ class ImageGenerationService {
         switch xiYongShen {
         case "火": return "，warm golden hour light, soft radiant glow"
         case "水": return "，soft diffused light, calm serene atmosphere"
-        case "木": return "，fresh natural light, gentle morning glow"
+        case "木": return "，soft neutral warm light, clean airy atmosphere"
         case "金": return "，crisp clear light, clean refined atmosphere"
         case "土": return "，warm amber light, grounded steady atmosphere"
         default: return ""
@@ -229,7 +229,7 @@ class ImageGenerationService {
     func elementClothingStyle(_ element: String) -> String {
         switch element {
         case "火": return ", warm rich amber tones, cozy thick knit and wool fabrics, vintage warmth"
-        case "木": return ", natural earthy organic tones, relaxed linen and cotton textures, outdoor fresh"
+        case "木": return ", natural earthy organic tones, relaxed linen and cotton textures, clean indoor or urban backdrop"
         case "金": return ", cool minimal monochrome palette, sharp tailored clean lines, structured"
         case "水": return ", deep moody blue-grey tones, soft flowing draped fabrics, fluid elegance"
         case "土": return ", earthy warm terracotta tones, substantial heavy textured fabrics, grounded"
@@ -282,6 +282,12 @@ class ImageGenerationService {
         prompt = prompt.replacingOccurrences(of: ",,", with: ",")
         prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // === 注入辨识度特征（稳定但多样化） ===
+        let distinctFeatures = pickDistinctFeatures(seed: rawPrompt)
+        if !distinctFeatures.isEmpty {
+            prompt += "，\(distinctFeatures)"
+        }
+
         // === 温度泄漏监控（如果上游三轴分离正确，此处不应触发） ===
         if let bazi = baziInfo, (bazi.xiYongShen == "木" || bazi.xiYongShen == "火") {
             let coldIndicators = ["清冷", "冷峻", "银灰", "冰冷", "银白"]
@@ -308,11 +314,49 @@ class ImageGenerationService {
         }
 
         // === 通用摄影后缀（不含服饰风格词） ===
-        let photoSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调，自然深棕色瞳孔，natural black hair or dark brown hair, hair color must be natural East Asian hair color, person in sharp focus with blurred background separation, healthy warm glowing skin tone"
+        let photoSuffix = "，真实质感人像，浅景深虚化，皮肤纹理自然，色调真实克制，自然深棕色瞳孔，natural black hair or dark brown hair, hair color must be natural East Asian hair color, person in sharp focus with blurred background separation, healthy warm skin tone"
 
         let finalPrompt = prompt + clothingStyleSuffix + photoSuffix
 
         return finalPrompt
+    }
+
+    // MARK: - 去同质化：稳定特征注入
+
+    /// 基于 prompt 的稳定特征选择，避免每次都同一张脸
+    private func pickDistinctFeatures(seed: String) -> String {
+        let faceShapes = ["脸型偏长", "鹅蛋脸偏窄", "方中带圆的脸型", "颧骨略高的脸型", "下颌线清晰的脸型"]
+        let brows = ["眉形自然平直", "眉峰略有起伏", "眉形偏浓但整洁", "眉尾稍长", "眉距略窄"]
+        let eyes = ["眼型偏狭长", "眼尾微上扬", "眼皮较薄", "眼睑层次清晰", "眼神沉稳而直视"]
+        let nose = ["鼻梁挺直但不夸张", "鼻梁偏直略长", "鼻翼收敛", "鼻头圆润", "鼻梁与眉骨过渡自然"]
+        let jaw = ["下颌线干净", "下巴偏窄", "下巴略圆", "下颌转折利落", "下颌角不外扩"]
+        let contour = ["颧骨线条清晰但不过分突出", "面部轮廓柔和但有棱角", "面部轮廓立体但克制", "面部线条干净利落", "轮廓对比适中"]
+        let skinDetail = ["皮肤质地细腻但有真实纹理", "肤质干净清透，毛孔细微可见", "皮肤有自然光泽，不油不干", "肤质均匀，细纹轻微可见", "皮肤质感真实，光泽柔和"]
+        let pose = [
+            "平视镜头", "微低机位视角", "轻微侧脸转回", "肩部稍前倾", "姿态克制放松",
+            "轻微抬下巴", "身体微侧但眼神回望", "头部轻微侧倾", "上半身微向前", "坐姿放松"
+        ]
+
+        let picks = stablePick(from: [
+            faceShapes, brows, eyes, nose, jaw, contour, skinDetail, pose
+        ], seed: seed)
+
+        return picks.joined(separator: "，")
+    }
+
+    /// 稳定选择：对 seed 做 hash，从每个列表取一个
+    private func stablePick(from groups: [[String]], seed: String) -> [String] {
+        guard let data = seed.data(using: .utf8) else { return [] }
+        let digest = SHA256.hash(data: data)
+        let bytes = Array(digest)
+        var result: [String] = []
+        for (index, group) in groups.enumerated() {
+            if group.isEmpty { continue }
+            let byte = bytes[index % bytes.count]
+            let pickIndex = Int(byte) % group.count
+            result.append(group[pickIndex])
+        }
+        return result
     }
 
     // MARK: - 提示词后处理（旧版完整版，保留参考）

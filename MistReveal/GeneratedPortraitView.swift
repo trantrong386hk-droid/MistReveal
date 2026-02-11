@@ -524,10 +524,6 @@ struct GeneratedPortraitView: View {
 
     private func getCurrentUserId() async -> String? {
         do {
-            let supabase = SupabaseClient(
-                supabaseURL: URL(string: "https://zbsqbarlzzqhhdcroxsp.supabase.co")!,
-                supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpic3FiYXJsenpxaGhkY3JveHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNDkxMjAsImV4cCI6MjA4MjkyNTEyMH0.7NbknaHqgs-6W0xOCgb5rtGHBRcSy51dKOSSt5SboSc"
-            )
             let session = try await supabase.auth.session
             return session.user.id.uuidString
         } catch {

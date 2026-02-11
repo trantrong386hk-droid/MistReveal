@@ -20,11 +20,10 @@ struct SoulmateChatMessage: Identifiable, Equatable {
 
 // MARK: - 灵犀聊天主视图
 struct SoulmateAIChatView: View {
-    @StateObject private var chatService = SoulmateAIChatService()
+    @ObservedObject private var chatService = SoulmateAIChatService.shared
     @ObservedObject private var archiveManager = SoulArchiveManager.shared
 
     @State private var inputText = ""
-    @State private var hasTriggeredWelcome = false
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
 
@@ -53,19 +52,10 @@ struct SoulmateAIChatView: View {
                 // 加载历史聊天记录
                 await chatService.loadChatHistory()
 
-                // 只有历史为空时才发送欢迎语
-                if chatService.messages.isEmpty, let record = archiveManager.myRecord, !hasTriggeredWelcome {
-                    hasTriggeredWelcome = true
+                // 只有历史为空且未触发过欢迎语时才发送
+                if chatService.messages.isEmpty, let record = archiveManager.myRecord, !chatService.hasTriggeredWelcome {
+                    chatService.hasTriggeredWelcome = true
                     await chatService.sendWelcomeMessage(record: record)
-                }
-            }
-        }
-        .onChange(of: archiveManager.myRecord) { _, newRecord in
-            // 当 myRecord 从 nil 变为有值时触发
-            if newRecord != nil && !hasTriggeredWelcome {
-                hasTriggeredWelcome = true
-                Task {
-                    await chatService.sendWelcomeMessage(record: newRecord!)
                 }
             }
         }

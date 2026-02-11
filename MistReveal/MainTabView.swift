@@ -1647,11 +1647,6 @@ struct ProfileView: View {
             let fileName = "\(userId)/avatar_\(Int(Date().timeIntervalSince1970)).jpg"
 
             // 4. 上传到 Supabase Storage
-            let supabase = SupabaseClient(
-                supabaseURL: URL(string: AppConfig.Supabase.url)!,
-                supabaseKey: AppConfig.Supabase.anonKey
-            )
-
             try await supabase.storage
                 .from("avatars")
                 .upload(
@@ -1689,11 +1684,6 @@ struct ProfileView: View {
     // 加载当前头像
     private func loadCurrentAvatar() async {
         guard let userId = authManager.currentUser?.id.uuidString else { return }
-
-        let supabase = SupabaseClient(
-            supabaseURL: URL(string: AppConfig.Supabase.url)!,
-            supabaseKey: AppConfig.Supabase.anonKey
-        )
 
         do {
             let response: [AvatarResponse] = try await supabase

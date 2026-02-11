@@ -11,13 +11,6 @@ class SecretsManager: ObservableObject {
     private var cachedSecrets: [String: String] = [:]
     private var isFetched = false
 
-    private var supabase: SupabaseClient {
-        SupabaseClient(
-            supabaseURL: URL(string: AppConfig.Supabase.url)!,
-            supabaseKey: AppConfig.Supabase.anonKey
-        )
-    }
-
     private init() {}
 
     // MARK: - 密钥访问

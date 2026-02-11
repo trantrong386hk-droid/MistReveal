@@ -4,8 +4,13 @@ import SwiftUI
 /// 灵犀 AI 聊天服务 — 接入 LLM API 实现真正的对话
 @MainActor
 class SoulmateAIChatService: ObservableObject {
+    static let shared = SoulmateAIChatService()
+
     @Published var messages: [SoulmateChatMessage] = []
     @Published var isTyping = false
+
+    /// 是否已触发过欢迎语（生命周期内只触发一次）
+    var hasTriggeredWelcome = false
 
     // 共鸣记录：记录用户觉得"说得准"的对话风格关键词
     private var resonanceStyles: [String] = []
@@ -357,6 +362,12 @@ class SoulmateAIChatService: ObservableObject {
 
     /// 从数据库加载历史聊天记录
     func loadChatHistory() async {
+        // 内存中已有消息则跳过（避免覆盖正在进行的对话）
+        guard messages.isEmpty else {
+            print("🔮 [灵犀] 内存中已有 \(messages.count) 条消息，跳过加载")
+            return
+        }
+
         let records = await AICompanionService.shared.fetchRecentChats(limit: 50)
 
         guard !records.isEmpty else {

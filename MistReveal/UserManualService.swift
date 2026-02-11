@@ -330,11 +330,6 @@ class UserManualService {
 
     /// 保存用户手册到数据库
     func saveUserManual(_ manual: UserManual, companionId: UUID) async throws {
-        let supabase = SupabaseClient(
-            supabaseURL: URL(string: AppConfig.Supabase.url)!,
-            supabaseKey: AppConfig.Supabase.anonKey
-        )
-
         let updatePayload = UserManualUpdate(
             user_manual: manual,
             last_manual_update: ISO8601DateFormatter().string(from: Date()),

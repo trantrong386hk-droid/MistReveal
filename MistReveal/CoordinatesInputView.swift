@@ -413,7 +413,18 @@ struct CoordinatesInputView: View {
                     print("🔵 [CoordinatesInputView] 补充八字信息: targetAge=\(recalculated?.targetAge ?? -1)")
                 }
 
-                // ★ 校验：缓存的伴侣五行 vs 系统计算的喜用神
+                // ★ 校验：缓存版本/伴侣五行 vs 系统计算的喜用神
+                let cachedPromptVersion = resultWithBaZi.promptVersion ?? "unknown"
+                if cachedPromptVersion != TextGenerationService.soulAnalysisPromptVersion {
+                    print("⚠️ [Cache] 缓存提示词版本「\(cachedPromptVersion)」≠ 当前版本「\(TextGenerationService.soulAnalysisPromptVersion)」→ 强制重新生成")
+                    await soulmateManager.startSoulAnalysis(
+                        birthDate: birthDateString,
+                        gender: gender,
+                        birthTime: currentBirthTime,
+                        location: currentLocation
+                    )
+                    return
+                }
                 if let bazi = recalculated, resultWithBaZi.soulmateElement != bazi.xiYongShen {
                     print("⚠️ [Cache] 缓存伴侣五行「\(resultWithBaZi.soulmateElement)」≠ 喜用神「\(bazi.xiYongShen)」→ 强制重新生成")
                     await soulmateManager.startSoulAnalysis(

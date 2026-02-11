@@ -52,6 +52,7 @@
 		AA000033 /* UserManualService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033 /* UserManualService.swift */; };
 		AA000034 /* MatchNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034 /* MatchNotificationService.swift */; };
 		AA000035 /* ChinaCityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035 /* ChinaCityData.swift */; };
+		AA000036 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000036 /* SupabaseManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -169,6 +170,7 @@
 		AB000033 /* UserManualService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManualService.swift; sourceTree = "<group>"; };
 		AB000034 /* MatchNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchNotificationService.swift; sourceTree = "<group>"; };
 		AB000035 /* ChinaCityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChinaCityData.swift; sourceTree = "<group>"; };
+		AB000036 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -315,6 +317,7 @@
 				AB000005 /* ReportView.swift */,
 				AB000006 /* MistRevealView.swift */,
 				AB000007 /* GeneratedPortraitView.swift */,
+				AB000036 /* SupabaseManager.swift */,
 				AB00000B /* SupabaseTestView.swift */,
 				AB00000C /* AuthManager.swift */,
 				AB00000D /* AuthView.swift */,
@@ -478,6 +481,7 @@
 				AA000033 /* UserManualService.swift in Sources */,
 				AA000034 /* MatchNotificationService.swift in Sources */,
 				AA000035 /* ChinaCityData.swift in Sources */,
+				AA000036 /* SupabaseManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
