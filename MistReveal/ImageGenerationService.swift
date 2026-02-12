@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Supabase
 
 /// 图片生成服务 - 使用火山引擎即梦 4.0 异步 API
 class ImageGenerationService {
@@ -237,7 +238,38 @@ class ImageGenerationService {
         }
     }
 
-    // MARK: - 后处理：年龄校准 + 清理 + 救赎光影 + 摄影后缀
+    // MARK: - Edge Function 后处理（服务端）
+
+    /// 通过 Supabase Edge Function 执行提示词后处理
+    /// 服务端逻辑与本地 appendPaletteAndPhoto() 一致，但可热更新
+    private func enhancePromptViaEdgeFunction(rawPrompt: String, baziInfo: BaZiInfo?) async throws -> String {
+        struct RequestBody: Encodable {
+            let rawPrompt: String
+            let targetAge: Int?
+            let xiYongShen: String
+        }
+        struct ResponseBody: Decodable {
+            let finalPrompt: String
+        }
+
+        let body = RequestBody(
+            rawPrompt: rawPrompt,
+            targetAge: baziInfo?.targetAge,
+            xiYongShen: baziInfo?.xiYongShen ?? ""
+        )
+
+        let response: ResponseBody = try await supabase.functions.invoke(
+            "enhance-image-prompt",
+            options: FunctionInvokeOptions(
+                method: .post,
+                body: body
+            )
+        )
+
+        return response.finalPrompt
+    }
+
+    // MARK: - 后处理：年龄校准 + 清理 + 救赎光影 + 摄影后缀（本地 fallback）
 
     /// 后处理：年龄校准 + 清理冗余词 + 救赎光影 + 摄影后缀
     /// 十神人设和夫妻星骨相由 LLM 在原始 prompt 中融入，此处不重复追加
@@ -511,8 +543,15 @@ class ImageGenerationService {
             print("🔵 [ImageGen] 无八字信息，使用中性色调")
         }
 
-        // 后处理：年龄校准 + 清理 + 救赎光影 + 摄影后缀
-        let finalPrompt = appendPaletteAndPhoto(prompt, baziInfo: baziInfo)
+        // 后处理：优先走 Edge Function，失败时降级到本地逻辑
+        let finalPrompt: String
+        do {
+            finalPrompt = try await enhancePromptViaEdgeFunction(rawPrompt: prompt, baziInfo: baziInfo)
+            print("🔵 [ImageGen] ✅ Edge Function 后处理成功")
+        } catch {
+            print("⚠️ [ImageGen] Edge Function 失败，降级到本地: \(error)")
+            finalPrompt = appendPaletteAndPhoto(prompt, baziInfo: baziInfo)
+        }
         print("🔵 [ImageGen] LLM 原始 Prompt: \(prompt)")
         print("🔵 [ImageGen] 最终 Prompt: \(finalPrompt)")
 
