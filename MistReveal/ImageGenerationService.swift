@@ -215,26 +215,26 @@ class ImageGenerationService {
     /// 喜用神 → 救赎光影关键词（后处理阶段追加到 prompt 末尾）
     func redemptionLighting(_ xiYongShen: String) -> String {
         switch xiYongShen {
-        case "火": return "，warm golden hour light, soft radiant glow"
-        case "水": return "，soft diffused light, calm serene atmosphere"
-        case "木": return "，soft neutral warm light, clean airy atmosphere"
-        case "金": return "，crisp clear light, clean refined atmosphere"
-        case "土": return "，warm amber light, grounded steady atmosphere"
+        case "火": return "，温暖的黄金时刻光线，柔和的辐射光晕"
+        case "水": return "，柔和的漫射光线，沉静安宁的氛围"
+        case "木": return "，柔和的中性暖光，清爽通透的氛围"
+        case "金": return "，清冽通透的光线，干净精致的氛围"
+        case "土": return "，温暖的琥珀色光线，沉稳踏实的氛围"
         default: return ""
         }
     }
 
-    // MARK: - 五行服饰风格（英文，直接影响图像模型）
+    // MARK: - 五行服饰风格
 
-    /// 喜用神 → 英文服饰风格关键词（替代旧的统一 "high-end fashion editorial style"）
+    /// 喜用神 → 中文服饰风格关键词
     func elementClothingStyle(_ element: String) -> String {
         switch element {
-        case "火": return ", warm rich amber tones, cozy thick knit and wool fabrics, vintage warmth"
-        case "木": return ", natural earthy organic tones, relaxed linen and cotton textures, clean indoor or urban backdrop"
-        case "金": return ", cool minimal monochrome palette, sharp tailored clean lines, structured"
-        case "水": return ", deep moody blue-grey tones, soft flowing draped fabrics, fluid elegance"
-        case "土": return ", earthy warm terracotta tones, substantial heavy textured fabrics, grounded"
-        default: return ", cinematic texture, natural color palette"
+        case "火": return "，暖调浓郁的琥珀色调，温暖厚实的针织羊毛面料，复古温暖感"
+        case "木": return "，自然质朴的大地色调，轻松的亚麻棉质面料，干净的室内或城市背景"
+        case "金": return "，清冷极简的黑白灰色调，利落剪裁的干净线条，结构感"
+        case "水": return "，深沉的蓝灰色调，柔软垂坠的面料，流畅优雅"
+        case "土": return "，温暖的陶土色调，厚实有分量的纹理面料，沉稳踏实"
+        default: return "，有质感的自然色调"
         }
     }
 
@@ -258,10 +258,13 @@ class ImageGenerationService {
             xiYongShen: baziInfo?.xiYongShen ?? ""
         )
 
+        let session = try await supabase.auth.session
+
         let response: ResponseBody = try await supabase.functions.invoke(
             "enhance-image-prompt",
             options: FunctionInvokeOptions(
                 method: .post,
+                headers: ["Authorization": "Bearer \(session.accessToken)"],
                 body: body
             )
         )
@@ -342,11 +345,11 @@ class ImageGenerationService {
             clothingStyleSuffix = elementClothingStyle(element)
             print("🔵 [ImageGen] 五行服饰风格: \(element) → \(clothingStyleSuffix)")
         } else {
-            clothingStyleSuffix = ", cinematic texture, natural color palette"
+            clothingStyleSuffix = "，有质感的自然色调"
         }
 
         // === 通用摄影后缀（不含服饰风格词） ===
-        let photoSuffix = "，真实质感人像，浅景深虚化，皮肤纹理自然，色调真实克制，自然深棕色瞳孔，natural black hair or dark brown hair, hair color must be natural East Asian hair color, person in sharp focus with blurred background separation, healthy warm skin tone"
+        let photoSuffix = "，自然光人像，浅景深虚化，色调真实克制，自然深棕色瞳孔，自然黑色或深棕色头发，发色必须是东亚人自然发色，人物清晰对焦背景虚化分离，健康温暖的肤色"
 
         let finalPrompt = prompt + clothingStyleSuffix + photoSuffix
 
@@ -363,7 +366,7 @@ class ImageGenerationService {
         let nose = ["鼻梁挺直但不夸张", "鼻梁偏直略长", "鼻翼收敛", "鼻头圆润", "鼻梁与眉骨过渡自然"]
         let jaw = ["下颌线干净", "下巴偏窄", "下巴略圆", "下颌转折利落", "下颌角不外扩"]
         let contour = ["颧骨线条清晰但不过分突出", "面部轮廓柔和但有棱角", "面部轮廓立体但克制", "面部线条干净利落", "轮廓对比适中"]
-        let skinDetail = ["皮肤质地细腻但有真实纹理", "肤质干净清透，毛孔细微可见", "皮肤有自然光泽，不油不干", "肤质均匀，细纹轻微可见", "皮肤质感真实，光泽柔和"]
+        let skinDetail = ["肤质细腻自然", "肤质干净清透", "皮肤有自然光泽，不油不干", "肤质均匀柔和", "皮肤状态自然，光泽柔和"]
         let pose = [
             "平视镜头", "微低机位视角", "轻微侧脸转回", "肩部稍前倾", "姿态克制放松",
             "轻微抬下巴", "身体微侧但眼神回望", "头部轻微侧倾", "上半身微向前", "坐姿放松"
@@ -481,7 +484,7 @@ class ImageGenerationService {
         """
 
         // 中文摄影后缀（取代旧的英文灵魂感后缀）
-        let soulSuffix = "，电影级特写肖像，浅景深虚化，微米级皮肤纹理，无滤镜真实感，佳能人像色调"
+        let soulSuffix = "，电影感肖像，浅景深，肤质细节自然，色调自然克制，中性室内或城市背景"
 
         prompt += personaSuffix + spouseConstraint + visualSuffix + soulSuffix
 
@@ -555,11 +558,27 @@ class ImageGenerationService {
         print("🔵 [ImageGen] LLM 原始 Prompt: \(prompt)")
         print("🔵 [ImageGen] 最终 Prompt: \(finalPrompt)")
 
-        // ===== 第一步：提交异步任务 =====
+        let safePrompt = sanitizePromptForPolicy(finalPrompt)
+        if safePrompt != finalPrompt {
+            print("🔵 [ImageGen] 风控清洗: 已对 prompt 做温和化处理")
+        }
+
+        let negativePrompt = "绿色头发，蓝色头发，紫色头发，银色头发，灰色头发，粉色头发，不自然的发色，头发泛绿，头发泛蓝，染发，动漫风格头发，绿色皮肤，蓝色皮肤，苍白灰暗的皮肤"
+        let safeNegativePrompt = sanitizePromptForPolicy(negativePrompt)
+        print("🔵 [ImageGen] 提交尝试 #1（保留原始人物与场景，不使用温和版替换）")
+        do {
+            return try await submitAndPollImage(prompt: safePrompt, negativePrompt: safeNegativePrompt)
+        } catch ImageError.contentRisk {
+            print("⚠️ [ImageGen] 命中内容审核，快速退出")
+            throw ImageError.contentRisk
+        }
+    }
+
+    private func submitAndPollImage(prompt: String, negativePrompt: String) async throws -> Data {
         let submitBody: [String: Any] = [
             "req_key": reqKey,
-            "prompt": finalPrompt,
-            "negative_prompt": "green hair, blue hair, purple hair, silver hair, gray hair, pink hair, unnatural hair color, green tint on hair, blue tint on hair, colored hair, dyed hair, anime hair, green skin, blue skin, pale ashen skin",
+            "prompt": prompt,
+            "negative_prompt": negativePrompt,
             "return_url": true
         ]
         let submitData = try JSONSerialization.data(withJSONObject: submitBody, options: [])
@@ -575,15 +594,18 @@ class ImageGenerationService {
         }
 
         guard submitHttpResponse.statusCode == 200 else {
-            throw ImageError.api("提交任务失败: \(String(data: submitResponseData, encoding: .utf8) ?? "未知错误")")
+            let (code, message) = parseServerError(from: submitResponseData)
+            if code == 50413 {
+                print("⚠️ [ImageGen] 提交阶段命中内容审核 (50413): \(message)")
+                throw ImageError.contentRisk
+            }
+            throw ImageError.api("提交任务失败: \(message)")
         }
 
-        // 解析 task_id
         guard let submitJson = try JSONSerialization.jsonObject(with: submitResponseData) as? [String: Any] else {
             throw ImageError.api("提交响应格式错误")
         }
 
-        // 兼容两种响应结构：{ data: { task_id } } 或 { Result: { data: { task_id } } }
         let submitDataObj: [String: Any]?
         if let directData = submitJson["data"] as? [String: Any] {
             submitDataObj = directData
@@ -601,7 +623,6 @@ class ImageGenerationService {
 
         print("🔵 [ImageGen] 任务已提交，task_id: \(taskId)")
 
-        // ===== 第二步：轮询获取结果 =====
         for attempt in 1...maxPollAttempts {
             try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
 
@@ -615,7 +636,12 @@ class ImageGenerationService {
             let pollHttpResponse = pollResponse as! HTTPURLResponse
 
             guard pollHttpResponse.statusCode == 200 else {
-                print("⚠️ [ImageGen] 轮询 #\(attempt) 状态码: \(pollHttpResponse.statusCode)")
+                let (code, message) = parseServerError(from: pollResponseData)
+                print("⚠️ [ImageGen] 轮询 #\(attempt) 状态码: \(pollHttpResponse.statusCode), body: \(message.prefix(500))")
+                if code == 50413 {
+                    print("⚠️ [ImageGen] 轮询阶段命中内容审核 (50413): \(message)")
+                    throw ImageError.contentRisk
+                }
                 continue
             }
 
@@ -623,7 +649,6 @@ class ImageGenerationService {
                 continue
             }
 
-            // 兼容两种响应结构
             let pollDataObj: [String: Any]?
             if let directData = pollJson["data"] as? [String: Any] {
                 pollDataObj = directData
@@ -644,7 +669,6 @@ class ImageGenerationService {
 
             switch status {
             case "done":
-                // 优先从 image_urls 下载
                 if let imageUrls = dataObj["image_urls"] as? [String],
                    let firstUrlStr = imageUrls.first,
                    let imageUrl = URL(string: firstUrlStr) {
@@ -653,7 +677,6 @@ class ImageGenerationService {
                     print("✅ [ImageGen] 图片下载成功: \(imageData.count) bytes")
                     return imageData
                 }
-                // 兜底：尝试 binary_data_base64
                 if let base64Array = dataObj["binary_data_base64"] as? [String],
                    let firstBase64 = base64Array.first,
                    let imageData = Data(base64Encoded: firstBase64) {
@@ -671,13 +694,70 @@ class ImageGenerationService {
                 throw ImageError.api("生成失败: \(errorMsg)")
 
             default:
-                // 仍在处理中，继续轮询
                 break
             }
         }
 
         print("❌ [ImageGen] 轮询超时，已尝试 \(maxPollAttempts) 次")
         throw ImageError.api("生成超时，请稍后再试")
+    }
+
+    private func parseServerError(from data: Data) -> (Int?, String) {
+        let rawText = String(data: data, encoding: .utf8) ?? "<non-utf8>"
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return (nil, rawText)
+        }
+        let code = json["code"] as? Int
+        let message = (json["message"] as? String) ?? rawText
+        return (code, message)
+    }
+
+    private func sanitizePromptForPolicy(_ text: String) -> String {
+        let replacements: [(String, String)] = [
+            ("blood", "red stain"),
+            ("bloody", "stained"),
+            ("gore", ""),
+            ("gory", ""),
+            ("corpse", "person"),
+            ("dead body", "person"),
+            ("kill", "defeat"),
+            ("murder", "conflict"),
+            ("suicide", "despair"),
+            ("self-harm", "distress"),
+            ("nudity", "portrait"),
+            ("nude", "portrait"),
+            ("sexual", "romantic"),
+            ("explicit", "detailed"),
+            ("血腥", ""),
+            ("流血", ""),
+            ("尸体", "人物"),
+            ("杀人", "冲突"),
+            ("自杀", "绝望"),
+            ("裸露", "肖像"),
+            ("色情", "浪漫"),
+            ("微米级皮肤纹理", "肤质细节自然"),
+            ("纳米级皮肤纹理", "肤质细节自然"),
+            ("无滤镜真实感", "自然人像风格"),
+            ("真实质感人像", "自然人像风格"),
+            ("真实感人像", "自然人像风格"),
+            ("毛孔细微可见", "肤质细腻自然"),
+            ("细纹轻微可见", "肤质细节自然"),
+            ("佳能人像色调", "自然人像色调"),
+            ("sharp focus", "clear portrait"),
+            ("blurred background separation", "soft background"),
+            ("East Asian hair color", "natural hair color")
+        ]
+
+        var sanitized = text
+        for (source, target) in replacements {
+            sanitized = sanitized.replacingOccurrences(of: source, with: target, options: .caseInsensitive)
+        }
+
+        let compact = sanitized
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return compact
     }
 
     // MARK: - 构建签名请求
@@ -776,12 +856,13 @@ class ImageGenerationService {
 
     // MARK: - 错误
     enum ImageError: LocalizedError {
-        case invalidURL, noImage, timeout, api(String)
+        case invalidURL, noImage, timeout, contentRisk, api(String)
         var errorDescription: String? {
             switch self {
             case .invalidURL: return "无效URL"
             case .noImage: return "无图片数据"
             case .timeout: return "生成超时，请稍后再试"
+            case .contentRisk: return "图片内容未通过审核，请调整描述后重试"
             case .api(let msg): return msg
             }
         }

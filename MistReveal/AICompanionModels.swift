@@ -48,6 +48,26 @@ struct AICompanion: Codable, Equatable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(UUID.self, forKey: .id)
+        userId = try container.decode(UUID.self, forKey: .userId)
+        personaSettings = (try? container.decode(PersonaSettings.self, forKey: .personaSettings)) ?? .default
+        visualPrompt = try? container.decodeIfPresent(String.self, forKey: .visualPrompt)
+        intimacyLevel = (try? container.decode(Int.self, forKey: .intimacyLevel)) ?? 0
+        elementBalance = (try? container.decode(ElementBalance.self, forKey: .elementBalance)) ?? .default
+        soulAnalysisRecordId = try? container.decodeIfPresent(UUID.self, forKey: .soulAnalysisRecordId)
+
+        // 历史数据里 user_manual 可能结构不完整，解码失败时降级为 nil，避免整条伴侣记录失败
+        userManual = try? container.decodeIfPresent(UserManual.self, forKey: .userManual)
+
+        lastManualUpdate = try? container.decodeIfPresent(Date.self, forKey: .lastManualUpdate)
+        analyzedMessageCount = (try? container.decode(Int.self, forKey: .analyzedMessageCount)) ?? 0
+        createdAt = (try? container.decode(Date.self, forKey: .createdAt)) ?? Date()
+        updatedAt = (try? container.decode(Date.self, forKey: .updatedAt)) ?? createdAt
+    }
 }
 
 /// 人设设定

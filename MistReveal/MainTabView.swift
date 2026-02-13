@@ -1382,6 +1382,8 @@ struct ProfileView: View {
     @State private var deleteConfirmText = ""
     @State private var isDeleting = false
     @State private var navigateToArchive = false
+    @State private var navigateToProfileSetup = false
+    @State private var navigateToMoments = false
     @State private var navigateToInvite = false
 
     // 头像上传相关状态
@@ -1462,11 +1464,25 @@ struct ProfileView: View {
 
                         // 功能列表
                         VStack(spacing: 12) {
-                            // 灵魂档案 - 可导航
+                            // 灵魂档案 - 可导航（与下面两项同级）
                             Button(action: {
                                 navigateToArchive = true
                             }) {
                                 profileMenuItemContent(icon: "sparkles", title: "我的灵魂档案", subtitle: "查看你的命理分析")
+                            }
+
+                            // 我的资料 - 可导航
+                            Button(action: {
+                                navigateToProfileSetup = true
+                            }) {
+                                profileMenuItemContent(icon: "person.text.rectangle", title: "我的资料", subtitle: "完善资料让灵犀更懂你")
+                            }
+
+                            // 灵感动态 - 可导航
+                            Button(action: {
+                                navigateToMoments = true
+                            }) {
+                                profileMenuItemContent(icon: "bubble.left.and.bubble.right", title: "灵感动态", subtitle: "记录日常并接收灵犀回应")
                             }
 
                             // 邀请好友 - 可导航
@@ -1573,6 +1589,12 @@ struct ProfileView: View {
             }
             .navigationDestination(isPresented: $navigateToArchive) {
                 SoulArchiveView()
+            }
+            .navigationDestination(isPresented: $navigateToProfileSetup) {
+                UserProfileSetupView()
+            }
+            .navigationDestination(isPresented: $navigateToMoments) {
+                MomentsTimelineView()
             }
             .navigationDestination(isPresented: $navigateToInvite) {
                 InviteFriendsView()
@@ -1738,6 +1760,385 @@ struct ProfileView: View {
         .padding()
         .background(Color.white.opacity(0.05))
         .cornerRadius(12)
+    }
+}
+
+// MARK: - 我的资料 / 灵感动态存储
+private enum UserCenterStorage {
+    static let profileKey = "user_center_profile_v1"
+    static let momentsKey = "user_center_moments_v1"
+
+    static func loadProfile() -> UserProfileDraft {
+        guard let data = UserDefaults.standard.data(forKey: profileKey),
+              let value = try? JSONDecoder().decode(UserProfileDraft.self, from: data) else {
+            return .default
+        }
+        return value
+    }
+
+    static func saveProfile(_ profile: UserProfileDraft) {
+        guard let data = try? JSONEncoder().encode(profile) else { return }
+        UserDefaults.standard.set(data, forKey: profileKey)
+    }
+
+    static func loadMoments() -> [MomentPost] {
+        guard let data = UserDefaults.standard.data(forKey: momentsKey),
+              let value = try? JSONDecoder().decode([MomentPost].self, from: data) else {
+            return []
+        }
+        return value.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    static func saveMoments(_ moments: [MomentPost]) {
+        guard let data = try? JSONEncoder().encode(moments) else { return }
+        UserDefaults.standard.set(data, forKey: momentsKey)
+    }
+}
+
+private struct UserProfileDraft: Codable {
+    var nickname: String
+    var status: String
+    var communication: String
+    var hobbies: [String]
+    var dislikes: [String]
+
+    static let `default` = UserProfileDraft(
+        nickname: "",
+        status: "探索中",
+        communication: "温柔一点",
+        hobbies: [],
+        dislikes: []
+    )
+}
+
+private struct MomentPost: Codable, Identifiable {
+    var id: UUID
+    var content: String
+    var mood: String
+    var tags: [String]
+    var aiReply: String
+    var createdAt: Date
+}
+
+// MARK: - 我的资料页
+struct UserProfileSetupView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var profile = UserCenterStorage.loadProfile()
+    @State private var showSaved = false
+
+    private let statusOptions = ["学生", "上班", "自由职业", "探索中"]
+    private let communicationOptions = ["直接一点", "温柔一点", "幽默一点"]
+    private let hobbyOptions = ["旅行", "电影", "音乐", "阅读", "健身", "美食", "摄影", "游戏", "宠物", "手作"]
+    private let dislikeOptions = ["说教", "冷暴力", "已读不回", "敷衍", "情绪失控", "过度控制"]
+
+    var body: some View {
+        ZStack {
+            Color(hex: "#0A0A12").ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("我的资料")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("30秒完善，让灵犀更懂你")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.55))
+
+                    profileSection(title: "昵称（必填）") {
+                        TextField("输入你的昵称", text: $profile.nickname)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .padding(12)
+                            .foregroundColor(.white)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(10)
+                    }
+
+                    profileSection(title: "当前状态") {
+                        chipGrid(options: statusOptions, selected: [profile.status], maxSelect: 1) { value in
+                            profile.status = value
+                        }
+                    }
+
+                    profileSection(title: "沟通偏好") {
+                        chipGrid(options: communicationOptions, selected: [profile.communication], maxSelect: 1) { value in
+                            profile.communication = value
+                        }
+                    }
+
+                    profileSection(title: "兴趣标签（最多5个）") {
+                        chipGrid(options: hobbyOptions, selected: profile.hobbies, maxSelect: 5) { value in
+                            toggle(&profile.hobbies, value: value, max: 5)
+                        }
+                    }
+
+                    profileSection(title: "不喜欢（最多3个，可选）") {
+                        chipGrid(options: dislikeOptions, selected: profile.dislikes, maxSelect: 3) { value in
+                            toggle(&profile.dislikes, value: value, max: 3)
+                        }
+                    }
+
+                    Button(action: saveProfile) {
+                        Text(showSaved ? "已保存并应用" : "保存并应用")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(14)
+                    }
+                    .padding(.top, 8)
+                }
+                .padding(20)
+                .padding(.bottom, 40)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("返回") { dismiss() }
+                    .foregroundColor(.white.opacity(0.85))
+            }
+        }
+    }
+
+    private func profileSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
+            content()
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(12)
+    }
+
+    private func chipGrid(options: [String], selected: [String], maxSelect: Int, onTap: @escaping (String) -> Void) -> some View {
+        FlexibleChipLayout(data: options) { option in
+            let isSelected = selected.contains(option)
+            Button(action: { onTap(option) }) {
+                Text(option)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.75))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(isSelected ? Color(hex: "#E94560").opacity(0.75) : Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(isSelected ? Color(hex: "#E94560") : Color.white.opacity(0.14), lineWidth: 1)
+                    )
+                    .cornerRadius(18)
+            }
+        }
+    }
+
+    private func toggle(_ array: inout [String], value: String, max: Int) {
+        if let idx = array.firstIndex(of: value) {
+            array.remove(at: idx)
+        } else if array.count < max {
+            array.append(value)
+        }
+    }
+
+    private func saveProfile() {
+        let trimmed = profile.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        profile.nickname = trimmed
+        UserCenterStorage.saveProfile(profile)
+        withAnimation {
+            showSaved = true
+        }
+    }
+}
+
+// MARK: - 灵感动态页
+struct MomentsTimelineView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var posts: [MomentPost] = UserCenterStorage.loadMoments()
+    @State private var draft = ""
+    @State private var mood = "平静"
+    @State private var selectedTags: [String] = []
+
+    private let moodOptions = ["开心", "平静", "疲惫", "低落", "期待"]
+    private let tagOptions = ["工作", "学习", "生活", "关系", "情绪", "计划", "回忆", "成长"]
+
+    var body: some View {
+        ZStack {
+            Color(hex: "#0A0A12").ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("灵感动态")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("记录日常，灵犀会根据动态给你更贴近的回应")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.55))
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextEditor(text: $draft)
+                            .frame(minHeight: 90, maxHeight: 120)
+                            .scrollContentBackground(.hidden)
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(10)
+
+                        FlexibleChipLayout(data: moodOptions) { item in
+                            let selected = mood == item
+                            Button(action: { mood = item }) {
+                                Text(item)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(selected ? .white : .white.opacity(0.75))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .background(selected ? Color(hex: "#E94560").opacity(0.75) : Color.white.opacity(0.08))
+                                    .cornerRadius(14)
+                            }
+                        }
+
+                        FlexibleChipLayout(data: tagOptions) { item in
+                            let selected = selectedTags.contains(item)
+                            Button(action: { toggleTag(item) }) {
+                                Text("#\(item)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(selected ? .white : .white.opacity(0.75))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .background(selected ? Color(hex: "#E94560").opacity(0.75) : Color.white.opacity(0.08))
+                                    .cornerRadius(14)
+                            }
+                        }
+
+                        Button(action: publishMoment) {
+                            Text("发布动态")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Color(hex: "#E94560").opacity(canPublish ? 0.8 : 0.35))
+                                .cornerRadius(10)
+                        }
+                        .disabled(!canPublish)
+                    }
+                    .padding(14)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(12)
+
+                    if posts.isEmpty {
+                        Text("还没有动态，发一条让灵犀更懂你。")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.5))
+                            .padding(.top, 8)
+                    } else {
+                        ForEach(posts) { post in
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Text(post.mood)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(Color(hex: "#E94560"))
+                                    Spacer()
+                                    Text(post.createdAt, style: .time)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.white.opacity(0.45))
+                                }
+
+                                Text(post.content)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(.white.opacity(0.9))
+
+                                if !post.tags.isEmpty {
+                                    Text(post.tags.map { "#\($0)" }.joined(separator: " "))
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.white.opacity(0.55))
+                                }
+
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "heart.text.square")
+                                        .foregroundColor(Color(hex: "#E94560"))
+                                    Text(post.aiReply)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white.opacity(0.78))
+                                }
+                                .padding(10)
+                                .background(Color(hex: "#E94560").opacity(0.10))
+                                .cornerRadius(10)
+                            }
+                            .padding(14)
+                            .background(Color.white.opacity(0.04))
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding(20)
+                .padding(.bottom, 40)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("返回") { dismiss() }
+                    .foregroundColor(.white.opacity(0.85))
+            }
+        }
+    }
+
+    private var canPublish: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func toggleTag(_ value: String) {
+        if let index = selectedTags.firstIndex(of: value) {
+            selectedTags.remove(at: index)
+        } else if selectedTags.count < 3 {
+            selectedTags.append(value)
+        }
+    }
+
+    private func publishMoment() {
+        let content = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else { return }
+
+        let reply = "我看到你现在是“\(mood)”的状态了。\(selectedTags.isEmpty ? "我在这，想说什么都可以慢慢说。" : "关于\(selectedTags.joined(separator: "、"))，我会继续记住你的节奏。")"
+        let post = MomentPost(
+            id: UUID(),
+            content: content,
+            mood: mood,
+            tags: selectedTags,
+            aiReply: reply,
+            createdAt: Date()
+        )
+        posts.insert(post, at: 0)
+        UserCenterStorage.saveMoments(posts)
+
+        draft = ""
+        mood = "平静"
+        selectedTags = []
+    }
+}
+
+// MARK: - 自适应标签布局
+struct FlexibleChipLayout<Data: RandomAccessCollection, Content: View>: View where Data.Element: Hashable {
+    private let data: Data
+    private let content: (Data.Element) -> Content
+
+    init(data: Data, @ViewBuilder content: @escaping (Data.Element) -> Content) {
+        self.data = data
+        self.content = content
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8, alignment: .leading)], alignment: .leading, spacing: 8) {
+            ForEach(Array(data), id: \.self) { item in
+                content(item)
+            }
+        }
     }
 }
 

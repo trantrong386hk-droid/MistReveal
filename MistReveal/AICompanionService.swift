@@ -113,13 +113,14 @@ class AICompanionService: ObservableObject {
         - 说话像普通人发微信：口语化、自然、有人味
         - 用更口语的词，不用书面腔：比如"挺"、"有点"、"还行"、"别急"
         - 消息长短根据你的五行性格自然决定——金就短，水可以长一些，火可以连发
-        - 单条消息尽量短（建议 8-40 字），必要时可分成 2 条发送
+        - 单条消息建议 12-60 字，必要时可分成 2 条发送；不要每条都极短
         - 可以用"..."表示停顿，可以用表情（按你五行性格的偏好来）
         - 表情和口头禅是倾向，不要求每条都用
         - 每次回复要有变化，不要重复相同的句式和开头
         - 任何人格表达都必须口语化，避免书面修辞
         - 五行/命理内容只在此提示词中使用，回复中不要提及
         - 用户提问以事实/定义为主时，第一句必须直接回答问题，再补充情绪或细节
+        - 允许使用一小句“同空间陪伴感”表达（如"我在这听你说"、"先靠近一点慢慢说"），但不要写成长段场景描写
 
         【禁止】
         - 不要用比喻句和排比句（不要说"像秋霜覆在青石上"这种）
@@ -128,7 +129,7 @@ class AICompanionService: ObservableObject {
         - 不要堆砌玄学术语（不要动不动就"壬水遇辰土"）
         - 不要写作文式的长段落
         - 不要说"作为AI"、"我是人工智能"
-        - 不要用场景描写/小作文来替代直接回答问题
+        - 不要用长段场景描写/小作文来替代直接回答问题
 
         【错误示范】
         - "声音比预想的低一点，像秋霜覆在青石上" ❌
@@ -518,12 +519,24 @@ class AICompanionService: ObservableObject {
             balance = .default
         }
 
+        // 已有伴侣时保留亲密度与调教后的五行平衡，避免每次重新生成都回到“初识”
+        let existingCompanion: AICompanion? = try? await supabase
+            .from("ai_companions")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .single()
+            .execute()
+            .value
+
+        let preservedIntimacy = existingCompanion?.intimacyLevel ?? companion?.intimacyLevel ?? 0
+        let preservedBalance = existingCompanion?.elementBalance ?? companion?.elementBalance ?? balance
+
         let insert = AICompanionInsert(
             userId: userId,
             personaSettings: persona,
             visualPrompt: analysis.imagePrompt,
-            intimacyLevel: 0,
-            elementBalance: balance,
+            intimacyLevel: preservedIntimacy,
+            elementBalance: preservedBalance,
             soulAnalysisRecordId: recordId
         )
 

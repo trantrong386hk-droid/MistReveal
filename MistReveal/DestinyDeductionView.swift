@@ -110,14 +110,20 @@ struct DestinyDeductionView: View {
             .clipped()
         }
         .navigationBarHidden(true)
-        .navigationDestination(isPresented: $navigateToPortrait) {
-            GeneratedPortraitView(
-                birthDate: birthDate,
-                gender: gender,
-                birthTime: birthTime,
-                location: location
-            )
-        }
+        .background(
+            NavigationLink(
+                destination: GeneratedPortraitView(
+                    birthDate: birthDate,
+                    gender: gender,
+                    birthTime: birthTime,
+                    location: location
+                ),
+                isActive: $navigateToPortrait
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        )
         .onAppear {
             startAnimations()
         }

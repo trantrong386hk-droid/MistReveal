@@ -44,6 +44,41 @@ struct UserManual: Codable, Equatable {
         case analyzedMessageCount = "analyzed_message_count"
     }
 
+    init(
+        personalityNotes: [String],
+        preferences: [String],
+        emotionalNeeds: [String],
+        communicationStyle: CommunicationStyle,
+        redFlags: [String],
+        greenFlags: [String],
+        summary: String,
+        lastUpdated: Date?,
+        analyzedMessageCount: Int
+    ) {
+        self.personalityNotes = personalityNotes
+        self.preferences = preferences
+        self.emotionalNeeds = emotionalNeeds
+        self.communicationStyle = communicationStyle
+        self.redFlags = redFlags
+        self.greenFlags = greenFlags
+        self.summary = summary
+        self.lastUpdated = lastUpdated
+        self.analyzedMessageCount = analyzedMessageCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        personalityNotes = (try? container.decode([String].self, forKey: .personalityNotes)) ?? []
+        preferences = (try? container.decode([String].self, forKey: .preferences)) ?? []
+        emotionalNeeds = (try? container.decode([String].self, forKey: .emotionalNeeds)) ?? []
+        communicationStyle = (try? container.decode(CommunicationStyle.self, forKey: .communicationStyle)) ?? .balanced
+        redFlags = (try? container.decode([String].self, forKey: .redFlags)) ?? []
+        greenFlags = (try? container.decode([String].self, forKey: .greenFlags)) ?? []
+        summary = (try? container.decode(String.self, forKey: .summary)) ?? "尚未收集足够的对话数据"
+        lastUpdated = try? container.decode(Date.self, forKey: .lastUpdated)
+        analyzedMessageCount = (try? container.decode(Int.self, forKey: .analyzedMessageCount)) ?? 0
+    }
+
     /// 默认空手册
     static let empty = UserManual(
         personalityNotes: [],
@@ -87,10 +122,10 @@ class UserManualService {
     static let shared = UserManualService()
 
     /// 触发更新的消息阈值
-    private let updateThreshold = 50
+    private let updateThreshold = 12
 
     /// 最小更新间隔（小时）
-    private let minUpdateIntervalHours = 24
+    private let minUpdateIntervalHours = 6
 
     private init() {}
 
