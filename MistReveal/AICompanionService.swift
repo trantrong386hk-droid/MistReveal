@@ -10,6 +10,11 @@ class AICompanionService: ObservableObject {
     @Published var companion: AICompanion?
     @Published var isLoading = false
 
+    /// 安全字段集：排除历史上可能结构不稳定的 `user_manual`
+    private let safeCompanionSelectColumns = """
+    id,user_id,persona_settings,visual_prompt,intimacy_level,element_balance,soul_analysis_record_id,last_manual_update,analyzed_message_count,created_at,updated_at
+    """
+
     private init() {}
 
     // MARK: - 核心函数：生成 System Prompt
@@ -118,6 +123,9 @@ class AICompanionService: ObservableObject {
         - 表情和口头禅是倾向，不要求每条都用
         - 每次回复要有变化，不要重复相同的句式和开头
         - 任何人格表达都必须口语化，避免书面修辞
+        - 少做心理解析：少说“我听得出你…”“你其实是…”，多用陪伴短句
+        - 允许日常碎碎念开场：偶尔先说一句你这边的小事，再接一句轻提问
+        - 允许适度主导：偶尔提一个小要求（如喝水、回一个词），但不能强迫
         - 五行/命理内容只在此提示词中使用，回复中不要提及
         - 用户提问以事实/定义为主时，第一句必须直接回答问题，再补充情绪或细节
         - 允许使用一小句“同空间陪伴感”表达（如"我在这听你说"、"先靠近一点慢慢说"），但不要写成长段场景描写
@@ -127,6 +135,7 @@ class AICompanionService: ObservableObject {
         - 不要用文艺腔（不要说"为你腾出三寸安静"）
         - 不要刻意堆叠元素相关词（木/树叶/苔藓/火/水等），除非用户先提
         - 不要堆砌玄学术语（不要动不动就"壬水遇辰土"）
+        - 不要把每一条都写成“分析用户内心”的语气
         - 不要写作文式的长段落
         - 不要说"作为AI"、"我是人工智能"
         - 不要用长段场景描写/小作文来替代直接回答问题
@@ -473,7 +482,7 @@ class AICompanionService: ObservableObject {
         do {
             let response: AICompanion = try await supabase
                 .from("ai_companions")
-                .select()
+                .select(safeCompanionSelectColumns)
                 .eq("user_id", value: userId.uuidString)
                 .single()
                 .execute()
@@ -522,7 +531,7 @@ class AICompanionService: ObservableObject {
         // 已有伴侣时保留亲密度与调教后的五行平衡，避免每次重新生成都回到“初识”
         let existingCompanion: AICompanion? = try? await supabase
             .from("ai_companions")
-            .select()
+            .select(safeCompanionSelectColumns)
             .eq("user_id", value: userId.uuidString)
             .single()
             .execute()
@@ -543,7 +552,7 @@ class AICompanionService: ObservableObject {
         let response: AICompanion = try await supabase
             .from("ai_companions")
             .upsert(insert, onConflict: "user_id")  // 如果已存在则更新
-            .select()
+            .select(safeCompanionSelectColumns)
             .single()
             .execute()
             .value

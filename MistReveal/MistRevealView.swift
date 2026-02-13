@@ -253,20 +253,14 @@ struct MistRevealView: View {
             }
             .clipped()
         }
-        .background(
-            NavigationLink(
-                destination: GeneratedPortraitView(
-                    birthDate: birthDate,
-                    gender: gender,
-                    birthTime: birthTime,
-                    location: location
-                ),
-                isActive: $navigateToPortrait
-            ) {
-                EmptyView()
-            }
-            .hidden()
-        )
+        .fullScreenCover(isPresented: $navigateToPortrait) {
+            GeneratedPortraitView(
+                birthDate: birthDate,
+                gender: gender,
+                birthTime: birthTime,
+                location: location
+            )
+        }
         .navigationBarHidden(true)
         .onAppear {
             setupBlowDetection()

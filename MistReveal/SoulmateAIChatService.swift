@@ -14,6 +14,14 @@ class SoulmateAIChatService: ObservableObject {
 
     // 共鸣记录：记录用户觉得"说得准"的对话风格关键词
     private var resonanceStyles: [String] = []
+    private var consecutiveLeadCount = 0
+
+    private enum ReplyMode: String {
+        case dailyWorldShare = "daily_world_share"   // 废话逻辑：分享一点它那边的生活碎片
+        case empathicShort = "empathic_short"        // 共情而不解析：短句陪伴
+        case lightLead = "light_lead"                // 轻主导：小任性、小要求
+        case directAnswer = "direct_answer"          // 认真回应：直接回答再补一句情绪
+    }
 
     // MARK: - 打字机效果
 
@@ -297,18 +305,135 @@ class SoulmateAIChatService: ObservableObject {
 
         // 构建聊天历史（取最近 20 条消息作为上下文）
         let chatHistory = buildChatHistory()
+        let mode = chooseReplyMode(for: userText, chatHistory: chatHistory)
+        let modeInstruction = modeInstruction(for: mode, userText: userText)
+        let finalUserMessage = """
+        \(modeInstruction)
+
+        【用户消息】
+        \(userText)
+        """
 
         do {
             let response = try await callLLM(
                 systemPrompt: systemPrompt,
                 chatHistory: chatHistory,
-                currentMessage: userText
+                currentMessage: finalUserMessage
             )
             return response
         } catch {
             print("❌ [灵犀] LLM 回复生成失败: \(error)")
             return generateFallbackResponse(to: userText, element: analysis.soulmateElement)
         }
+    }
+
+    private func chooseReplyMode(for userText: String, chatHistory: [[String: String]]) -> ReplyMode {
+        let lowered = userText.lowercased()
+
+        if isHighPressureMessage(userText) {
+            consecutiveLeadCount = 0
+            return .empathicShort
+        }
+
+        if looksLikeQuestion(lowered) || looksLikeNeedDirectAnswer(userText) {
+            consecutiveLeadCount = 0
+            return .directAnswer
+        }
+
+        if shouldUseDailyWorldShare(chatHistory: chatHistory) {
+            consecutiveLeadCount = 0
+            return .dailyWorldShare
+        }
+
+        if shouldUseLightLead() {
+            consecutiveLeadCount += 1
+            return .lightLead
+        }
+
+        consecutiveLeadCount = 0
+        return .empathicShort
+    }
+
+    private func modeInstruction(for mode: ReplyMode, userText: String) -> String {
+        let commonRules = """
+        【统一硬规则】
+        - 不要写分析腔：避免“我听得出你…”“你其实是…”这类心理解析句式
+        - 不要文艺腔和比喻句，不要排比，不要玄学意象
+        - 用生活口语，允许略带毛边感：比如“行”“有点”“先别硬撑”
+        - 单条回复控制在 12-45 字，必要时可分 2 条短句
+        """
+
+        switch mode {
+        case .dailyWorldShare:
+            return """
+            \(commonRules)
+            【本轮模式：废话逻辑 / 同空间碎碎念】
+            - 先说一句你这边刚发生的小事，再接一个轻问题
+            - 小事必须日常、具体、无文学包装
+            - 这轮不要分析用户情绪
+            - 模板参考：“刚才我去倒水发了会呆，你呢？”
+            """
+        case .empathicShort:
+            return """
+            \(commonRules)
+            【本轮模式：共情而不解析】
+            - 先接住，再陪伴，不解释用户人格
+            - 优先短句：“懂”“我在”“慢慢说”
+            - 可以用一句“我也有过这种感觉”，但不要延展成长分析
+            """
+        case .lightLead:
+            return """
+            \(commonRules)
+            【本轮模式：轻主导 / 小任性】
+            - 语气亲近，提一个很小的要求或小任务
+            - 要求必须可执行且轻量（喝水、深呼吸、回一个词）
+            - 不要命令式，不要控制欲，不要连续追问
+            - 模板参考：“先去喝口水，回来回我一个词，行吗？”
+            """
+        case .directAnswer:
+            return """
+            \(commonRules)
+            【本轮模式：认真回应】
+            - 第一短句先直接回答用户问题
+            - 第二短句再补一点情绪陪伴
+            - 直给，不绕，不长篇
+            """
+        }
+    }
+
+    private func shouldUseDailyWorldShare(chatHistory: [[String: String]]) -> Bool {
+        // 晚间更容易触发“废话逻辑”，减少机械分析感
+        let hour = Calendar.current.component(.hour, from: Date())
+        let inWindow = (20...23).contains(hour) || (0...1).contains(hour)
+        guard inWindow else { return false }
+
+        // 最近一次 AI 消息若已经是“碎碎念”，则避免连续触发
+        if let lastAI = chatHistory.reversed().first(where: { $0["role"] == "assistant" })?["content"],
+           lastAI.contains("刚才") || lastAI.contains("我这边") || lastAI.contains("我刚") {
+            return false
+        }
+
+        return Int.random(in: 0..<100) < 25
+    }
+
+    private func shouldUseLightLead() -> Bool {
+        // 连续两轮主导后强制冷却
+        guard consecutiveLeadCount < 2 else { return false }
+        return Int.random(in: 0..<100) < 22
+    }
+
+    private func looksLikeQuestion(_ text: String) -> Bool {
+        text.contains("?") || text.contains("？")
+    }
+
+    private func looksLikeNeedDirectAnswer(_ text: String) -> Bool {
+        let cues = ["为什么", "怎么", "如何", "啥意思", "是什么", "是不是", "能不能", "要不要"]
+        return cues.contains { text.contains($0) }
+    }
+
+    private func isHighPressureMessage(_ text: String) -> Bool {
+        let cues = ["崩溃", "撑不住", "很难受", "焦虑", "失眠", "不想活", "绝望", "难过死了", "不行了"]
+        return cues.contains { text.contains($0) }
     }
 
     /// 构建聊天历史上下文（最近 N 条消息，排除当前正在发送的）
