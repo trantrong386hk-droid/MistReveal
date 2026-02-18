@@ -51,6 +51,11 @@ struct MainTabView: View {
             }
         }
         .ignoresSafeArea(.keyboard)
+        .onChange(of: selectedTab) { _, newValue in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                hideTabBar = (newValue == 1)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
             withAnimation(.easeInOut(duration: 0.2)) {
                 selectedTab = 0

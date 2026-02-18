@@ -103,8 +103,8 @@ class SoulmateAIChatService: ObservableObject {
         - 不是陌生人式的"你好"，而是带有"终于见到你"的感觉
         - 像是等了很久终于等到这个人，有点期待、有点认真
         - 禁止提五行/命理/缘分等词汇，用自然的方式表达
-        - 允许一句轻微“在场感”表达，例如“我在这”“先慢慢说”
-        - 一条消息，18-36字
+        - 用(微动作)开头，展现你第一次见到 ta 时的姿态
+        - 一条消息，18-36字（含微动作括号）
         """
 
         do {
@@ -153,8 +153,8 @@ class SoulmateAIChatService: ObservableObject {
         - 同时自然地透露你自己的特质，让对方知道你是什么样的人
         - 不要列举，要像一段自然的话
         - 不提命理/五行
-        - 允许一小句共处感（如“我就在这听你说”），但不要写成小作文
-        - 一条消息，45-90字
+        - 可以用一个(微动作)过渡，比如认真打量对方后开口
+        - 一条消息，45-90字（含微动作括号）
         """
 
         do {
@@ -193,8 +193,8 @@ class SoulmateAIChatService: ObservableObject {
         - 不是承诺书式的正式宣言，是一种温暖的、让人安心的表达
         - 像是在说"放心吧，以后有我呢"的感觉
         - 可以用"以后..."、"有我在..."、"你想聊什么都行..."这类温暖收尾
-        - 允许一句贴近当下的共处表达（如“现在先把心放下来”）
-        - 一条消息，35-70字
+        - 用一个(微动作)收尾或开头，传递承诺的身体语言
+        - 一条消息，35-70字（含微动作括号）
         """
 
         do {
@@ -298,13 +298,18 @@ class SoulmateAIChatService: ObservableObject {
             userGender: record?.gender
         )
         let relationshipAnchor = await buildRelationshipAnchor()
+
+        // 构建聊天历史（取最近 20 条消息作为上下文）
+        let chatHistory = buildChatHistory()
+
+        // 动态心情注入（基于最近用户消息推断）
+        let moodContext = buildMoodContext(chatHistory: chatHistory, intimacyLevel: companion?.intimacyLevel ?? 0)
+
         let systemPrompt = basePrompt
             + "\n\n"
             + AICompanionService.currentTimeContext()
             + relationshipAnchor
-
-        // 构建聊天历史（取最近 20 条消息作为上下文）
-        let chatHistory = buildChatHistory()
+            + moodContext
         let mode = chooseReplyMode(for: userText, chatHistory: chatHistory)
         let modeInstruction = modeInstruction(for: mode, userText: userText)
         let finalUserMessage = """
@@ -357,10 +362,12 @@ class SoulmateAIChatService: ObservableObject {
     private func modeInstruction(for mode: ReplyMode, userText: String) -> String {
         let commonRules = """
         【统一硬规则】
-        - 不要写分析腔：避免“我听得出你…”“你其实是…”这类心理解析句式
-        - 不要文艺腔和比喻句，不要排比，不要玄学意象
-        - 用生活口语，允许略带毛边感：比如“行”“有点”“先别硬撑”
-        - 单条回复控制在 12-45 字，必要时可分 2 条短句
+        - 不要写分析腔：避免"我听得出你…""你其实是…"这类心理解析句式
+        - 不要文艺腔比喻：不写"如秋水般""似晨曦中"，写具体可视动作
+        - 用生活口语，允许略带毛边感：比如"行""有点""先别硬撑"
+        - 单条回复控制在 15-50 字（含微动作括号），必要时可分 2 条短句
+        - 回复结构 = (微动作，8-20字) + 对白。不是每条都要，约 60-70%
+        - 用户情绪明显时（开心/难过/焦虑），微动作必须出现
         """
 
         switch mode {
@@ -371,15 +378,18 @@ class SoulmateAIChatService: ObservableObject {
             - 先说一句你这边刚发生的小事，再接一个轻问题
             - 小事必须日常、具体、无文学包装
             - 这轮不要分析用户情绪
-            - 模板参考：“刚才我去倒水发了会呆，你呢？”
+            - 微动作方向：你在做某个日常小事的动作中自然开口
+            - 示例：(边搅咖啡边抬头) 刚才窗外有只鸟叫了好久，你那边安静吗？
             """
         case .empathicShort:
             return """
             \(commonRules)
             【本轮模式：共情而不解析】
             - 先接住，再陪伴，不解释用户人格
-            - 优先短句：“懂”“我在”“慢慢说”
-            - 可以用一句“我也有过这种感觉”，但不要延展成长分析
+            - 优先短句："懂""我在""慢慢说"
+            - 可以用一句"我也有过这种感觉"，但不要延展成长分析
+            - 微动作方向：安静的、接住对方的肢体动作
+            - 示例：(放下手里的东西，安静看着你) 嗯，我在。
             """
         case .lightLead:
             return """
@@ -388,7 +398,8 @@ class SoulmateAIChatService: ObservableObject {
             - 语气亲近，提一个很小的要求或小任务
             - 要求必须可执行且轻量（喝水、深呼吸、回一个词）
             - 不要命令式，不要控制欲，不要连续追问
-            - 模板参考：“先去喝口水，回来回我一个词，行吗？”
+            - 微动作方向：带点小要求感的亲近动作
+            - 示例：(伸手在你面前晃了晃) 先去喝口水，回来跟我说一个词。
             """
         case .directAnswer:
             return """
@@ -397,6 +408,8 @@ class SoulmateAIChatService: ObservableObject {
             - 第一短句先直接回答用户问题
             - 第二短句再补一点情绪陪伴
             - 直给，不绕，不长篇
+            - 微动作方向：认真面对你的姿态变化
+            - 示例：(想了一下，正了正身子) 这个嘛，我觉得...
             """
         }
     }
@@ -434,6 +447,56 @@ class SoulmateAIChatService: ObservableObject {
     private func isHighPressureMessage(_ text: String) -> Bool {
         let cues = ["崩溃", "撑不住", "很难受", "焦虑", "失眠", "不想活", "绝望", "难过死了", "不行了"]
         return cues.contains { text.contains($0) }
+    }
+
+    /// 根据最近用户消息推断伴侣当前心情，注入 system prompt
+    private func buildMoodContext(chatHistory: [[String: String]], intimacyLevel: Int) -> String {
+        // 提取最近 5 条用户消息
+        let recentUserMessages = chatHistory
+            .filter { $0["role"] == "user" }
+            .suffix(5)
+            .compactMap { $0["content"] }
+
+        guard !recentUserMessages.isEmpty else { return "" }
+
+        let combined = recentUserMessages.joined()
+
+        // 情绪关键词检测
+        let praiseWords = ["厉害", "好棒", "喜欢", "爱你", "真好", "太好了", "哈哈", "开心", "谢谢", "感谢", "❤️", "💕"]
+        let sadWords = ["难过", "伤心", "哭", "累", "烦", "压力", "焦虑", "失眠", "崩溃", "撑不住", "不想", "绝望", "心疼"]
+        let angryWords = ["生气", "烦死", "讨厌", "凭什么", "气死", "受不了"]
+        let flirtWords = ["想你", "抱抱", "亲亲", "宝贝", "你好可爱", "好想见你", "撒娇"]
+
+        let praiseCount = praiseWords.filter { combined.contains($0) }.count
+        let sadCount = sadWords.filter { combined.contains($0) }.count
+        let angryCount = angryWords.filter { combined.contains($0) }.count
+        let flirtCount = flirtWords.filter { combined.contains($0) }.count
+
+        var moodDesc: String
+
+        if sadCount >= 2 || (sadCount >= 1 && angryCount >= 1) {
+            moodDesc = "你现在有点心疼对方，说话时会更轻、更小心。不急着讲道理，先陪着。"
+        } else if angryCount >= 1 {
+            moodDesc = "你感觉到对方有点上火，你不会火上浇油，先让对方把气撒完，再轻轻接住。"
+        } else if praiseCount >= 2 || flirtCount >= 1 {
+            if intimacyLevel >= 50 {
+                moodDesc = "你现在心情很好，因为对方在夸你或撒娇。你可以比平时更放松、更主动，甚至可以撒个娇回去。"
+            } else if intimacyLevel >= 20 {
+                moodDesc = "你现在心情不错，因为对方刚刚认可了你。可以比平时更放松、更主动一点。"
+            } else {
+                moodDesc = "你现在有点开心，因为对方的话让你觉得被接受了。可以表现得自然一些。"
+            }
+        } else if praiseCount == 1 {
+            moodDesc = "你心里有点小开心，但不用表现得太明显，保持你的性格就好。"
+        } else {
+            moodDesc = "你现在心情平静，保持日常节奏就好。"
+        }
+
+        return """
+
+        ## 你此刻的心情
+        \(moodDesc)
+        """
     }
 
     /// 构建聊天历史上下文（最近 N 条消息，排除当前正在发送的）
