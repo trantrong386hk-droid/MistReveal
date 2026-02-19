@@ -28,6 +28,8 @@ struct SoulmateAIChatView: View {
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
 
+    @State private var backgroundImage: UIImage?
+
     @State private var showNameEditor = false
     @State private var editingName = ""
 
@@ -60,6 +62,8 @@ struct SoulmateAIChatView: View {
         .onAppear {
             Task {
                 await archiveManager.fetchUserRecords()
+                // 背景图加载放到独立 Task，不阻塞聊天功能
+                Task { await loadBackgroundImage() }
                 // 加载 AI 伴侣数据（必须在发送消息前加载，否则消息无法保存）
                 await AICompanionService.shared.fetchCompanion()
                 // 加载历史聊天记录
@@ -70,6 +74,12 @@ struct SoulmateAIChatView: View {
                     chatService.hasTriggeredWelcome = true
                     await chatService.sendWelcomeMessage(record: record)
                 }
+            }
+        }
+        .onChange(of: archiveManager.myRecord?.imageUrl) { _, _ in
+            Task {
+                backgroundImage = nil
+                await loadBackgroundImage()
             }
         }
         // 监听高匹配用户出现的通知
@@ -103,35 +113,51 @@ struct SoulmateAIChatView: View {
                 // 底色兜底，防止白色露出
                 Color(hex: "#0A0A12")
 
-                if let imageUrl = archiveManager.myRecord?.imageUrl,
-                   let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: geometry.size.width, height: geometry.size.height * 0.75)
-                                .clipped()
-                                .frame(maxHeight: .infinity, alignment: .top)
-                            .overlay(
+                if let uiImage = backgroundImage {
+                    // 根据图片宽高比计算 scaledToFit 后的实际高度
+                    let aspect = uiImage.size.height / uiImage.size.width
+                    let fittedHeight = geometry.size.width * aspect
+                    let fadeZone: CGFloat = 180  // 清晰→模糊过渡区域
+
+                    // 第1层：模糊图铺满全屏，作为底部延伸
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                        .blur(radius: 30)
+                        .overlay(Color.black.opacity(0.45))
+
+                    // 第2层：清晰主图（不裁切），底部渐变透明过渡到模糊层
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: geometry.size.width)
+                        .mask(
+                            VStack(spacing: 0) {
+                                Color.black
+                                    .frame(height: max(fittedHeight - fadeZone, 0))
                                 LinearGradient(
-                                    colors: [
-                                        Color.black.opacity(0.22),
-                                        Color.black.opacity(0.06),
-                                        Color.black.opacity(0.38),
-                                        Color.black.opacity(0.72)
-                                    ],
+                                    colors: [.black, .clear],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
-                            )
-                        case .failure(_), .empty:
-                            defaultBackground
-                        @unknown default:
-                            defaultBackground
-                        }
-                    }
+                                .frame(height: fadeZone)
+                            }
+                        )
+                        .frame(maxHeight: .infinity, alignment: .top)
+
+                    // 第3层：整体暗角渐变（聊天文字可读性）
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.18),
+                            Color.black.opacity(0.04),
+                            Color.black.opacity(0.25),
+                            Color.black.opacity(0.65)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                 } else {
                     defaultBackground
                 }
@@ -172,20 +198,12 @@ struct SoulmateAIChatView: View {
             }
 
             // 左侧：小圆形头像
-            if let imageUrl = archiveManager.myRecord?.imageUrl,
-               let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 36, height: 36)
-                            .clipShape(Circle())
-                    default:
-                        headerAvatarPlaceholder
-                    }
-                }
+            if let uiImage = backgroundImage {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 36, height: 36)
+                    .clipShape(Circle())
             } else {
                 headerAvatarPlaceholder
             }
@@ -427,18 +445,22 @@ struct SoulmateAIChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(Color(hex: "#0A0A12").opacity(0.72))
-                RoundedRectangle(cornerRadius: 28)
-                    .stroke(Color(hex: "#E94560").opacity(0.16), lineWidth: 0.8)
-            }
-        )
         .padding(.horizontal, 12)
         .padding(.bottom, 10)
+    }
+
+    private func loadBackgroundImage() async {
+        guard let imageUrl = archiveManager.myRecord?.imageUrl,
+              let url = URL(string: imageUrl),
+              backgroundImage == nil else { return }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let image = UIImage(data: data) {
+                backgroundImage = image
+            }
+        } catch {
+            print("❌ 背景图片加载失败: \(error)")
+        }
     }
 
     private func sendMessage() {

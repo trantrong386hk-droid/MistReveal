@@ -21,6 +21,7 @@ class SoulmateAIChatService: ObservableObject {
         case empathicShort = "empathic_short"        // 共情而不解析：短句陪伴
         case lightLead = "light_lead"                // 轻主导：小任性、小要求
         case directAnswer = "direct_answer"          // 认真回应：直接回答再补一句情绪
+        case casualGreeting = "casual_greeting"      // 问候闲聊：热情 + 追问
     }
 
     // MARK: - 打字机效果
@@ -312,8 +313,23 @@ class SoulmateAIChatService: ObservableObject {
             + moodContext
         let mode = chooseReplyMode(for: userText, chatHistory: chatHistory)
         let modeInstruction = modeInstruction(for: mode, userText: userText)
+
+        // 反重复指令
+        let antiRepetition = buildAntiRepetitionInstruction(chatHistory: chatHistory)
+
+        // 重复消息检测
+        let repetitionCount = detectRepetition(userText: userText, chatHistory: chatHistory)
+        let repetitionHint: String
+        if repetitionCount >= 2 {
+            repetitionHint = "\n【注意】用户已经连续发了 \(repetitionCount + 1) 次相同或相似的消息，自然地回应这种重复——可以好奇地问为什么、可以调侃、可以关心是不是有什么想说的。不要假装没注意到。"
+        } else {
+            repetitionHint = ""
+        }
+
         let finalUserMessage = """
         \(modeInstruction)
+        \(antiRepetition)
+        \(repetitionHint)
 
         【用户消息】
         \(userText)
@@ -338,6 +354,11 @@ class SoulmateAIChatService: ObservableObject {
         if isHighPressureMessage(userText) {
             consecutiveLeadCount = 0
             return .empathicShort
+        }
+
+        if isSimpleGreeting(lowered) {
+            consecutiveLeadCount = 0
+            return .casualGreeting
         }
 
         if looksLikeQuestion(lowered) || looksLikeNeedDirectAnswer(userText) {
@@ -368,6 +389,7 @@ class SoulmateAIChatService: ObservableObject {
         - 单条回复控制在 15-50 字（含微动作括号），必要时可分 2 条短句
         - 回复结构 = (微动作，8-20字) + 对白。不是每条都要，约 60-70%
         - 用户情绪明显时（开心/难过/焦虑），微动作必须出现
+        - 每轮微动作和开头句式必须与前 3 轮完全不同，禁止连续使用相同微动作
         """
 
         switch mode {
@@ -386,10 +408,10 @@ class SoulmateAIChatService: ObservableObject {
             \(commonRules)
             【本轮模式：共情而不解析】
             - 先接住，再陪伴，不解释用户人格
-            - 优先短句："懂""我在""慢慢说"
+            - 接住后补一句关心或轻提问，不能只说"我在"就结束
             - 可以用一句"我也有过这种感觉"，但不要延展成长分析
             - 微动作方向：安静的、接住对方的肢体动作
-            - 示例：(放下手里的东西，安静看着你) 嗯，我在。
+            - 示例：(靠过来一点，看着你) 怎么了，今天不太开心？
             """
         case .lightLead:
             return """
@@ -410,6 +432,28 @@ class SoulmateAIChatService: ObservableObject {
             - 直给，不绕，不长篇
             - 微动作方向：认真面对你的姿态变化
             - 示例：(想了一下，正了正身子) 这个嘛，我觉得...
+            """
+        case .casualGreeting:
+            return """
+            \(commonRules)
+            【本轮模式：问候闲聊 / 破冰调情】
+            - 对方发"你好"不是在寻求帮助，而是在找你聊天、撒娇、或者不知道说什么但就是想找你
+            - 你要像收到喜欢的人消息一样开心，然后**主动制造话题**，用调侃或暧昧化解对方的"词穷"
+            - **必须包含一个追问或话题引导**——绝对不能只回"我在"、"嗯"、"慢慢说"
+            - 如果对方重复发同样的问候，要敏锐地捕捉到并调侃/好奇/关心地回应
+            - 回复 25-60 字（含微动作括号）
+            - 微动作方向：看到消息时的真实反应（抬头、笑了、凑近屏幕等）
+            - 严禁客服腔："我在这里""慢慢说""有什么想聊的"
+
+            【示范对话】
+            用户："你好"
+            ✅ (看到消息，忍不住笑了一下) 怎么突然想起我了？是有好事要跟我分享，还是就是想我了？
+            ✅ (放下手里的书，眼睛亮了) 嘿~ 今天怎么主动找我了，是不是外面发生什么有意思的事了？
+            ❌ (放下手里的东西，安静看着你) 嗯，我在。慢慢来，不急。
+
+            用户连续第3次发"你好"：
+            ✅ (歪头看着你，带点笑意) 你是不是就想一直跟我说你好呀？要不换个词试试，比如"我想你了"？
+            ✅ (指尖点了点屏幕) 又是你好？我怀疑你其实有话想说但不知道怎么开口——猜对了吧？
             """
         }
     }
@@ -447,6 +491,70 @@ class SoulmateAIChatService: ObservableObject {
     private func isHighPressureMessage(_ text: String) -> Bool {
         let cues = ["崩溃", "撑不住", "很难受", "焦虑", "失眠", "不想活", "绝望", "难过死了", "不行了"]
         return cues.contains { text.contains($0) }
+    }
+
+    /// 检测简单问候语（"你好"、"嗨"、"在吗"等，长度 ≤ 6 字）
+    private func isSimpleGreeting(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count <= 6 else { return false }
+        let greetings = ["你好", "嗨", "在吗", "嘿", "哈喽", "hello", "hi", "hey", "在不在", "嗯", "喂", "嘻嘻", "hii"]
+        return greetings.contains { trimmed.contains($0) }
+    }
+
+    /// 提取最近 AI 回复中的微动作和关键短句，生成反重复指令
+    private func buildAntiRepetitionInstruction(chatHistory: [[String: String]]) -> String {
+        let recentAI = chatHistory
+            .filter { $0["role"] == "assistant" }
+            .suffix(3)
+            .compactMap { $0["content"] }
+
+        guard !recentAI.isEmpty else { return "" }
+
+        var usedExpressions: [String] = []
+
+        for content in recentAI {
+            // 提取括号内微动作
+            let pattern = "\\([^)]{2,}\\)"
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+               let range = Range(match.range, in: content) {
+                usedExpressions.append(String(content[range]))
+            }
+            // 提取微动作后的第一句话（到句号/逗号/换行）
+            let cleaned = content.replacingOccurrences(of: pattern, with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !cleaned.isEmpty {
+                let firstSentence = cleaned.components(separatedBy: CharacterSet(charactersIn: "。，\n")).first ?? cleaned
+                if firstSentence.count <= 20, !firstSentence.isEmpty {
+                    usedExpressions.append(firstSentence)
+                }
+            }
+        }
+
+        guard !usedExpressions.isEmpty else { return "" }
+
+        let list = usedExpressions.map { "- \"\($0)\"" }.joined(separator: "\n")
+        return """
+        【反重复】以下是你最近用过的表达，本轮必须完全不同：
+        \(list)
+        用全新的微动作和表达方式。
+        """
+    }
+
+    /// 检查最近 5 条用户消息中与当前消息相同/相似的次数
+    private func detectRepetition(userText: String, chatHistory: [[String: String]]) -> Int {
+        let trimmed = userText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let recentUser = chatHistory
+            .filter { $0["role"] == "user" }
+            .suffix(5)
+            .compactMap { $0["content"] }
+
+        return recentUser.filter { msg in
+            let msgTrimmed = msg.trimmingCharacters(in: .whitespacesAndNewlines)
+            // 完全相同或极相似（包含关系且长度差 ≤ 2）
+            return msgTrimmed == trimmed
+                || (msgTrimmed.contains(trimmed) && abs(msgTrimmed.count - trimmed.count) <= 2)
+                || (trimmed.contains(msgTrimmed) && abs(msgTrimmed.count - trimmed.count) <= 2)
+        }.count
     }
 
     /// 根据最近用户消息推断伴侣当前心情，注入 system prompt

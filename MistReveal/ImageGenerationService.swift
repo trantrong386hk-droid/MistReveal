@@ -579,6 +579,8 @@ class ImageGenerationService {
             "req_key": reqKey,
             "prompt": prompt,
             "negative_prompt": negativePrompt,
+            "width": 864,
+            "height": 1536,
             "return_url": true
         ]
         let submitData = try JSONSerialization.data(withJSONObject: submitBody, options: [])

@@ -208,8 +208,8 @@ struct GeneratedPortraitView: View {
                let uiImage = UIImage(data: result.imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geometry.size.width - 40, height: geometry.size.height * 0.55)
+                    .scaledToFill()
+                    .frame(width: geometry.size.width - 40, height: geometry.size.height * 0.6)
                     .clipShape(RoundedRectangle(cornerRadius: 24))
                     .blur(radius: imageBlur)
                     .scaleEffect(imageScale)
@@ -449,14 +449,8 @@ struct GeneratedPortraitView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
 
-        // 按钮变为"已保存"，2秒后恢复
         withAnimation {
             saveStatus = .saved
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation {
-                saveStatus = .idle
-            }
         }
     }
 
