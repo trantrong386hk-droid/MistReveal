@@ -224,18 +224,32 @@ class ImageGenerationService {
         }
     }
 
-    // MARK: - 五行服饰风格
+    // MARK: - 随机服饰风格池（不受五行约束）
 
-    /// 喜用神 → 中文服饰风格关键词
-    func elementClothingStyle(_ element: String) -> String {
-        switch element {
-        case "火": return "，暖调浓郁的琥珀色调，温暖厚实的针织羊毛面料，复古温暖感"
-        case "木": return "，自然质朴的大地色调，轻松的亚麻棉质面料，干净的室内或城市背景"
-        case "金": return "，清冷极简的黑白灰色调，利落剪裁的干净线条，结构感"
-        case "水": return "，深沉的蓝灰色调，柔软垂坠的面料，流畅优雅"
-        case "土": return "，温暖的陶土色调，厚实有分量的纹理面料，沉稳踏实"
-        default: return "，有质感的自然色调"
-        }
+    /// 随机服饰风格关键词 —— 每次生成从池中随机选取，确保多样性
+    private let clothingStylePool: [String] = [
+        "，身穿深色圆领毛衣，简约质感",
+        "，身穿白色衬衫，袖口自然，干净利落",
+        "，身穿浅色亚麻衬衫，松弛自然",
+        "，身穿黑色高领针织衫，简洁有型",
+        "，身穿灰色休闲西装外套，内搭白T",
+        "，身穿牛仔夹克，内搭素色T恤，休闲随性",
+        "，身穿驼色风衣，质感挺括",
+        "，身穿深蓝色polo衫，干净整洁",
+        "，身穿条纹衬衫，文艺气质",
+        "，身穿卡其色工装外套，有生活感",
+        "，身穿黑色皮夹克，内搭简约",
+        "，身穿米白色针织开衫，温柔随意",
+        "，身穿藏青色套头卫衣，舒适日常",
+        "，身穿格纹衬衫外套，复古文艺",
+        "，身穿浅灰色羊毛大衣，气质沉稳",
+        "，身穿橄榄绿棉质外套，户外休闲感",
+        "，身穿暗红色圆领毛衣，低调温暖",
+        "，身穿白色T恤外搭深色开衫，轻松自在",
+    ]
+
+    func randomClothingStyle() -> String {
+        clothingStylePool.randomElement() ?? "，穿着有质感的日常服饰"
     }
 
     // MARK: - Edge Function 后处理（服务端）
@@ -339,14 +353,9 @@ class ImageGenerationService {
             print("🔵 [ImageGen] 救赎光影: \(bazi.xiYongShen)")
         }
 
-        // === 五行服饰风格后缀（英文，直接影响图像模型） ===
-        let clothingStyleSuffix: String
-        if let element = baziInfo?.xiYongShen {
-            clothingStyleSuffix = elementClothingStyle(element)
-            print("🔵 [ImageGen] 五行服饰风格: \(element) → \(clothingStyleSuffix)")
-        } else {
-            clothingStyleSuffix = "，有质感的自然色调"
-        }
+        // === 随机服饰风格后缀（不受五行约束，每次随机选取） ===
+        let clothingStyleSuffix = randomClothingStyle()
+        print("🔵 [ImageGen] 随机服饰风格: \(clothingStyleSuffix)")
 
         // === 通用摄影后缀（不含服饰风格词） ===
         let photoSuffix = "，自然光人像，浅景深虚化，色调真实克制，自然深棕色瞳孔，自然黑色或深棕色头发，发色必须是东亚人自然发色，人物清晰对焦背景虚化分离，健康温暖的肤色"
@@ -372,9 +381,31 @@ class ImageGenerationService {
             "轻微抬下巴", "身体微侧但眼神回望", "头部轻微侧倾", "上半身微向前", "坐姿放松"
         ]
 
-        let picks = stablePick(from: [
+        var picks = stablePick(from: [
             faceShapes, brows, eyes, nose, jaw, contour, skinDetail, pose
         ], seed: seed)
+
+        // 发型：根据性别随机选择（用 randomElement 而非 stablePick，确保每次生成有变化）
+        let isFemale = seed.contains("女性") || seed.contains("女")
+        let hairStyle: String
+        if isFemale {
+            let femaleHairStyles = [
+                "黑色长直发自然垂落", "深棕色及肩中长发", "自然微卷长发",
+                "锁骨发微微内扣", "低马尾扎起，碎发自然", "半扎发，余发披肩",
+                "齐肩波波头", "侧分长发，发尾自然", "黑色大卷长发",
+                "丸子头，碎发自然垂下", "耳后别发，露出侧脸线条",
+                "中分长发，发丝柔顺", "偏分及腰长发", "松散编发搭在一侧",
+            ]
+            hairStyle = femaleHairStyles.randomElement() ?? "黑色长发自然垂落"
+        } else {
+            let maleHairStyles = [
+                "短发干净利落", "寸头清爽", "侧分短发，纹理自然",
+                "微长碎发，自然蓬松", "背头整洁有型", "短发微卷，自然不刻意",
+            ]
+            hairStyle = maleHairStyles.randomElement() ?? "短发干净利落"
+        }
+        picks.append(hairStyle)
+        print("🔵 [ImageGen] 随机发型: \(hairStyle)")
 
         return picks.joined(separator: "，")
     }
@@ -479,7 +510,7 @@ class ImageGenerationService {
 
         // === 融合：LLM prompt + 十神人设 + 夫妻星约束 + 调色盘 + 灵魂感后缀 ===
         let visualSuffix = """
-        ，\(palette.skinTone)，\(palette.clothing)，\
+        ，\(palette.skinTone)，\
         \(palette.lighting)，\(palette.environment)
         """
 

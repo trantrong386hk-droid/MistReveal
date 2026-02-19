@@ -209,7 +209,7 @@ struct GeneratedPortraitView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geometry.size.width - 40, height: geometry.size.height * 0.6)
+                    .frame(width: geometry.size.width - 40, height: geometry.size.height * 0.6, alignment: .top)
                     .clipShape(RoundedRectangle(cornerRadius: 24))
                     .blur(radius: imageBlur)
                     .scaleEffect(imageScale)
