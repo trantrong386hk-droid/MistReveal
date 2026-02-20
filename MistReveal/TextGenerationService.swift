@@ -1,5 +1,6 @@
 import Foundation
 import LunarSwift
+import Supabase
 
 /// 阿里云百炼大模型文本生成服务
 class TextGenerationService {
@@ -30,15 +31,19 @@ class TextGenerationService {
         }
     }
 
-    /// API 请求体
+    /// API 请求体（发送到 aliyun-proxy EF，含额外字段供 EF 存入 prompt_tokens）
     private struct ChatRequest: Encodable {
         let model: String
         let messages: [Message]
         let responseFormat: ResponseFormat?
+        var targetAge: Int? = nil      // 供 aliyun-proxy 存入 prompt_tokens
+        var xiYongShen: String = ""    // 供 aliyun-proxy 存入 prompt_tokens
 
         enum CodingKeys: String, CodingKey {
             case model, messages
             case responseFormat = "response_format"
+            case targetAge = "target_age"
+            case xiYongShen = "xi_yong_shen"
         }
 
         struct Message: Encodable {
@@ -262,18 +267,6 @@ class TextGenerationService {
         print("   - 时辰: \(birthTime)")
         print("   - 地点: \(location)")
 
-        // 从 SecretsManager 获取 API Key
-        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
-            throw TextGenerationError.apiError(statusCode: 0, message: "无法获取 API 密钥")
-        }
-
-        let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
         // 先计算八字（获取 targetAge 用于 LLM 指令和后续生图，含真太阳时修正）
         let baziInfo = calculateBaZi(birthDate: birthDate, birthTime: birthTime, location: location, gender: gender == "乾" ? "男" : "女")
 
@@ -301,25 +294,17 @@ class TextGenerationService {
             responseFormat: ChatRequest.ResponseFormat(type: "json_object")
         )
 
-        request.httpBody = try JSONEncoder().encode(chatRequest)
+        print("🔵 [TextGeneration] 发送请求到 aliyun-proxy Edge Function...")
 
-        print("🔵 [TextGeneration] 发送请求到阿里云百炼...")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw TextGenerationError.invalidResponse
-        }
-
-        print("🔵 [TextGeneration] 收到响应，状态码: \(httpResponse.statusCode)")
-
-        guard httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "未知错误"
-            print("❌ [TextGeneration] API 错误: \(errorText)")
-            throw TextGenerationError.apiError(statusCode: httpResponse.statusCode, message: errorText)
-        }
-
-        let chatResponse = try JSONDecoder().decode(ChatResponse.self, from: data)
+        let session = try await supabase.auth.session
+        let chatResponse: ChatResponse = try await supabase.functions.invoke(
+            "aliyun-proxy",
+            options: FunctionInvokeOptions(
+                method: .post,
+                headers: ["Authorization": "Bearer \(session.accessToken)"],
+                body: chatRequest
+            )
+        )
 
         guard let content = chatResponse.choices.first?.message.content else {
             throw TextGenerationError.emptyResponse
@@ -367,18 +352,6 @@ class TextGenerationService {
         print("   - 性别: \(gender)")
         print("   - 时辰: \(birthTime)")
         print("   - 地点: \(location)")
-
-        // 从 SecretsManager 获取 API Key
-        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
-            throw TextGenerationError.apiError(statusCode: 0, message: "无法获取 API 密钥")
-        }
-
-        let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // 根据用户性别确定伴侣性别
         let soulmateGender = gender == "男" ? "女" : "男"
@@ -539,7 +512,7 @@ class TextGenerationService {
             """
         }
 
-        let chatRequest = ChatRequest(
+        var chatRequest = ChatRequest(
             model: AppConfig.AliyunBailian.model,
             messages: [
                 ChatRequest.Message(role: "system", content: soulAnalysisSystemPrompt),
@@ -547,26 +520,21 @@ class TextGenerationService {
             ],
             responseFormat: ChatRequest.ResponseFormat(type: "json_object")
         )
+        // 注入 targetAge / xiYongShen，供 aliyun-proxy EF 写入 prompt_tokens
+        chatRequest.targetAge = baziInfo?.targetAge
+        chatRequest.xiYongShen = baziInfo?.xiYongShen ?? ""
 
-        request.httpBody = try JSONEncoder().encode(chatRequest)
+        print("🔵 [TextGeneration] 发送灵魂分析请求到 aliyun-proxy Edge Function...")
 
-        print("🔵 [TextGeneration] 发送灵魂分析请求到阿里云百炼...")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw TextGenerationError.invalidResponse
-        }
-
-        print("🔵 [TextGeneration] 收到响应，状态码: \(httpResponse.statusCode)")
-
-        guard httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "未知错误"
-            print("❌ [TextGeneration] API 错误: \(errorText)")
-            throw TextGenerationError.apiError(statusCode: httpResponse.statusCode, message: errorText)
-        }
-
-        let chatResponse = try JSONDecoder().decode(ChatResponse.self, from: data)
+        let efSession = try await supabase.auth.session
+        let chatResponse: ChatResponse = try await supabase.functions.invoke(
+            "aliyun-proxy",
+            options: FunctionInvokeOptions(
+                method: .post,
+                headers: ["Authorization": "Bearer \(efSession.accessToken)"],
+                body: chatRequest
+            )
+        )
 
         guard let content = chatResponse.choices.first?.message.content else {
             throw TextGenerationError.emptyResponse

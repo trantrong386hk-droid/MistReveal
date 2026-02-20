@@ -29,12 +29,11 @@ class SupabaseSaveService {
         }
     }
 
-    /// 画像记录数据结构
+    /// 画像记录数据结构（prompt 列已停止写入，安全策略：prompt 仅在服务端流转）
     private struct PortraitRecordData: Codable {
         let userId: UUID
         let hexagram: String
         let analysis: String
-        let prompt: String
         let imageUrl: String
         let birthDate: String
         let gender: String
@@ -45,7 +44,6 @@ class SupabaseSaveService {
             case userId = "user_id"
             case hexagram
             case analysis
-            case prompt
             case imageUrl = "image_url"
             case birthDate = "birth_date"
             case gender
@@ -62,15 +60,13 @@ class SupabaseSaveService {
     ///   - gender: 性别
     ///   - birthTime: 时辰
     ///   - location: 地点
-    ///   - imagePrompt: 生图提示词
     /// - Returns: 上传后的图片URL
     @discardableResult
     func saveGenerationResult(
         result: SoulmateManager.SoulmateResult,
         gender: String,
         birthTime: String,
-        location: String,
-        imagePrompt: String
+        location: String
     ) async throws -> String {
         guard let userId = supabase.auth.currentUser?.id else {
             print("❌ [SupabaseSave] 用户未登录")
@@ -101,7 +97,6 @@ class SupabaseSaveService {
                 userId: userId,
                 hexagram: result.hexagram,
                 analysis: result.analysis,
-                imagePrompt: imagePrompt,
                 imageUrl: imageUrl,
                 birthDate: result.birthDate,
                 gender: gender,
@@ -201,7 +196,6 @@ class SupabaseSaveService {
         userId: UUID,
         hexagram: String,
         analysis: String,
-        imagePrompt: String,
         imageUrl: String,
         birthDate: String,
         gender: String,
@@ -225,7 +219,6 @@ class SupabaseSaveService {
             userId: userId,
             hexagram: hexagram,
             analysis: analysis,
-            prompt: imagePrompt,
             imageUrl: imageUrl,
             birthDate: formattedBirthDate,
             gender: gender,

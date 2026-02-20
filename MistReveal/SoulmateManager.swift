@@ -42,7 +42,7 @@ class SoulmateManager: ObservableObject {
     struct SoulmateResult {
         let hexagram: String      // 卦象名称
         let analysis: String      // 性格外貌描述
-        let imagePrompt: String   // 生图提示词
+        let promptToken: String   // 服务端令牌（替代明文 imagePrompt）
         let imageData: Data       // 图片数据
         let birthDate: String     // 输入的生辰
     }
@@ -93,7 +93,7 @@ class SoulmateManager: ObservableObject {
             print("🔮 [SoulmateManager] 文本生成完成")
             print("   - 卦象: \(soulAnalysis.hexagram)")
             print("   - 分析文字: \(soulAnalysis.soulmateAnalysis.prefix(50))...")
-            print("   - 生图提示词: \(soulAnalysis.imagePrompt.prefix(50))...")
+            print("   - Prompt Token: \(soulAnalysis.promptToken)")
 
             // 第二步：调用火山引擎即梦，生成图片
             print("🔮 [SoulmateManager] 第二步：调用图片生成服务...")
@@ -101,8 +101,7 @@ class SoulmateManager: ObservableObject {
             progressText = "凝聚灵力，化形中..."
 
             let imageData = try await ImageGenerationService.shared.generateImage(
-                prompt: soulAnalysis.imagePrompt,
-                baziInfo: soulAnalysis.baziInfo  // 传入八字信息用于五行互补计算
+                promptToken: soulAnalysis.promptToken
             )
 
             print("🔮 [SoulmateManager] 图片生成完成，大小: \(imageData.count) bytes")
@@ -111,7 +110,7 @@ class SoulmateManager: ObservableObject {
             let finalResult = SoulmateResult(
                 hexagram: soulAnalysis.hexagram,
                 analysis: soulAnalysis.soulmateAnalysis,
-                imagePrompt: soulAnalysis.imagePrompt,
+                promptToken: soulAnalysis.promptToken,
                 imageData: imageData,
                 birthDate: birthDate
             )
@@ -224,8 +223,7 @@ class SoulmateManager: ObservableObject {
 
         do {
             let imageData = try await ImageGenerationService.shared.generateImage(
-                prompt: analysis.imagePrompt,
-                baziInfo: analysis.baziInfo  // 传入八字信息用于五行互补计算
+                promptToken: analysis.promptToken
             )
 
             print("🔮 [SoulmateManager] 图片生成完成，大小: \(imageData.count) bytes")
@@ -234,7 +232,7 @@ class SoulmateManager: ObservableObject {
             let finalResult = SoulmateResult(
                 hexagram: analysis.hexagram,
                 analysis: analysis.soulmateAnalysis,
-                imagePrompt: analysis.imagePrompt,
+                promptToken: analysis.promptToken,
                 imageData: imageData,
                 birthDate: birthDate
             )

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Supabase
 
 /// 灵犀 AI 聊天服务 — 接入 LLM API 实现真正的对话
 @MainActor
@@ -701,65 +702,62 @@ class SoulmateAIChatService: ObservableObject {
 
     // MARK: - LLM API 调用
 
-    /// 调用阿里云百炼 LLM API
+    /// 调用阿里云百炼 LLM API（via aliyun-proxy Edge Function）
     private func callLLM(
         systemPrompt: String,
         chatHistory: [[String: String]],
         currentMessage: String
     ) async throws -> String {
 
-        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
-            throw LLMChatError.apiKeyMissing
-        }
-
-        let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
-
         // 构建 messages 数组
-        var apiMessages: [[String: String]] = [
-            ["role": "system", "content": systemPrompt]
-        ]
-
-        // 添加聊天历史
-        apiMessages.append(contentsOf: chatHistory)
-
-        // 添加当前用户消息
-        apiMessages.append(["role": "user", "content": currentMessage])
-
-        let requestBody: [String: Any] = [
-            "model": AppConfig.AliyunBailian.model,
-            "messages": apiMessages,
-            "temperature": 0.92,
-            "max_tokens": 500
-        ]
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-
-        print("🔮 [灵犀] 调用 LLM，消息历史: \(chatHistory.count) 条")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw LLMChatError.invalidResponse
+        struct LLMMessage: Encodable {
+            let role: String
+            let content: String
+        }
+        struct LLMRequest: Encodable {
+            let model: String
+            let messages: [LLMMessage]
+            let temperature: Double
+            let max_tokens: Int
+        }
+        struct LLMChoice: Decodable {
+            let message: LLMMessageContent
+            struct LLMMessageContent: Decodable {
+                let content: String
+            }
+        }
+        struct LLMResponse: Decodable {
+            let choices: [LLMChoice]
         }
 
-        guard httpResponse.statusCode == 200 else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "unknown"
-            print("❌ [灵犀] LLM API 错误 \(httpResponse.statusCode): \(errorBody)")
-            throw LLMChatError.apiError(statusCode: httpResponse.statusCode)
+        var apiMessages: [LLMMessage] = [LLMMessage(role: "system", content: systemPrompt)]
+        for msg in chatHistory {
+            if let role = msg["role"], let content = msg["content"] {
+                apiMessages.append(LLMMessage(role: role, content: content))
+            }
         }
+        apiMessages.append(LLMMessage(role: "user", content: currentMessage))
 
-        // 解析响应
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let firstChoice = choices.first,
-              let message = firstChoice["message"] as? [String: Any],
-              let content = message["content"] as? String else {
+        let requestBody = LLMRequest(
+            model: AppConfig.AliyunBailian.model,
+            messages: apiMessages,
+            temperature: 0.92,
+            max_tokens: 500
+        )
+
+        print("🔮 [灵犀] 调用 aliyun-proxy，消息历史: \(chatHistory.count) 条")
+
+        let session = try await supabase.auth.session
+        let llmResponse: LLMResponse = try await supabase.functions.invoke(
+            "aliyun-proxy",
+            options: FunctionInvokeOptions(
+                method: .post,
+                headers: ["Authorization": "Bearer \(session.accessToken)"],
+                body: requestBody
+            )
+        )
+
+        guard let content = llmResponse.choices.first?.message.content else {
             throw LLMChatError.parseError
         }
 

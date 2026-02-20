@@ -31,6 +31,7 @@ struct GeneratedPortraitView: View {
     // 保存状态
     enum SaveStatus { case idle, saved, failed }
     @State private var saveStatus: SaveStatus = .idle
+    @State private var supabaseSaveFailed = false
 
     // 加载文字
     private let loadingTexts = [
@@ -290,6 +291,20 @@ struct GeneratedPortraitView: View {
             .opacity(showContent ? 1 : 0)
             .offset(y: showContent ? 0 : 20)
 
+            if supabaseSaveFailed {
+                VStack(spacing: 8) {
+                    Text("档案保存失败，请重试")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Button("重新保存") {
+                        supabaseSaveFailed = false
+                        saveResultToSupabase()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.top, 8)
+            }
+
             Spacer(minLength: 100)
         }
         .onAppear {
@@ -403,10 +418,11 @@ struct GeneratedPortraitView: View {
         let birthDateString = formatter.string(from: birthDate)
 
         Task {
-            // 消耗配额
+            // 原子扣减配额，失败直接返回，不进入生成管线
             let quotaConsumed = await QuotaManager.shared.consumeQuota()
-            if !quotaConsumed {
-                print("⚠️ [GeneratedPortraitView] 配额消耗失败")
+            guard quotaConsumed else {
+                print("⚠️ [GeneratedPortraitView] 配额不足，终止生成")
+                return
             }
 
             // 生成图片
@@ -463,10 +479,10 @@ struct GeneratedPortraitView: View {
                     result: result,
                     gender: gender,
                     birthTime: birthTime,
-                    location: location,
-                    imagePrompt: result.imagePrompt
+                    location: location
                 )
                 print("✅ [GeneratedPortraitView] 数据已保存到 Supabase")
+                supabaseSaveFailed = false
 
                 await archiveManager.updateImageUrl(
                     gender: gender,
@@ -489,6 +505,7 @@ struct GeneratedPortraitView: View {
                 }
             } catch {
                 print("❌ [GeneratedPortraitView] 保存失败: \(error.localizedDescription)")
+                supabaseSaveFailed = true
             }
         }
     }

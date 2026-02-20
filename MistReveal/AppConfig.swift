@@ -1,7 +1,7 @@
 import Foundation
 
 /// App 配置 - 存放非敏感配置信息
-/// API 密钥已迁移至 Supabase app_secrets 表，通过 SecretsManager 获取
+/// API 密钥存储于 Supabase Edge Function Secrets（Deno 环境变量），通过代理 EF 调用外部 API
 enum AppConfig {
 
     // MARK: - Supabase

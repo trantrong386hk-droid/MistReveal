@@ -296,48 +296,55 @@ class UserManualService {
         return chatLines.joined(separator: "\n")
     }
 
-    /// 调用 LLM API 进行分析
+    /// 调用 LLM API 进行分析（via aliyun-proxy Edge Function）
     private func callLLMForAnalysis(
         systemPrompt: String,
         userMessage: String,
         messageCount: Int
     ) async throws -> UserManual {
 
-        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
-            throw UserManualError.apiKeyMissing
+        struct LLMMsg: Encodable {
+            let role: String
+            let content: String
+        }
+        struct LLMResponseFormat: Encodable {
+            let type: String
+        }
+        struct LLMReq: Encodable {
+            let model: String
+            let messages: [LLMMsg]
+            let response_format: LLMResponseFormat
+        }
+        struct LLMChoice: Decodable {
+            let message: LLMMsgContent
+            struct LLMMsgContent: Decodable {
+                let content: String
+            }
+        }
+        struct LLMResp: Decodable {
+            let choices: [LLMChoice]
         }
 
-        let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let requestBody: [String: Any] = [
-            "model": AppConfig.AliyunBailian.model,
-            "messages": [
-                ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": userMessage]
+        let requestBody = LLMReq(
+            model: AppConfig.AliyunBailian.model,
+            messages: [
+                LLMMsg(role: "system", content: systemPrompt),
+                LLMMsg(role: "user", content: userMessage)
             ],
-            "response_format": ["type": "json_object"]
-        ]
+            response_format: LLMResponseFormat(type: "json_object")
+        )
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        let session = try await supabase.auth.session
+        let llmResp: LLMResp = try await supabase.functions.invoke(
+            "aliyun-proxy",
+            options: FunctionInvokeOptions(
+                method: .post,
+                headers: ["Authorization": "Bearer \(session.accessToken)"],
+                body: requestBody
+            )
+        )
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw UserManualError.apiError
-        }
-
-        // 解析响应
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let firstChoice = choices.first,
-              let message = firstChoice["message"] as? [String: Any],
-              let content = message["content"] as? String,
+        guard let content = llmResp.choices.first?.message.content,
               let contentData = content.data(using: .utf8) else {
             throw UserManualError.parseError
         }

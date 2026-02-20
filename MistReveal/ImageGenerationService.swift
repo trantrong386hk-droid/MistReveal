@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import Supabase
 
 /// 图片生成服务 - 使用火山引擎即梦 4.0 异步 API
@@ -9,12 +8,6 @@ class ImageGenerationService {
     private init() {}
 
     // MARK: - 配置（即梦 4.0）
-    private let host = "visual.volcengineapi.com"
-    private let submitAction = "CVSync2AsyncSubmitTask"
-    private let getResultAction = "CVSync2AsyncGetResult"
-    private let version = "2022-08-31"
-    private let region = "cn-north-1"
-    private let service = "cv"
     private let reqKey = "jimeng_t2i_v40"
 
     // 轮询配置
@@ -252,179 +245,6 @@ class ImageGenerationService {
         clothingStylePool.randomElement() ?? "，穿着有质感的日常服饰"
     }
 
-    // MARK: - Edge Function 后处理（服务端）
-
-    /// 通过 Supabase Edge Function 执行提示词后处理
-    /// 服务端逻辑与本地 appendPaletteAndPhoto() 一致，但可热更新
-    private func enhancePromptViaEdgeFunction(rawPrompt: String, baziInfo: BaZiInfo?) async throws -> String {
-        struct RequestBody: Encodable {
-            let rawPrompt: String
-            let targetAge: Int?
-            let xiYongShen: String
-        }
-        struct ResponseBody: Decodable {
-            let finalPrompt: String
-        }
-
-        let body = RequestBody(
-            rawPrompt: rawPrompt,
-            targetAge: baziInfo?.targetAge,
-            xiYongShen: baziInfo?.xiYongShen ?? ""
-        )
-
-        let session = try await supabase.auth.session
-
-        let response: ResponseBody = try await supabase.functions.invoke(
-            "enhance-image-prompt",
-            options: FunctionInvokeOptions(
-                method: .post,
-                headers: ["Authorization": "Bearer \(session.accessToken)"],
-                body: body
-            )
-        )
-
-        return response.finalPrompt
-    }
-
-    // MARK: - 后处理：年龄校准 + 清理 + 救赎光影 + 摄影后缀（本地 fallback）
-
-    /// 后处理：年龄校准 + 清理冗余词 + 救赎光影 + 摄影后缀
-    /// 十神人设和夫妻星骨相由 LLM 在原始 prompt 中融入，此处不重复追加
-    private func appendPaletteAndPhoto(_ rawPrompt: String, baziInfo: BaZiInfo?) -> String {
-        var prompt = rawPrompt
-
-        // === 年龄校准 ===
-        if let age = baziInfo?.targetAge {
-            let beforeReplace = prompt
-            if let regex = try? NSRegularExpression(pattern: "约?\\d{1,3}[\\-~到至]?\\d{0,3}岁[左右]?") {
-                let range = NSRange(prompt.startIndex..., in: prompt)
-                prompt = regex.stringByReplacingMatches(in: prompt, range: range, withTemplate: "\(age)岁")
-            }
-            if prompt != beforeReplace {
-                print("🔵 [ImageGen] ✅ 年龄替换成功: → \(age)岁")
-            } else {
-                print("🔵 [ImageGen] ⚠️ 年龄正则未命中，尝试中文数字匹配...")
-                if let cnRegex = try? NSRegularExpression(pattern: "[一二三四五六七八九十百零]+[多余]?岁[左右]?") {
-                    let range = NSRange(prompt.startIndex..., in: prompt)
-                    prompt = cnRegex.stringByReplacingMatches(in: prompt, range: range, withTemplate: "\(age)岁")
-                }
-            }
-            print("🔵 [ImageGen] 年龄校准: 目标伴侣年龄 \(age)岁")
-        } else {
-            print("⚠️ [ImageGen] targetAge 为 nil，跳过年龄校准")
-        }
-
-        // === 清理 LLM prompt 中的摄影棚/纯色背景/相机参数 ===
-        let cleanupPatterns = [
-            "纯灰色背景", "灰色背景", "摄影棚灯光", "柔和摄影棚灯光", "纯色背景",
-            "专业人像摄影", "纪实摄影风格", "8K画质", "高清细节",
-            "艺术人像", "油画质感与摄影的融合", "油画质感", "灵魂光感",
-            "电影级光影", "大师级构图"
-        ]
-        for pattern in cleanupPatterns {
-            prompt = prompt.replacingOccurrences(of: pattern, with: "")
-        }
-        prompt = prompt.replacingOccurrences(of: "正面面向镜头", with: "微侧面，自然不经意的回眸")
-
-        // 清理多余逗号和空格
-        prompt = prompt.replacingOccurrences(of: "，，", with: "，")
-        prompt = prompt.replacingOccurrences(of: ",,", with: ",")
-        prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // === 注入辨识度特征（稳定但多样化） ===
-        let distinctFeatures = pickDistinctFeatures(seed: rawPrompt)
-        if !distinctFeatures.isEmpty {
-            prompt += "，\(distinctFeatures)"
-        }
-
-        // === 温度泄漏监控（如果上游三轴分离正确，此处不应触发） ===
-        if let bazi = baziInfo, (bazi.xiYongShen == "木" || bazi.xiYongShen == "火") {
-            let coldIndicators = ["清冷", "冷峻", "银灰", "冰冷", "银白"]
-            for indicator in coldIndicators {
-                if prompt.contains(indicator) {
-                    print("⚠️ [ImageGen] 温度泄漏: \"\(indicator)\" (xiYongShen=\(bazi.xiYongShen))，需检查上游")
-                }
-            }
-        }
-
-        // === 救赎光影（根据喜用神追加对应光影关键词） ===
-        if let bazi = baziInfo {
-            prompt += redemptionLighting(bazi.xiYongShen)
-            print("🔵 [ImageGen] 救赎光影: \(bazi.xiYongShen)")
-        }
-
-        // === 随机服饰风格后缀（不受五行约束，每次随机选取） ===
-        let clothingStyleSuffix = randomClothingStyle()
-        print("🔵 [ImageGen] 随机服饰风格: \(clothingStyleSuffix)")
-
-        // === 通用摄影后缀（不含服饰风格词） ===
-        let photoSuffix = "，自然光人像，浅景深虚化，色调真实克制，自然深棕色瞳孔，自然黑色或深棕色头发，发色必须是东亚人自然发色，人物清晰对焦背景虚化分离，健康温暖的肤色"
-
-        let finalPrompt = prompt + clothingStyleSuffix + photoSuffix
-
-        return finalPrompt
-    }
-
-    // MARK: - 去同质化：稳定特征注入
-
-    /// 基于 prompt 的稳定特征选择，避免每次都同一张脸
-    private func pickDistinctFeatures(seed: String) -> String {
-        let faceShapes = ["脸型偏长", "鹅蛋脸偏窄", "方中带圆的脸型", "颧骨略高的脸型", "下颌线清晰的脸型"]
-        let brows = ["眉形自然平直", "眉峰略有起伏", "眉形偏浓但整洁", "眉尾稍长", "眉距略窄"]
-        let eyes = ["眼型偏狭长", "眼尾微上扬", "眼皮较薄", "眼睑层次清晰", "眼神沉稳而直视"]
-        let nose = ["鼻梁挺直但不夸张", "鼻梁偏直略长", "鼻翼收敛", "鼻头圆润", "鼻梁与眉骨过渡自然"]
-        let jaw = ["下颌线干净", "下巴偏窄", "下巴略圆", "下颌转折利落", "下颌角不外扩"]
-        let contour = ["颧骨线条清晰但不过分突出", "面部轮廓柔和但有棱角", "面部轮廓立体但克制", "面部线条干净利落", "轮廓对比适中"]
-        let skinDetail = ["肤质细腻自然", "肤质干净清透", "皮肤有自然光泽，不油不干", "肤质均匀柔和", "皮肤状态自然，光泽柔和"]
-        let pose = [
-            "平视镜头", "微低机位视角", "轻微侧脸转回", "肩部稍前倾", "姿态克制放松",
-            "轻微抬下巴", "身体微侧但眼神回望", "头部轻微侧倾", "上半身微向前", "坐姿放松"
-        ]
-
-        var picks = stablePick(from: [
-            faceShapes, brows, eyes, nose, jaw, contour, skinDetail, pose
-        ], seed: seed)
-
-        // 发型：根据性别随机选择（用 randomElement 而非 stablePick，确保每次生成有变化）
-        let isFemale = seed.contains("女性") || seed.contains("女")
-        let hairStyle: String
-        if isFemale {
-            let femaleHairStyles = [
-                "黑色长直发自然垂落", "深棕色及肩中长发", "自然微卷长发",
-                "锁骨发微微内扣", "低马尾扎起，碎发自然", "半扎发，余发披肩",
-                "齐肩波波头", "侧分长发，发尾自然", "黑色大卷长发",
-                "丸子头，碎发自然垂下", "耳后别发，露出侧脸线条",
-                "中分长发，发丝柔顺", "偏分及腰长发", "松散编发搭在一侧",
-            ]
-            hairStyle = femaleHairStyles.randomElement() ?? "黑色长发自然垂落"
-        } else {
-            let maleHairStyles = [
-                "短发干净利落", "寸头清爽", "侧分短发，纹理自然",
-                "微长碎发，自然蓬松", "背头整洁有型", "短发微卷，自然不刻意",
-            ]
-            hairStyle = maleHairStyles.randomElement() ?? "短发干净利落"
-        }
-        picks.append(hairStyle)
-        print("🔵 [ImageGen] 随机发型: \(hairStyle)")
-
-        return picks.joined(separator: "，")
-    }
-
-    /// 稳定选择：对 seed 做 hash，从每个列表取一个
-    private func stablePick(from groups: [[String]], seed: String) -> [String] {
-        guard let data = seed.data(using: .utf8) else { return [] }
-        let digest = SHA256.hash(data: data)
-        let bytes = Array(digest)
-        var result: [String] = []
-        for (index, group) in groups.enumerated() {
-            if group.isEmpty { continue }
-            let byte = bytes[index % bytes.count]
-            let pickIndex = Int(byte) % group.count
-            result.append(group[pickIndex])
-        }
-        return result
-    }
-
     // MARK: - 提示词后处理（旧版完整版，保留参考）
 
     /// 对 AI 返回的 image_prompt 进行灵魂感强化 + 八字视觉融合 + 年龄校准
@@ -557,152 +377,97 @@ class ImageGenerationService {
 
     /// 生成伴侣画像
     /// - Parameters:
-    ///   - prompt: AI 生成的原始 image_prompt
-    ///   - baziInfo: 用户的八字信息（用于五行互补计算），可选
-    func generateImage(prompt: String, baziInfo: BaZiInfo? = nil) async throws -> Data {
+    ///   - promptToken: 服务端令牌（aliyun-proxy 返回的 UUID），enhancement 在 volcano-submit EF 内进行
+    func generateImage(promptToken: String) async throws -> Data {
         print("🔵 [ImageGen] ========== 开始生成图片 (即梦 4.0) ==========")
-
-        // 打印八字摘要
-        if let bazi = baziInfo {
-            print("🔵 [ImageGen] 用户五行: 金\(String(format: "%.1f", bazi.metalScore)) 木\(String(format: "%.1f", bazi.woodScore)) 水\(String(format: "%.1f", bazi.waterScore)) 火\(String(format: "%.1f", bazi.fireScore)) 土\(String(format: "%.1f", bazi.earthScore))")
-            print("🔵 [ImageGen] 喜用神: \(bazi.xiYongShen) → 伴侣追加\(bazi.xiYongShen)系视觉能量")
-            print("🔵 [ImageGen] 主导十神: \(bazi.dominantGod)")
-            if let star = bazi.spouseStarType {
-                print("🔵 [ImageGen] 夫妻星: \(star) → 骨相约束激活")
-            }
-            if let age = bazi.targetAge {
-                print("🔵 [ImageGen] 伴侣目标年龄: \(age)岁 (喜\(bazi.agePreference ?? "default"))")
-            }
-        } else {
-            print("🔵 [ImageGen] 无八字信息，使用中性色调")
-        }
-
-        // 后处理：优先走 Edge Function，失败时降级到本地逻辑
-        let finalPrompt: String
-        do {
-            finalPrompt = try await enhancePromptViaEdgeFunction(rawPrompt: prompt, baziInfo: baziInfo)
-            print("🔵 [ImageGen] ✅ Edge Function 后处理成功")
-        } catch {
-            print("⚠️ [ImageGen] Edge Function 失败，降级到本地: \(error)")
-            finalPrompt = appendPaletteAndPhoto(prompt, baziInfo: baziInfo)
-        }
-        print("🔵 [ImageGen] LLM 原始 Prompt: \(prompt)")
-        print("🔵 [ImageGen] 最终 Prompt: \(finalPrompt)")
-
-        let safePrompt = sanitizePromptForPolicy(finalPrompt)
-        if safePrompt != finalPrompt {
-            print("🔵 [ImageGen] 风控清洗: 已对 prompt 做温和化处理")
-        }
+        print("🔵 [ImageGen] Prompt Token: \(promptToken)")
 
         let negativePrompt = "绿色头发，蓝色头发，紫色头发，银色头发，灰色头发，粉色头发，不自然的发色，头发泛绿，头发泛蓝，染发，动漫风格头发，绿色皮肤，蓝色皮肤，苍白灰暗的皮肤"
-        let safeNegativePrompt = sanitizePromptForPolicy(negativePrompt)
-        print("🔵 [ImageGen] 提交尝试 #1（保留原始人物与场景，不使用温和版替换）")
+
         do {
-            return try await submitAndPollImage(prompt: safePrompt, negativePrompt: safeNegativePrompt)
+            return try await submitAndPollImage(promptToken: promptToken, negativePrompt: negativePrompt)
         } catch ImageError.contentRisk {
             print("⚠️ [ImageGen] 命中内容审核，快速退出")
             throw ImageError.contentRisk
         }
     }
 
-    private func submitAndPollImage(prompt: String, negativePrompt: String) async throws -> Data {
-        let submitBody: [String: Any] = [
-            "req_key": reqKey,
-            "prompt": prompt,
-            "negative_prompt": negativePrompt,
-            "width": 864,
-            "height": 1536,
-            "return_url": true
-        ]
-        let submitData = try JSONSerialization.data(withJSONObject: submitBody, options: [])
-
-        print("🔵 [ImageGen] 提交异步任务...")
-        let submitRequest = try await buildRequest(action: submitAction, bodyData: submitData)
-        let (submitResponseData, submitResponse) = try await URLSession.shared.data(for: submitRequest)
-        let submitHttpResponse = submitResponse as! HTTPURLResponse
-
-        print("🔵 [ImageGen] 提交响应状态码: \(submitHttpResponse.statusCode)")
-        if let text = String(data: submitResponseData, encoding: .utf8) {
-            print("🔵 [ImageGen] 提交响应: \(text.prefix(500))")
+    private func submitAndPollImage(promptToken: String, negativePrompt: String) async throws -> Data {
+        // Submit via volcano-submit Edge Function
+        struct SubmitBody: Encodable {
+            let promptToken: String
+            let negativePrompt: String
+            let width: Int
+            let height: Int
+            let reqKey: String
+            let returnUrl: Bool
+        }
+        struct SubmitResponse: Decodable {
+            let task_id: String
+        }
+        struct PollBody: Encodable {
+            let task_id: String
+            let reqKey: String
+        }
+        struct PollResponse: Decodable {
+            let status: String
+            let image_urls: [String]?
+            let binary_data_base64: [String]?
+            let error: String?
+            let resp_data: String?
+            let code: Int?
         }
 
-        guard submitHttpResponse.statusCode == 200 else {
-            let (code, message) = parseServerError(from: submitResponseData)
-            if code == 50413 {
-                print("⚠️ [ImageGen] 提交阶段命中内容审核 (50413): \(message)")
-                throw ImageError.contentRisk
-            }
-            throw ImageError.api("提交任务失败: \(message)")
-        }
+        let submitBody = SubmitBody(
+            promptToken: promptToken,
+            negativePrompt: negativePrompt,
+            width: 864,
+            height: 1536,
+            reqKey: reqKey,
+            returnUrl: true
+        )
 
-        guard let submitJson = try JSONSerialization.jsonObject(with: submitResponseData) as? [String: Any] else {
-            throw ImageError.api("提交响应格式错误")
-        }
+        print("🔵 [ImageGen] 提交异步任务到 volcano-submit...")
 
-        let submitDataObj: [String: Any]?
-        if let directData = submitJson["data"] as? [String: Any] {
-            submitDataObj = directData
-        } else if let result = submitJson["Result"] as? [String: Any],
-                  let resultData = result["data"] as? [String: Any] {
-            submitDataObj = resultData
-        } else {
-            submitDataObj = nil
-        }
+        let efSession = try await supabase.auth.session
+        let submitResponse: SubmitResponse = try await supabase.functions.invoke(
+            "volcano-submit",
+            options: FunctionInvokeOptions(
+                method: .post,
+                headers: ["Authorization": "Bearer \(efSession.accessToken)"],
+                body: submitBody
+            )
+        )
 
-        guard let taskId = submitDataObj?["task_id"] as? String else {
-            print("❌ [ImageGen] 无法获取 task_id，完整响应: \(String(data: submitResponseData, encoding: .utf8) ?? "")")
-            throw ImageError.api("无法获取 task_id")
-        }
-
+        let taskId = submitResponse.task_id
         print("🔵 [ImageGen] 任务已提交，task_id: \(taskId)")
 
         for attempt in 1...maxPollAttempts {
             try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
 
-            let pollBody: [String: Any] = [
-                "req_key": reqKey,
-                "task_id": taskId
-            ]
-            let pollData = try JSONSerialization.data(withJSONObject: pollBody, options: [])
-            let pollRequest = try await buildRequest(action: getResultAction, bodyData: pollData)
-            let (pollResponseData, pollResponse) = try await URLSession.shared.data(for: pollRequest)
-            let pollHttpResponse = pollResponse as! HTTPURLResponse
+            let pollBody = PollBody(task_id: taskId, reqKey: reqKey)
+            let pollSession = try await supabase.auth.session
+            let pollResult: PollResponse = try await supabase.functions.invoke(
+                "volcano-poll",
+                options: FunctionInvokeOptions(
+                    method: .post,
+                    headers: ["Authorization": "Bearer \(pollSession.accessToken)"],
+                    body: pollBody
+                )
+            )
 
-            guard pollHttpResponse.statusCode == 200 else {
-                let (code, message) = parseServerError(from: pollResponseData)
-                print("⚠️ [ImageGen] 轮询 #\(attempt) 状态码: \(pollHttpResponse.statusCode), body: \(message.prefix(500))")
-                if code == 50413 {
-                    print("⚠️ [ImageGen] 轮询阶段命中内容审核 (50413): \(message)")
-                    throw ImageError.contentRisk
-                }
-                continue
+            // Check for content risk error code
+            if let code = pollResult.code, code == 50413 {
+                print("⚠️ [ImageGen] 轮询阶段命中内容审核 (50413)")
+                throw ImageError.contentRisk
             }
 
-            guard let pollJson = try JSONSerialization.jsonObject(with: pollResponseData) as? [String: Any] else {
-                continue
-            }
-
-            let pollDataObj: [String: Any]?
-            if let directData = pollJson["data"] as? [String: Any] {
-                pollDataObj = directData
-            } else if let result = pollJson["Result"] as? [String: Any],
-                      let resultData = result["data"] as? [String: Any] {
-                pollDataObj = resultData
-            } else {
-                pollDataObj = nil
-            }
-
-            guard let dataObj = pollDataObj,
-                  let status = dataObj["status"] as? String else {
-                print("⚠️ [ImageGen] 轮询 #\(attempt) 无法解析状态")
-                continue
-            }
-
+            let status = pollResult.status
             print("🔵 [ImageGen] 轮询 #\(attempt): status=\(status)")
 
             switch status {
             case "done":
-                if let imageUrls = dataObj["image_urls"] as? [String],
+                if let imageUrls = pollResult.image_urls,
                    let firstUrlStr = imageUrls.first,
                    let imageUrl = URL(string: firstUrlStr) {
                     print("🔵 [ImageGen] 图片URL: \(firstUrlStr)")
@@ -710,7 +475,7 @@ class ImageGenerationService {
                     print("✅ [ImageGen] 图片下载成功: \(imageData.count) bytes")
                     return imageData
                 }
-                if let base64Array = dataObj["binary_data_base64"] as? [String],
+                if let base64Array = pollResult.binary_data_base64,
                    let firstBase64 = base64Array.first,
                    let imageData = Data(base64Encoded: firstBase64) {
                     print("✅ [ImageGen] Base64 图片解码成功: \(imageData.count) bytes")
@@ -720,9 +485,7 @@ class ImageGenerationService {
                 throw ImageError.noImage
 
             case "failed":
-                let errorMsg = (dataObj["resp_data"] as? String)
-                    ?? (dataObj["error"] as? String)
-                    ?? "生成失败"
+                let errorMsg = pollResult.resp_data ?? pollResult.error ?? "生成失败"
                 print("❌ [ImageGen] 任务失败: \(errorMsg)")
                 throw ImageError.api("生成失败: \(errorMsg)")
 
@@ -791,100 +554,6 @@ class ImageGenerationService {
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         return compact
-    }
-
-    // MARK: - 构建签名请求
-    private func buildRequest(action: String, bodyData: Data) async throws -> URLRequest {
-        // ===== 从 SecretsManager 获取凭证 =====
-        guard let ak = await SecretsManager.shared.getSecret("VOLCANO_ACCESS_KEY_ID") else {
-            throw ImageError.api("无法获取 Access Key ID")
-        }
-        guard let sk = await SecretsManager.shared.getSecret("VOLCANO_SECRET_ACCESS_KEY") else {
-            throw ImageError.api("无法获取 Secret Access Key")
-        }
-
-        // ===== 时间 (UTC) =====
-        let now = Date()
-        let fmt = DateFormatter()
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-        let xDate = fmt.string(from: now)
-        fmt.dateFormat = "yyyyMMdd"
-        let dateStamp = fmt.string(from: now)
-
-        // ===== URL =====
-        let urlString = "https://\(host)/?Action=\(action)&Version=\(version)"
-        guard let url = URL(string: urlString) else {
-            throw ImageError.invalidURL
-        }
-
-        // ===== Body Hash =====
-        let bodyHash = sha256Hex(bodyData)
-
-        // ===== Step 1: Canonical Request =====
-        let httpMethod = "POST"
-        let canonicalUri = "/"
-        let canonicalQueryString = "Action=\(action)&Version=\(version)"
-        let contentType = "application/json"
-
-        let canonicalHeaders = "content-type:\(contentType)\nhost:\(host)\nx-content-sha256:\(bodyHash)\nx-date:\(xDate)\n"
-        let signedHeaders = "content-type;host;x-content-sha256;x-date"
-
-        let canonicalRequest = "\(httpMethod)\n\(canonicalUri)\n\(canonicalQueryString)\n\(canonicalHeaders)\n\(signedHeaders)\n\(bodyHash)"
-
-        // ===== Step 2: String to Sign =====
-        let algorithm = "HMAC-SHA256"
-        let credentialScope = "\(dateStamp)/\(region)/\(service)/request"
-        let hashedCanonicalRequest = sha256Hex(canonicalRequest.data(using: String.Encoding.utf8)!)
-
-        let stringToSign = "\(algorithm)\n\(xDate)\n\(credentialScope)\n\(hashedCanonicalRequest)"
-
-        // ===== Step 3: 派生签名密钥 =====
-        let skData: Data = sk.data(using: String.Encoding.utf8)!
-        let dateStampData: Data = dateStamp.data(using: String.Encoding.utf8)!
-        let regionData: Data = region.data(using: String.Encoding.utf8)!
-        let serviceData: Data = service.data(using: String.Encoding.utf8)!
-        let requestData: Data = "request".data(using: String.Encoding.utf8)!
-
-        let kDate = hmacSHA256(key: skData, data: dateStampData)
-        let kRegion = hmacSHA256(key: kDate, data: regionData)
-        let kService = hmacSHA256(key: kRegion, data: serviceData)
-        let kSigning = hmacSHA256(key: kService, data: requestData)
-
-        // ===== Step 4: 计算签名 =====
-        let stringToSignData: Data = stringToSign.data(using: String.Encoding.utf8)!
-        let signatureData = hmacSHA256(key: kSigning, data: stringToSignData)
-        let signature = signatureData.map { String(format: "%02x", $0) }.joined()
-
-        // ===== Step 5: Authorization Header =====
-        let authorization = "\(algorithm) Credential=\(ak)/\(credentialScope), SignedHeaders=\(signedHeaders), Signature=\(signature)"
-
-        // ===== 构建 URLRequest =====
-        var request = URLRequest(url: url)
-        request.httpMethod = httpMethod
-        request.httpBody = bodyData
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        request.setValue(host, forHTTPHeaderField: "Host")
-        request.setValue(xDate, forHTTPHeaderField: "X-Date")
-        request.setValue(bodyHash, forHTTPHeaderField: "X-Content-Sha256")
-        request.setValue(authorization, forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 30
-
-        return request
-    }
-
-    // MARK: - SHA256 (返回小写十六进制)
-    private func sha256Hex(_ data: Data) -> String {
-        let hash = SHA256.hash(data: data)
-        return hash.map { String(format: "%02x", $0) }.joined()
-    }
-
-    // MARK: - HMAC-SHA256 (返回 Data)
-    private func hmacSHA256(key: Data, data: Data) -> Data {
-        let symmetricKey = SymmetricKey(data: key)
-        let mac = HMAC<SHA256>.authenticationCode(for: data, using: symmetricKey)
-        return Data(mac)
     }
 
     // MARK: - 错误

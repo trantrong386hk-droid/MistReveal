@@ -214,7 +214,7 @@ struct SoulAnalysisResult: Codable, Equatable {
 
     // 生图相关
     let soulmateAnalysis: String
-    let imagePrompt: String
+    let promptToken: String    // 服务端令牌，替代明文 image_prompt
 
     // MARK: - 成员初始化器
     init(
@@ -233,7 +233,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         destinyType: String,
         soulmateAppearance: SoulmateAppearance,
         soulmateAnalysis: String,
-        imagePrompt: String
+        promptToken: String
     ) {
         self.hexagram = hexagram
         self.userElement = userElement
@@ -250,7 +250,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         self.destinyType = destinyType
         self.soulmateAppearance = soulmateAppearance
         self.soulmateAnalysis = soulmateAnalysis
-        self.imagePrompt = imagePrompt
+        self.promptToken = promptToken
     }
 
     enum CodingKeys: String, CodingKey {
@@ -269,7 +269,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         case destinyType = "destiny_type"
         case soulmateAppearance = "soulmate_appearance"
         case soulmateAnalysis = "soulmate_analysis"
-        case imagePrompt = "image_prompt"
+        case promptToken = "promptToken"
     }
 
     // MARK: - 自定义解码器（兼容旧数据）
@@ -303,7 +303,7 @@ struct SoulAnalysisResult: Codable, Equatable {
 
         // 生图相关
         soulmateAnalysis = (try? container.decode(String.self, forKey: .soulmateAnalysis)) ?? ""
-        imagePrompt = (try? container.decode(String.self, forKey: .imagePrompt)) ?? ""
+        promptToken = (try? container.decode(String.self, forKey: .promptToken)) ?? ""
     }
 }
 

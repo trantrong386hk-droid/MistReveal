@@ -42,28 +42,6 @@ class QuotaManager: ObservableObject {
         }
     }
 
-    /// 更新免费配额的结构体
-    private struct FreeQuotaUpdate: Encodable {
-        let freeQuotaUsed: Bool
-        let updatedAt: String
-
-        enum CodingKeys: String, CodingKey {
-            case freeQuotaUsed = "free_quota_used"
-            case updatedAt = "updated_at"
-        }
-    }
-
-    /// 更新邀请配额的结构体
-    private struct ReferralQuotaUpdate: Encodable {
-        let referralQuota: Int
-        let updatedAt: String
-
-        enum CodingKeys: String, CodingKey {
-            case referralQuota = "referral_quota"
-            case updatedAt = "updated_at"
-        }
-    }
-
     // MARK: - 初始化
 
     private init() {}
@@ -134,87 +112,43 @@ class QuotaManager: ObservableObject {
         return quota?.canGenerate ?? false
     }
 
-    /// 消耗一次生成配额
+    /// 消耗一次生成配额（原子 RPC，避免 TOCTOU 竞态）
     func consumeQuota() async -> Bool {
-        guard let userId = await getCurrentUserId() else {
-            print("⚠️ [QuotaManager] 用户未登录")
-            return false
-        }
-
-        guard var currentQuota = quota, currentQuota.canGenerate else {
-            print("⚠️ [QuotaManager] 没有可用配额")
-            return false
-        }
-
         do {
-            let now = ISO8601DateFormatter().string(from: Date())
-
-            // 优先使用免费配额
-            if !currentQuota.freeQuotaUsed {
-                currentQuota.freeQuotaUsed = true
-                let update = FreeQuotaUpdate(freeQuotaUsed: true, updatedAt: now)
-                try await supabase
-                    .from("user_quota")
-                    .update(update)
-                    .eq("user_id", value: userId)
-                    .execute()
-                print("✅ [QuotaManager] 消耗免费配额")
-            } else if currentQuota.referralQuota > 0 {
-                // 使用邀请配额
-                currentQuota.referralQuota -= 1
-                let update = ReferralQuotaUpdate(referralQuota: currentQuota.referralQuota, updatedAt: now)
-                try await supabase
-                    .from("user_quota")
-                    .update(update)
-                    .eq("user_id", value: userId)
-                    .execute()
-                print("✅ [QuotaManager] 消耗邀请配额，剩余: \(currentQuota.referralQuota)")
+            let result: Bool = try await supabase
+                .rpc("consume_quota")
+                .execute()
+                .value
+            if result {
+                await fetchQuota()  // 成功后刷新本地缓存
             }
-
-            quota = currentQuota
-            return true
+            print(result
+                ? "✅ [QuotaManager] 配额扣减成功"
+                : "⚠️ [QuotaManager] 没有可用配额")
+            return result
         } catch {
-            print("❌ [QuotaManager] 消耗配额失败: \(error)")
+            print("❌ [QuotaManager] 配额扣减失败: \(error)")
             return false
         }
     }
 
-    /// 增加邀请配额（当被邀请人完成首次生成后调用）
+    /// 增加邀请配额（原子 RPC，避免并发覆盖）
     func addReferralQuota(forUserId userId: String) async -> Bool {
         do {
-            // 先获取当前配额
-            let response: [UserQuota] = try await supabase
-                .from("user_quota")
-                .select()
-                .eq("user_id", value: userId)
+            let result: Bool = try await supabase
+                .rpc("add_referral_quota", params: ["p_user_id": userId])
                 .execute()
                 .value
-
-            guard let existingQuota = response.first else {
-                print("⚠️ [QuotaManager] 用户配额不存在")
-                return false
+            if result {
+                // 如果是当前用户，刷新本地缓存
+                if userId == (await getCurrentUserId()) {
+                    await fetchQuota()
+                }
+                print("✅ [QuotaManager] 为用户 \(userId) 增加邀请配额")
+            } else {
+                print("⚠️ [QuotaManager] 用户配额记录不存在: \(userId)")
             }
-
-            let newReferralQuota = existingQuota.referralQuota + 1
-            let now = ISO8601DateFormatter().string(from: Date())
-            let update = ReferralQuotaUpdate(referralQuota: newReferralQuota, updatedAt: now)
-
-            try await supabase
-                .from("user_quota")
-                .update(update)
-                .eq("user_id", value: userId)
-                .execute()
-
-            print("✅ [QuotaManager] 为用户 \(userId) 增加邀请配额，当前: \(newReferralQuota)")
-
-            // 如果是当前用户，更新本地状态
-            if userId == (await getCurrentUserId()) {
-                var updatedQuota = existingQuota
-                updatedQuota.referralQuota = newReferralQuota
-                quota = updatedQuota
-            }
-
-            return true
+            return result
         } catch {
             print("❌ [QuotaManager] 增加配额失败: \(error)")
             return false

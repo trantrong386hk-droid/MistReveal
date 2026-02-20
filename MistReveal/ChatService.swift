@@ -618,43 +618,46 @@ class ChatService: ObservableObject {
         return await getCurrentUserId()
     }
 
-    /// 调用文本生成 API
+    /// 调用文本生成 API（via aliyun-proxy Edge Function）
     private func callTextGeneration(prompt: String) async throws -> String {
-        // 从 SecretsManager 获取 API Key
-        guard let apiKey = await SecretsManager.shared.getSecret("ALIYUN_BAILIAN_API_KEY") else {
-            throw NSError(domain: "ChatService", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法获取 API Key"])
+        struct ChatMsg: Encodable {
+            let role: String
+            let content: String
+        }
+        struct ChatReq: Encodable {
+            let model: String
+            let messages: [ChatMsg]
+            let temperature: Double
+        }
+        struct ChatChoice: Decodable {
+            let message: ChatMsgContent
+            struct ChatMsgContent: Decodable {
+                let content: String
+            }
+        }
+        struct ChatResp: Decodable {
+            let choices: [ChatChoice]
         }
 
-        guard let url = URL(string: "\(AppConfig.AliyunBailian.baseURL)/chat/completions") else {
-            throw NSError(domain: "ChatService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        let requestBody = ChatReq(
+            model: AppConfig.AliyunBailian.model,
+            messages: [ChatMsg(role: "user", content: prompt)],
+            temperature: 0.8
+        )
+
+        let session = try await supabase.auth.session
+        let resp: ChatResp = try await supabase.functions.invoke(
+            "aliyun-proxy",
+            options: FunctionInvokeOptions(
+                method: .post,
+                headers: ["Authorization": "Bearer \(session.accessToken)"],
+                body: requestBody
+            )
+        )
+
+        guard let content = resp.choices.first?.message.content else {
+            throw NSError(domain: "ChatService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
         }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
-
-        let body: [String: Any] = [
-            "model": AppConfig.AliyunBailian.model,
-            "messages": [
-                ["role": "user", "content": prompt]
-            ],
-            "temperature": 0.8
-        ]
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, _) = try await URLSession.shared.data(for: request)
-
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return content
-        }
-
-        throw NSError(domain: "ChatService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        return content
     }
 }

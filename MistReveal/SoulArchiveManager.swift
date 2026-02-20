@@ -19,6 +19,7 @@ class SoulArchiveManager: ObservableObject {
     /// 数据库存储的分析记录
     struct SoulAnalysisDBRecord: Codable {
         let id: String?
+        let userId: String?
         let birthKey: String
         let gender: String
         let birthDate: String
@@ -31,6 +32,7 @@ class SoulArchiveManager: ObservableObject {
 
         enum CodingKeys: String, CodingKey {
             case id
+            case userId = "user_id"
             case birthKey = "birth_key"
             case gender
             case birthDate = "birth_date"
@@ -93,12 +95,14 @@ class SoulArchiveManager: ObservableObject {
 
     /// 查询是否已有分析记录
     func checkExistingRecord(gender: String, birthDate: Date, birthTime: String, location: String) async -> SoulAnalysisResult? {
+        guard let userId = await getCurrentUserId() else { return nil }
         let birthKey = Self.generateBirthKey(gender: gender, birthDate: birthDate, birthTime: birthTime, location: location)
 
         do {
             let response: [SoulAnalysisDBRecord] = try await supabase
                 .from("soul_analysis_records")
                 .select()
+                .eq("user_id", value: userId)
                 .eq("birth_key", value: birthKey)
                 .execute()
                 .value
@@ -153,6 +157,7 @@ class SoulArchiveManager: ObservableObject {
             let existingRecords: [SoulAnalysisDBRecord] = try await supabase
                 .from("soul_analysis_records")
                 .select()
+                .eq("user_id", value: userId)
                 .eq("birth_key", value: birthKey)
                 .execute()
                 .value
@@ -181,6 +186,7 @@ class SoulArchiveManager: ObservableObject {
                 // 插入新记录
                 let newRecord = SoulAnalysisDBRecord(
                     id: nil,
+                    userId: userId,
                     birthKey: birthKey,
                     gender: gender,
                     birthDate: dateStr,
@@ -236,12 +242,14 @@ class SoulArchiveManager: ObservableObject {
 
     /// 更新图片URL
     func updateImageUrl(gender: String, birthDate: Date, birthTime: String, location: String, imageUrl: String) async {
+        guard let userId = await getCurrentUserId() else { return }
         let birthKey = Self.generateBirthKey(gender: gender, birthDate: birthDate, birthTime: birthTime, location: location)
 
         do {
             try await supabase
                 .from("soul_analysis_records")
                 .update(["image_url": imageUrl, "updated_at": ISO8601DateFormatter().string(from: Date())])
+                .eq("user_id", value: userId)
                 .eq("birth_key", value: birthKey)
                 .execute()
 
@@ -263,6 +271,37 @@ class SoulArchiveManager: ObservableObject {
         errorMessage = nil
 
         do {
+            // 先加载该用户的所有 generated_portraits（作为 image_url 备援）
+            struct GeneratedPortraitRow: Decodable {
+                let imageUrl: String
+                let birthDate: String
+                let gender: String
+                let birthTime: String
+                let birthLocation: String
+                enum CodingKeys: String, CodingKey {
+                    case imageUrl = "image_url"
+                    case birthDate = "birth_date"
+                    case gender
+                    case birthTime = "birth_time"
+                    case birthLocation = "birth_location"
+                }
+            }
+            let portraits: [GeneratedPortraitRow] = try await supabase
+                .from("generated_portraits")
+                .select("image_url,birth_date,gender,birth_time,birth_location")
+                .eq("user_id", value: userId)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            // key format mirrors generateBirthKey: "gender_yyyy-MM-dd_birthTime_location"
+            let portraitUrlByKey: [String: String] = Dictionary(
+                portraits.compactMap { p -> (String, String)? in
+                    let key = "\(p.gender)_\(p.birthDate)_\(p.birthTime)_\(p.birthLocation.trimmingCharacters(in: .whitespaces).lowercased())"
+                    return (key, p.imageUrl)
+                },
+                uniquingKeysWith: { first, _ in first }  // 取最新（已按 created_at desc 排序）
+            )
+
             // 获取用户的生成历史
             let generations: [UserGenerationDBRecord] = try await supabase
                 .from("user_generations")
@@ -293,6 +332,9 @@ class SoulArchiveManager: ObservableObject {
                 let createdAtFormatter = ISO8601DateFormatter()
                 let createdAt = createdAtFormatter.date(from: generation.createdAt ?? "") ?? Date()
 
+                let fallbackKey = "\(record.gender)_\(record.birthDate)_\(record.birthTime)_\(record.location.trimmingCharacters(in: .whitespaces).lowercased())"
+                let resolvedImageUrl = record.imageUrl ?? portraitUrlByKey[fallbackKey]
+
                 let userRecord = UserGenerationRecord(
                     id: generation.id ?? UUID().uuidString,
                     nickname: generation.nickname,
@@ -302,7 +344,7 @@ class SoulArchiveManager: ObservableObject {
                     birthTime: record.birthTime,
                     location: record.location,
                     analysisResult: record.analysisResult,
-                    imageUrl: record.imageUrl,
+                    imageUrl: resolvedImageUrl,
                     createdAt: createdAt
                 )
 

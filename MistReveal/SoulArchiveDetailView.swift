@@ -455,7 +455,7 @@ struct SoulArchiveDetailView: View {
             clothing: "浅蓝色真丝衬衫，质感轻盈飘逸"
         ),
         soulmateAnalysis: "你的灵魂伴侣是一个温暖的人，有着水命特有的灵动气质",
-        imagePrompt: "一位25岁左右的东方女性，头肩肖像照，正面面向镜头"
+        promptToken: ""
     )
 
     let mockRecord = SoulArchiveManager.UserGenerationRecord(

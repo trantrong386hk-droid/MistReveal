@@ -705,7 +705,7 @@ class AICompanionService: ObservableObject {
         let insert = AICompanionInsert(
             userId: userId,
             personaSettings: persona,
-            visualPrompt: analysis.imagePrompt,
+            visualPrompt: "",  // prompt 已迁移到服务端 prompt_tokens，不再客户端明文存储
             intimacyLevel: preservedIntimacy,
             elementBalance: preservedBalance,
             soulAnalysisRecordId: recordId
