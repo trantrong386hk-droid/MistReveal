@@ -1,0 +1,30 @@
+[
+  {
+    "id": "virtual_pet",
+    "theme": "共同养的虚拟猫",
+    "hook": "它今天又做了个奇怪的动作，我第一反应就想起你",
+    "recall_keys": ["pet", "cat", "养"],
+    "expiry_days": 30
+  },
+  {
+    "id": "unfinished_topic",
+    "theme": "未完成的话题",
+    "hook": "上次那句还没说完，我一直记着",
+    "recall_keys": ["上次", "没说完", "后来"],
+    "expiry_days": 14
+  },
+  {
+    "id": "promise",
+    "theme": "小承诺",
+    "hook": "你说过要给我讲的那件事，我还在等",
+    "recall_keys": ["答应", "承诺", "下次"],
+    "expiry_days": 21
+  },
+  {
+    "id": "daily_care",
+    "theme": "日常关心",
+    "hook": "你那边今天应该挺忙的吧，我有点想确认你还好",
+    "recall_keys": ["工作", "忙", "累"],
+    "expiry_days": 7
+  }
+]

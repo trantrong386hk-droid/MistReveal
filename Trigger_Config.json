@@ -1,0 +1,39 @@
+{
+  "global": {
+    "daily_budget": 2,
+    "min_interval_minutes": 180,
+    "quiet_hours": { "start": "23:00", "end": "07:30" }
+  },
+  "elements": {
+    "wood": {
+      "silence_threshold_hours": 8,
+      "cooldown_minutes": 360,
+      "emotional_trigger": ["sad", "anxious"],
+      "intent_priority": ["鼓励", "安抚"]
+    },
+    "fire": {
+      "silence_threshold_hours": 4,
+      "cooldown_minutes": 180,
+      "emotional_trigger": ["bored", "excited"],
+      "intent_priority": ["轻调侃", "提醒"]
+    },
+    "earth": {
+      "silence_threshold_hours": 10,
+      "cooldown_minutes": 480,
+      "emotional_trigger": ["tired", "stressed"],
+      "intent_priority": ["安抚", "提醒"]
+    },
+    "metal": {
+      "silence_threshold_hours": 14,
+      "cooldown_minutes": 720,
+      "emotional_trigger": ["down", "empty"],
+      "intent_priority": ["安抚"]
+    },
+    "water": {
+      "silence_threshold_hours": 12,
+      "cooldown_minutes": 600,
+      "emotional_trigger": ["sad", "lonely"],
+      "intent_priority": ["安抚", "延续话题"]
+    }
+  }
+}

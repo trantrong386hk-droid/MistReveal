@@ -1,3 +1,7 @@
+# Temp
+.tmp/
+supabase/.temp/
+
 # Xcode
 .DS_Store
 *.xcuserstate
