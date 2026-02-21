@@ -23,6 +23,12 @@
 		AA000007 /* GeneratedPortraitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000007 /* GeneratedPortraitView.swift */; };
 		AA000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000008 /* Assets.xcassets */; };
 		AA000009 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000009 /* Preview Assets.xcassets */; };
+		AA000040 /* Soul_Core.md in Resources */ = {isa = PBXBuildFile; fileRef = AB000040 /* Soul_Core.md */; };
+		AA000041 /* Safety_Policy.md in Resources */ = {isa = PBXBuildFile; fileRef = AB000041 /* Safety_Policy.md */; };
+		AA000042 /* Response_Schema.md in Resources */ = {isa = PBXBuildFile; fileRef = AB000042 /* Response_Schema.md */; };
+		AA000043 /* Trigger_Config.json in Resources */ = {isa = PBXBuildFile; fileRef = AB000043 /* Trigger_Config.json */; };
+		AA000044 /* Script_Slots.json in Resources */ = {isa = PBXBuildFile; fileRef = AB000044 /* Script_Slots.json */; };
+		AA000045 /* Topic_Templates.json in Resources */ = {isa = PBXBuildFile; fileRef = AB000045 /* Topic_Templates.json */; };
 		AA00000A /* SupabaseTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000B /* SupabaseTestView.swift */; };
 		AA00000C /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000C /* AuthManager.swift */; };
 		AA00000D /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000D /* AuthView.swift */; };
@@ -171,6 +177,12 @@
 		AB000034 /* MatchNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchNotificationService.swift; sourceTree = "<group>"; };
 		AB000035 /* ChinaCityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChinaCityData.swift; sourceTree = "<group>"; };
 		AB000036 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
+		AB000040 /* Soul_Core.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = Soul_Core.md; sourceTree = "<group>"; };
+		AB000041 /* Safety_Policy.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = Safety_Policy.md; sourceTree = "<group>"; };
+		AB000042 /* Response_Schema.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = Response_Schema.md; sourceTree = "<group>"; };
+		AB000043 /* Trigger_Config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Trigger_Config.json; sourceTree = "<group>"; };
+		AB000044 /* Script_Slots.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Script_Slots.json; sourceTree = "<group>"; };
+		AB000045 /* Topic_Templates.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Topic_Templates.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -287,7 +299,6 @@
 				AB000032 /* AICompanionService.swift */,
 				AB000033 /* UserManualService.swift */,
 				AB000034 /* MatchNotificationService.swift */,
-				AB000035 /* ChinaCityData.swift */,
 				22E3E3852F31B25C00F4107D /* SoulmateManager.swift */,
 				22E3E3862F31B25C00F4107D /* SupabaseSaveService.swift */,
 				22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */,
@@ -310,6 +321,7 @@
 		AD000002 /* MistReveal */ = {
 			isa = PBXGroup;
 			children = (
+				AD000005 /* Resources */,
 				AB000001 /* MistRevealApp.swift */,
 				AB000002 /* MainTabView.swift */,
 				AB000003 /* WelcomeView.swift */,
@@ -348,6 +360,19 @@
 				AD000004 /* Preview Content */,
 			);
 			path = MistReveal;
+			sourceTree = "<group>";
+		};
+		AD000005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AB000040 /* Soul_Core.md */,
+				AB000041 /* Safety_Policy.md */,
+				AB000042 /* Response_Schema.md */,
+				AB000043 /* Trigger_Config.json */,
+				AB000044 /* Script_Slots.json */,
+				AB000045 /* Topic_Templates.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		AD000003 /* Products */ = {
@@ -430,6 +455,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000040 /* Soul_Core.md in Resources */,
+				AA000041 /* Safety_Policy.md in Resources */,
+				AA000042 /* Response_Schema.md in Resources */,
+				AA000043 /* Trigger_Config.json in Resources */,
+				AA000044 /* Script_Slots.json in Resources */,
+				AA000045 /* Topic_Templates.json in Resources */,
 				AA000009 /* Preview Assets.xcassets in Resources */,
 				AA000008 /* Assets.xcassets in Resources */,
 			);

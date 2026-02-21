@@ -25,6 +25,62 @@ class SoulmateAIChatService: ObservableObject {
         case casualGreeting = "casual_greeting"      // 问候闲聊：热情 + 追问
     }
 
+    // MARK: - 结构化心跳配置
+
+    private struct TriggerConfig: Decodable {
+        struct QuietHours: Decodable {
+            let start: String
+            let end: String
+        }
+        struct Global: Decodable {
+            let dailyBudget: Int
+            let minIntervalMinutes: Int
+            let quietHours: QuietHours
+
+            enum CodingKeys: String, CodingKey {
+                case dailyBudget = "daily_budget"
+                case minIntervalMinutes = "min_interval_minutes"
+                case quietHours = "quiet_hours"
+            }
+        }
+        struct ElementRule: Decodable {
+            let silenceThresholdHours: Int
+            let cooldownMinutes: Int
+            let emotionalTrigger: [String]
+            let intentPriority: [String]
+
+            enum CodingKeys: String, CodingKey {
+                case silenceThresholdHours = "silence_threshold_hours"
+                case cooldownMinutes = "cooldown_minutes"
+                case emotionalTrigger = "emotional_trigger"
+                case intentPriority = "intent_priority"
+            }
+        }
+
+        let global: Global
+        let elements: [String: ElementRule]
+    }
+
+    private struct ScriptSlot: Decodable {
+        let id: String
+        let theme: String
+        let hook: String
+        let recallKeys: [String]
+        let expiryDays: Int
+
+        enum CodingKeys: String, CodingKey {
+            case id, theme, hook
+            case recallKeys = "recall_keys"
+            case expiryDays = "expiry_days"
+        }
+    }
+
+    private struct TopicTemplate: Decodable {
+        let intent: String
+        let tone: [String]
+        let pattern: String
+    }
+
     // MARK: - 打字机效果
 
     /// 以打字机效果显示文本
@@ -78,6 +134,76 @@ class SoulmateAIChatService: ObservableObject {
         let text3 = await generateWhatIBringViaLLM(record: record)
         await typewriterEffect(text: text3, messageId: msg3.id)
         await AICompanionService.shared.saveChatMessage(role: "ai", content: text3)
+    }
+
+    // MARK: - 心跳触发（结构化）
+
+    /// 触发心跳消息（遵循 Trigger_Config + Script_Slots + Topic_Templates）
+    func triggerStructuredPulseIfNeeded(record: SoulArchiveManager.UserGenerationRecord) async {
+        if isTyping { return }
+
+        do {
+            if let serverReply = try await requestServerPulseDispatch() {
+                await appendPulseMessage(content: serverReply, persist: false)
+                return
+            }
+        } catch {
+            print("⚠️ [Pulse] 服务端派发失败，回退本地策略: \(error)")
+        }
+
+        guard let config: TriggerConfig = loadJSONResource(named: "Trigger_Config") else {
+            print("⚠️ [Pulse] 无法加载 Trigger_Config.json")
+            return
+        }
+
+        let now = Date()
+        if isWithinQuietHours(now, config: config) {
+            return
+        }
+
+        guard let lastUserMessageTime = lastUserMessageDate() else {
+            return
+        }
+
+        let silenceHours = now.timeIntervalSince(lastUserMessageTime) / 3600.0
+
+        let elementKey = normalizedElementKey(AICompanionService.shared.companion?.personaSettings.element ?? "木")
+        let elementRule = config.elements[elementKey]
+
+        guard let rule = elementRule else { return }
+        if silenceHours < Double(rule.silenceThresholdHours) {
+            return
+        }
+
+        let userIdKey = AICompanionService.shared.companion?.userId.uuidString ?? "anonymous"
+        if !canSendPulse(config: config, rule: rule, userIdKey: userIdKey, now: now) {
+            return
+        }
+
+        let recentContext = recentContextSummary()
+        let scriptSlot = selectScriptSlot(recentContext: recentContext)
+
+        let intent = rule.intentPriority.first ?? "安抚"
+        let tone = selectTone(for: intent) ?? "温柔"
+        let topic = scriptSlot?.theme ?? intent
+        let hook = scriptSlot?.hook
+
+        do {
+            let reply = try await generateStructuredPulse(
+                record: record,
+                intent: intent,
+                tone: tone,
+                topic: topic,
+                scriptHook: hook,
+                recentContext: recentContext
+            )
+
+            let content = mergeContent(reply.content, followUp: reply.followUpQuestion)
+            await appendPulseMessage(content: content, persist: true)
+            recordPulseSent(userIdKey: userIdKey, now: now)
+        } catch {
+            print("⚠️ [Pulse] 结构化心跳生成失败: \(error)")
+        }
     }
 
     /// 第一条：初见 — 我来找你了
@@ -700,6 +826,173 @@ class SoulmateAIChatService: ObservableObject {
         return fallbacks[element]?.randomElement() ?? "嗯嗯，继续说呀"
     }
 
+    // MARK: - 心跳触发工具
+
+    private func loadJSONResource<T: Decodable>(named: String) -> T? {
+        guard let url = Bundle.main.url(forResource: named, withExtension: "json") else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private func normalizedElementKey(_ element: String) -> String {
+        switch element {
+        case "木": return "wood"
+        case "火": return "fire"
+        case "土": return "earth"
+        case "金": return "metal"
+        case "水": return "water"
+        default: return "wood"
+        }
+    }
+
+    private func lastUserMessageDate() -> Date? {
+        return messages.last(where: { $0.role == .user })?.timestamp
+    }
+
+    private func recentContextSummary() -> String? {
+        guard let lastUser = messages.last(where: { $0.role == .user }) else {
+            return nil
+        }
+        let trimmed = lastUser.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func selectScriptSlot(recentContext: String?) -> ScriptSlot? {
+        guard let slots: [ScriptSlot] = loadJSONResource(named: "Script_Slots") else {
+            return nil
+        }
+        guard let ctx = recentContext?.lowercased(), !ctx.isEmpty else {
+            return slots.randomElement()
+        }
+        let matched = slots.first { slot in
+            slot.recallKeys.contains { key in ctx.contains(key.lowercased()) }
+        }
+        return matched ?? slots.randomElement()
+    }
+
+    private func selectTone(for intent: String) -> String? {
+        guard let templates: [TopicTemplate] = loadJSONResource(named: "Topic_Templates") else {
+            return nil
+        }
+        guard let template = templates.first(where: { $0.intent == intent }) else {
+            return nil
+        }
+        return template.tone.randomElement()
+    }
+
+    private func isWithinQuietHours(_ now: Date, config: TriggerConfig) -> Bool {
+        let calendar = Calendar.current
+        let comps = calendar.dateComponents([.hour, .minute], from: now)
+        let minutesNow = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+
+        let start = minutesFromHHmm(config.global.quietHours.start)
+        let end = minutesFromHHmm(config.global.quietHours.end)
+
+        if start == end { return false }
+        if start < end {
+            return minutesNow >= start && minutesNow < end
+        } else {
+            return minutesNow >= start || minutesNow < end
+        }
+    }
+
+    private func minutesFromHHmm(_ value: String) -> Int {
+        let parts = value.split(separator: ":")
+        let hour = parts.count > 0 ? (Int(parts[0]) ?? 0) : 0
+        let minute = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
+        return hour * 60 + minute
+    }
+
+    private func canSendPulse(config: TriggerConfig, rule: TriggerConfig.ElementRule, userIdKey: String, now: Date) -> Bool {
+        let defaults = UserDefaults.standard
+        let dayKey = "pulse_daily_count_\(userIdKey)_\(dayStamp(from: now))"
+        let count = defaults.integer(forKey: dayKey)
+        if count >= config.global.dailyBudget {
+            return false
+        }
+
+        let lastSentKey = "pulse_last_sent_\(userIdKey)"
+        if let lastSent = defaults.object(forKey: lastSentKey) as? Date {
+            let intervalMinutes = now.timeIntervalSince(lastSent) / 60.0
+            let cooldown = max(config.global.minIntervalMinutes, rule.cooldownMinutes)
+            if intervalMinutes < Double(cooldown) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func recordPulseSent(userIdKey: String, now: Date) {
+        let defaults = UserDefaults.standard
+        let dayKey = "pulse_daily_count_\(userIdKey)_\(dayStamp(from: now))"
+        let count = defaults.integer(forKey: dayKey)
+        defaults.set(count + 1, forKey: dayKey)
+        defaults.set(now, forKey: "pulse_last_sent_\(userIdKey)")
+    }
+
+    private func dayStamp(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.string(from: date)
+    }
+
+    private func mergeContent(_ content: String, followUp: String?) -> String {
+        let base = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let follow = followUp?.trimmingCharacters(in: .whitespacesAndNewlines), !follow.isEmpty else {
+            return base
+        }
+        return "\(base)\n\(follow)"
+    }
+
+    private func appendPulseMessage(content: String, persist: Bool = true) async {
+        let message = SoulmateChatMessage(id: UUID(), role: .ai, content: "", timestamp: Date())
+        messages.append(message)
+        await typewriterEffect(text: content, messageId: message.id)
+        if persist {
+            await AICompanionService.shared.saveChatMessage(role: "ai", content: content)
+        }
+    }
+
+    private struct ServerPulseRequest: Encodable {
+        let source: String
+        let dryRun: Bool
+        let timezone: String
+
+        enum CodingKeys: String, CodingKey {
+            case source
+            case dryRun = "dry_run"
+            case timezone
+        }
+    }
+
+    private struct ServerPulseResponse: Decodable {
+        let dispatched: Bool
+        let content: String?
+    }
+
+    /// 服务端统一调度入口：由 Edge Function 负责触发判定、入库与可选推送
+    private func requestServerPulseDispatch() async throws -> String? {
+        let response: ServerPulseResponse = try await supabase.functions.invoke(
+            "pulse-dispatch",
+            options: FunctionInvokeOptions(
+                method: .post,
+                body: ServerPulseRequest(
+                    source: "app_foreground",
+                    dryRun: false,
+                    timezone: TimeZone.current.identifier
+                )
+            )
+        )
+
+        guard response.dispatched else { return nil }
+        return response.content?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - LLM API 调用
 
     /// 调用阿里云百炼 LLM API（via aliyun-proxy Edge Function）
@@ -764,6 +1057,72 @@ class SoulmateAIChatService: ObservableObject {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         print("🔮 [灵犀] LLM 回复: \(trimmed.prefix(80))...")
         return trimmed
+    }
+
+    // MARK: - 结构化心跳生成（触发层入口）
+
+    struct StructuredPulseReply: Decodable {
+        let intent: String
+        let tone: String
+        let topic: String
+        let content: String
+        let followUpQuestion: String?
+
+        enum CodingKeys: String, CodingKey {
+            case intent, tone, topic, content
+            case followUpQuestion = "follow_up_question"
+        }
+    }
+
+    /// 生成结构化心跳文案（JSON 输出），启用 Response_Schema
+    func generateStructuredPulse(
+        record: SoulArchiveManager.UserGenerationRecord,
+        intent: String,
+        tone: String,
+        topic: String,
+        scriptHook: String? = nil,
+        recentContext: String? = nil
+    ) async throws -> StructuredPulseReply {
+        let companion = AICompanionService.shared.companion
+        let analysis = record.analysisResult
+
+        let systemPrompt = AICompanionService.generateSystemPrompt(
+            userAnalysis: analysis,
+            mateAnalysis: companion?.personaSettings,
+            elementBalance: companion?.elementBalance ?? .default,
+            intimacyLevel: companion?.intimacyLevel ?? 0,
+            userManual: companion?.userManual,
+            userGender: record.gender,
+            includeStructuredSchema: true
+        )
+
+        var instruction = """
+        你需要生成一条“心跳触发”的结构化回复，严格遵循 Response Schema。
+        intent=\(intent)
+        tone=\(tone)
+        topic=\(topic)
+        仅输出 JSON，不要任何其他文字。
+        """
+
+        if let hook = scriptHook, !hook.isEmpty {
+            instruction += "\n剧本插槽提示：\(hook)"
+        }
+        if let ctx = recentContext, !ctx.isEmpty {
+            instruction += "\n最近上下文：\(ctx)"
+        }
+
+        let raw = try await callLLM(systemPrompt: systemPrompt, chatHistory: [], currentMessage: instruction)
+
+        guard let data = raw.data(using: .utf8) else {
+            throw LLMChatError.parseError
+        }
+
+        do {
+            return try JSONDecoder().decode(StructuredPulseReply.self, from: data)
+        } catch {
+            print("⚠️ [灵犀] 结构化心跳解析失败: \(error)")
+            throw LLMChatError.parseError
+        }
     }
 
     // MARK: - 共鸣反馈

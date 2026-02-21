@@ -73,6 +73,8 @@ struct SoulmateAIChatView: View {
                 if chatService.messages.isEmpty, let record = archiveManager.myRecord, !chatService.hasTriggeredWelcome {
                     chatService.hasTriggeredWelcome = true
                     await chatService.sendWelcomeMessage(record: record)
+                } else if let record = archiveManager.myRecord {
+                    await chatService.triggerStructuredPulseIfNeeded(record: record)
                 }
             }
         }

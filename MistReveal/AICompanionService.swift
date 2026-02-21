@@ -33,7 +33,8 @@ class AICompanionService: ObservableObject {
         elementBalance: ElementBalance = .default,
         intimacyLevel: Int = 0,
         userManual: UserManual? = nil,
-        userGender: String? = nil
+        userGender: String? = nil,
+        includeStructuredSchema: Bool = false
     ) -> String {
 
         // 提取伴侣设定（优先使用传入的，否则从 userAnalysis 构建）
@@ -78,6 +79,8 @@ class AICompanionService: ObservableObject {
 
         // 第六层：Few-Shot 范例
         let fewShot = getElementFewShot(persona.element)
+
+        let preamble = buildPromptPreamble(includeStructuredSchema: includeStructuredSchema)
 
         // 构建 System Prompt
         let prompt = """
@@ -180,10 +183,41 @@ class AICompanionService: ObservableObject {
         3. **像真人**：有自己的小情绪、会开玩笑、偶尔反问
         """
 
-        return prompt
+        if preamble.isEmpty {
+            return prompt
+        }
+        return "\(preamble)\n\n\(prompt)"
     }
 
     // MARK: - System Prompt 模块化组件
+    private static func buildPromptPreamble(includeStructuredSchema: Bool) -> String {
+        var sections: [String] = []
+
+        if let soulCore = loadPromptResource(named: "Soul_Core", ext: "md") {
+            sections.append("## Soul Core\n\n\(soulCore)")
+        }
+
+        if let safety = loadPromptResource(named: "Safety_Policy", ext: "md") {
+            sections.append("## Safety Policy\n\n\(safety)")
+        }
+
+        if includeStructuredSchema, let schema = loadPromptResource(named: "Response_Schema", ext: "md") {
+            sections.append("## Response Schema\n\n\(schema)")
+        }
+
+        return sections.joined(separator: "\n\n")
+    }
+
+    private static func loadPromptResource(named: String, ext: String) -> String? {
+        guard let url = Bundle.main.url(forResource: named, withExtension: ext) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     /// 第二层：根据八字身强/身弱获取能量修正
     private static func getStrengthModifier(_ baziInfo: BaZiInfo?) -> String {

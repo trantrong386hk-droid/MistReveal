@@ -1677,8 +1677,8 @@ struct ProfileView: View {
             try await supabase.storage
                 .from("avatars")
                 .upload(
-                    path: fileName,
-                    file: compressedData,
+                    fileName,
+                    data: compressedData,
                     options: FileOptions(contentType: "image/jpeg", upsert: true)
                 )
 
