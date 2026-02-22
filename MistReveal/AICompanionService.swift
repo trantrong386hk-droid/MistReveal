@@ -12,7 +12,7 @@ class AICompanionService: ObservableObject {
 
     /// 安全字段集：排除历史上可能结构不稳定的 `user_manual`
     private let safeCompanionSelectColumns = """
-    id,user_id,persona_settings,visual_prompt,intimacy_level,element_balance,soul_analysis_record_id,last_manual_update,analyzed_message_count,created_at,updated_at
+    id,user_id,persona_settings,visual_prompt,intimacy_level,element_balance,soul_analysis_record_id,portrait_id,last_manual_update,analyzed_message_count,created_at,updated_at
     """
 
     private init() {}
@@ -692,8 +692,8 @@ class AICompanionService: ObservableObject {
         }
     }
 
-    /// 从灵魂分析结果创建 AI 伴侣
-    func createCompanion(from analysis: SoulAnalysisResult, recordId: UUID? = nil, userGender: String? = nil) async throws -> AICompanion {
+    /// 从灵魂分析结果创建 AI 伴侣（每次生成产生新伴侣）
+    func createCompanion(from analysis: SoulAnalysisResult, recordId: UUID? = nil, portraitId: UUID? = nil, userGender: String? = nil) async throws -> AICompanion {
         guard let userId = supabase.auth.currentUser?.id else {
             throw CompanionError.notAuthenticated
         }
@@ -724,38 +724,97 @@ class AICompanionService: ObservableObject {
             balance = .default
         }
 
-        // 已有伴侣时保留亲密度与调教后的五行平衡，避免每次重新生成都回到“初识”
-        let existingCompanion: AICompanion? = try? await supabase
-            .from("ai_companions")
-            .select(safeCompanionSelectColumns)
-            .eq("user_id", value: userId.uuidString)
-            .single()
-            .execute()
-            .value
-
-        let preservedIntimacy = existingCompanion?.intimacyLevel ?? companion?.intimacyLevel ?? 0
-        let preservedBalance = existingCompanion?.elementBalance ?? companion?.elementBalance ?? balance
-
-        let insert = AICompanionInsert(
+        var insert = AICompanionInsert(
             userId: userId,
             personaSettings: persona,
-            visualPrompt: "",  // prompt 已迁移到服务端 prompt_tokens，不再客户端明文存储
-            intimacyLevel: preservedIntimacy,
-            elementBalance: preservedBalance,
+            visualPrompt: "",
+            intimacyLevel: 0,  // 全新关系从 0 开始
+            elementBalance: balance,
             soulAnalysisRecordId: recordId
         )
+        insert.portraitId = portraitId
 
         let response: AICompanion = try await supabase
             .from("ai_companions")
-            .upsert(insert, onConflict: "user_id")  // 如果已存在则更新
+            .insert(insert)  // 每次生成插入新行
             .select(safeCompanionSelectColumns)
             .single()
             .execute()
             .value
 
         self.companion = response
-        print("✅ [AICompanion] 创建/更新伴侣成功")
+        print("✅ [AICompanion] 创建新伴侣成功")
         return response
+    }
+
+    /// 从数字残影创建 AI 伴侣（数字分身对话）
+    func createShadowCompanion(from shadow: MatchingService.MatchedUser) async throws -> AICompanion {
+        guard let userId = supabase.auth.currentUser?.id else {
+            throw CompanionError.notAuthenticated
+        }
+
+        let persona = PersonaSettings(
+            element: shadow.userElement,
+            personalityKeywords: shadow.personalityTraits,
+            speakingStyle: AICompanionService.getElementSpeakingStyle(shadow.userElement),
+            traits: shadow.personalityTraits,
+            destinyType: "数字缘分"
+        )
+
+        var insert = AICompanionInsert(
+            userId: userId,
+            personaSettings: persona,
+            visualPrompt: shadow.portraitUrl ?? "",
+            intimacyLevel: 0,
+            elementBalance: .default,
+            soulAnalysisRecordId: nil
+        )
+        insert.portraitId = nil
+
+        let response: AICompanion = try await supabase
+            .from("ai_companions")
+            .insert(insert)
+            .select(safeCompanionSelectColumns)
+            .single()
+            .execute()
+            .value
+
+        self.companion = response
+        print("✅ [AICompanion] 创建数字分身伴侣成功 (\(shadow.userElement)命)")
+        return response
+    }
+
+    /// 获取当前用户的所有 AI 伴侣（按创建时间倒序）
+    func fetchAllCompanions() async -> [AICompanion] {
+        guard let userId = supabase.auth.currentUser?.id else { return [] }
+
+        do {
+            let response: [AICompanion] = try await supabase
+                .from("ai_companions")
+                .select(safeCompanionSelectColumns)
+                .eq("user_id", value: userId.uuidString)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            print("✅ [AICompanion] 获取所有伴侣: \(response.count) 个")
+            return response
+        } catch {
+            print("❌ [AICompanion] 获取所有伴侣失败: \(error)")
+            return []
+        }
+    }
+
+    /// 按 ID 加载指定伴侣（设置为当前活跃伴侣）
+    func loadCompanion(byId companionId: UUID) async throws {
+        let response: AICompanion = try await supabase
+            .from("ai_companions")
+            .select(safeCompanionSelectColumns)
+            .eq("id", value: companionId.uuidString)
+            .single()
+            .execute()
+            .value
+        self.companion = response
+        print("✅ [AICompanion] 加载伴侣成功: \(response.personaSettings.element)命")
     }
 
     /// 更新亲密度
@@ -853,8 +912,8 @@ class AICompanionService: ObservableObject {
         }
     }
 
-    /// 获取最近的聊天记录
-    func fetchRecentChats(limit: Int = 50) async -> [ChatHistoryRecord] {
+    /// 获取指定伴侣的最近聊天记录
+    func fetchRecentChats(limit: Int = 50, companionId: UUID) async -> [ChatHistoryRecord] {
         guard let userId = supabase.auth.currentUser?.id else { return [] }
 
         do {
@@ -862,6 +921,7 @@ class AICompanionService: ObservableObject {
                 .from("chat_history")
                 .select()
                 .eq("user_id", value: userId.uuidString)
+                .eq("companion_id", value: companionId.uuidString)
                 .order("created_at", ascending: false)
                 .limit(limit)
                 .execute()
@@ -905,8 +965,8 @@ class AICompanionService: ObservableObject {
             return
         }
 
-        // 获取所有聊天记录
-        let chatHistory = await fetchRecentChats(limit: 200)
+        // 获取该伴侣的聊天记录
+        let chatHistory = await fetchRecentChats(limit: 200, companionId: companion.id)
 
         guard !chatHistory.isEmpty else {
             print("⚠️ [UserManual] 没有聊天记录，跳过更新")

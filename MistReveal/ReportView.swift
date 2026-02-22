@@ -8,6 +8,7 @@ struct ReportView: View {
     var gender: String
     var birthTime: String
     var location: String
+    var isSelf: Bool = true
 
     // SoulmateManager
     @ObservedObject private var soulmateManager = SoulmateManager.shared
@@ -116,7 +117,8 @@ struct ReportView: View {
                 birthDate: birthDate,
                 gender: gender,
                 birthTime: birthTime,
-                location: location
+                location: location,
+                isSelf: isSelf
             )
         }
         .onAppear {

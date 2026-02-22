@@ -3,7 +3,7 @@ import Foundation
 // MARK: - AI 伴侣数据模型
 
 /// AI 伴侣信息（对应 Supabase ai_companions 表）
-struct AICompanion: Codable, Equatable {
+struct AICompanion: Codable, Equatable, Identifiable {
     let id: UUID
     let userId: UUID
 
@@ -21,6 +21,9 @@ struct AICompanion: Codable, Equatable {
 
     /// 关联的灵魂分析记录 ID
     var soulAnalysisRecordId: UUID?
+
+    /// 关联的画像记录 ID
+    var portraitId: UUID?
 
     /// 用户喜好说明书（从聊天记录分析生成）
     var userManual: UserManual?
@@ -42,6 +45,7 @@ struct AICompanion: Codable, Equatable {
         case intimacyLevel = "intimacy_level"
         case elementBalance = "element_balance"
         case soulAnalysisRecordId = "soul_analysis_record_id"
+        case portraitId = "portrait_id"
         case userManual = "user_manual"
         case lastManualUpdate = "last_manual_update"
         case analyzedMessageCount = "analyzed_message_count"
@@ -59,6 +63,7 @@ struct AICompanion: Codable, Equatable {
         intimacyLevel = (try? container.decode(Int.self, forKey: .intimacyLevel)) ?? 0
         elementBalance = (try? container.decode(ElementBalance.self, forKey: .elementBalance)) ?? .default
         soulAnalysisRecordId = try? container.decodeIfPresent(UUID.self, forKey: .soulAnalysisRecordId)
+        portraitId = try? container.decodeIfPresent(UUID.self, forKey: .portraitId)
 
         // 历史数据里 user_manual 可能结构不完整，解码失败时降级为 nil，避免整条伴侣记录失败
         userManual = try? container.decodeIfPresent(UserManual.self, forKey: .userManual)
@@ -197,6 +202,7 @@ struct AICompanionInsert: Codable {
     var intimacyLevel: Int = 0
     var elementBalance: ElementBalance = .default
     var soulAnalysisRecordId: UUID?
+    var portraitId: UUID?
     var analyzedMessageCount: Int = 0
 
     enum CodingKeys: String, CodingKey {
@@ -206,6 +212,7 @@ struct AICompanionInsert: Codable {
         case intimacyLevel = "intimacy_level"
         case elementBalance = "element_balance"
         case soulAnalysisRecordId = "soul_analysis_record_id"
+        case portraitId = "portrait_id"
         case analyzedMessageCount = "analyzed_message_count"
     }
 }

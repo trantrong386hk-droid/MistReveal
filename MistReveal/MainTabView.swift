@@ -35,7 +35,9 @@ struct MainTabView: View {
                 case 0:
                     HomeView()
                 case 1:
-                    SoulmateAIChatView()  // 灵犀：直接显示 AI 聊天
+                    NavigationStack {
+                        SoulmateGalleryView()  // 灵犀：伴侣画廊（导航到各自聊天）
+                    }
                 case 2:
                     ConnectionView(onBackTap: nil)  // 星图：缘分探索
                 case 3:
@@ -51,9 +53,14 @@ struct MainTabView: View {
             }
         }
         .ignoresSafeArea(.keyboard)
-        .onChange(of: selectedTab) { _, newValue in
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("HideTabBar"))) { _ in
             withAnimation(.easeInOut(duration: 0.2)) {
-                hideTabBar = (newValue == 1)
+                hideTabBar = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowTabBar"))) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                hideTabBar = false
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
@@ -62,6 +69,11 @@ struct MainTabView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToSoulmateTab"))) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = 1
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToGalleryTab"))) { _ in
             withAnimation(.easeInOut(duration: 0.2)) {
                 selectedTab = 1
             }
@@ -168,6 +180,10 @@ struct HomeView: View {
     @State private var navigateToCoordinates = false
     @State private var showContent = false
     @State private var logoScale: CGFloat = 0.8
+    @State private var existingCompanions: [AICompanion] = []
+    @State private var isCheckingCompanions = true
+    @State private var showQuotaAlert = false
+    @ObservedObject private var quotaManager = QuotaManager.shared
 
     var body: some View {
         NavigationStack {
@@ -243,31 +259,82 @@ struct HomeView: View {
 
                     // 开始按钮
                     VStack(spacing: 20) {
-                        Button(action: {
-                            navigateToCoordinates = true
-                        }) {
-                            HStack(spacing: 12) {
-                                Text("开启命运之旅")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .tracking(4)
+                        if isCheckingCompanions {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(height: 60)
+                        } else if existingCompanions.isEmpty {
+                            Button(action: {
+                                navigateToCoordinates = true
+                            }) {
+                                HStack(spacing: 12) {
+                                    Text("开启命运之旅")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .tracking(4)
 
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 14, weight: .medium))
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
-                            .cornerRadius(30)
-                            .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 20, x: 0, y: 10)
+                                .cornerRadius(30)
+                                .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 20, x: 0, y: 10)
+                            }
+                            .padding(.horizontal, 40)
+                        } else {
+                            Button(action: {
+                                NotificationCenter.default.post(name: NSNotification.Name("SwitchToGalleryTab"), object: nil)
+                            }) {
+                                HStack(spacing: 12) {
+                                    Text("前往画廊")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .tracking(4)
+
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(30)
+                                .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 20, x: 0, y: 10)
+                            }
+                            .padding(.horizontal, 40)
+
+                            Button(action: {
+                                if QuotaManager.shared.canGenerate() {
+                                    navigateToCoordinates = true
+                                } else {
+                                    showQuotaAlert = true
+                                }
+                            }) {
+                                Text("探索新命定 →")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white.opacity(0.45))
+                                    .underline()
+                            }
+                            .padding(.top, 8)
+                            .alert("生成次数已用完", isPresented: $showQuotaAlert) {
+                                Button("好的") {}
+                            } message: {
+                                Text("每人有一次免费机会，邀请好友可获得额外生成次数")
+                            }
                         }
-                        .padding(.horizontal, 40)
 
                         Text("基于时空坐标与灵魂共振理论")
                             .font(.system(size: 12))
@@ -293,48 +360,15 @@ struct HomeView: View {
             withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                 logoScale = 1.0
             }
+            Task {
+                existingCompanions = await AICompanionService.shared.fetchAllCompanions()
+                isCheckingCompanions = false
+            }
+            Task { await QuotaManager.shared.fetchQuota() }
         }
     }
 }
 
-// MARK: - 搜索范围枚举
-enum SearchScope: String, CaseIterable {
-    case local = "同城"
-    case provincial = "跨省"
-    case global = "全球"
-
-    var maxRadius: Double {
-        switch self {
-        case .local: return 100
-        case .provincial: return 2000
-        case .global: return 20000
-        }
-    }
-
-    var minRadius: Double {
-        switch self {
-        case .local: return 10
-        case .provincial: return 100
-        case .global: return 1000
-        }
-    }
-
-    var step: Double {
-        switch self {
-        case .local: return 10
-        case .provincial: return 100
-        case .global: return 1000
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .local: return "📍"
-        case .provincial: return "🚄"
-        case .global: return "🌍"
-        }
-    }
-}
 
 // MARK: - 缘分视图（地图匹配）
 struct ConnectionView: View {
@@ -350,8 +384,6 @@ struct ConnectionView: View {
     @State private var selectedUser: MatchingService.MatchedUser?
     @State private var showUserCard = false
     @State private var matchThreshold: Double = 60
-    @State private var searchRadius: Double = 50
-    @State private var searchScope: SearchScope = .local
     @State private var hasUpdatedLocation = false
     @State private var shouldRecenterMap = false
 
@@ -375,6 +407,11 @@ struct ConnectionView: View {
 
     // 控制面板收起状态
     @State private var isControlPanelExpanded = false
+
+    // 开发者工具
+    #if DEBUG
+    @State private var showDevMenu = false
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -464,15 +501,42 @@ struct ConnectionView: View {
                     longitude: location.longitude
                 )
                 if success {
-                    // 搜索附近匹配的用户
-                    await matchingService.findNearbyMatches(
+                    // 动态半径扩展搜索
+                    await matchingService.findMatchesWithExpansion(
                         center: location,
-                        radiusKm: searchRadius,
                         minMatchScore: Int(matchThreshold)
                     )
                 }
             }
         }
+    }
+
+    // MARK: - 搜索范围 Banner
+
+    private var scopeBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: matchingService.currentSearchScope == .nationwide ? "globe.asia.australia.fill" : "building.2.fill")
+                .font(.system(size: 11))
+                .foregroundColor(Color(hex: "#A78BFA"))
+
+            Text(matchingService.currentSearchScope == .nationwide
+                 ? "已扩展至全国 · 最匹配的命缘"
+                 : "附近人数较少 · 已扩展至同城")
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "#A78BFA"))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color(hex: "#A78BFA").opacity(0.12))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(hex: "#A78BFA").opacity(0.3), lineWidth: 1)
+        )
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 6)
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     // MARK: - 地图空状态浮层
@@ -653,6 +717,23 @@ struct ConnectionView: View {
                         .clipShape(Circle())
                 }
 
+                #if DEBUG
+                // 开发者工具按钮
+                Button(action: { showDevMenu = true }) {
+                    Image(systemName: "testtube.2")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(width: 36, height: 36)
+                        .background(Color.white.opacity(0.07))
+                        .clipShape(Circle())
+                }
+                .confirmationDialog("开发者工具", isPresented: $showDevMenu, titleVisibility: .visible) {
+                    Button("种入测试数据") { Task { await seedTestUsers() } }
+                    Button("清除测试数据", role: .destructive) { Task { await deleteTestUsers() } }
+                    Button("取消", role: .cancel) {}
+                }
+                #endif
+
                 // 罗盘返回按钮（从翻转容器进入时显示）
                 if let onBackTap = onBackTap {
                     RotatingCompassButton(action: onBackTap)
@@ -661,6 +742,11 @@ struct ConnectionView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
             .padding(.bottom, 12)
+
+            // 搜索范围扩展 Banner
+            if matchingService.currentSearchScope == .city || matchingService.currentSearchScope == .nationwide {
+                scopeBanner
+            }
 
             // 地图
             ZStack(alignment: .bottom) {
@@ -756,39 +842,6 @@ struct ConnectionView: View {
 
                     // 筛选控件
                     VStack(spacing: 16) {
-                        // 搜索范围选择器（三档模式）
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("搜索范围")
-                                .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.8))
-
-                            HStack(spacing: 8) {
-                                ForEach(SearchScope.allCases, id: \.self) { scope in
-                                    Button(action: {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            searchScope = scope
-                                            searchRadius = scope.minRadius
-                                        }
-                                        refreshMatches()
-                                    }) {
-                                        HStack(spacing: 4) {
-                                            Text(scope.icon)
-                                                .font(.system(size: 12))
-                                            Text(scope.rawValue)
-                                                .font(.system(size: 12, weight: .medium))
-                                        }
-                                        .foregroundColor(searchScope == scope ? .white : .white.opacity(0.5))
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(searchScope == scope ? Color(hex: "#E94560") : Color.white.opacity(0.1))
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
                         // 匹配度阈值
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -808,24 +861,6 @@ struct ConnectionView: View {
                                 }
                         }
 
-                        // 搜索半径
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("搜索半径")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.white.opacity(0.8))
-                                Spacer()
-                                Text(formatDistance(searchRadius))
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(Color(hex: "#E94560"))
-                            }
-
-                            Slider(value: $searchRadius, in: searchScope.minRadius...searchScope.maxRadius, step: searchScope.step)
-                                .tint(Color(hex: "#E94560"))
-                                .onChange(of: searchRadius) { _, _ in
-                                    refreshMatches()
-                                }
-                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
@@ -917,17 +952,23 @@ struct ConnectionView: View {
                     }
                 }
 
-                // 头像和匹配度
+                // 头像和匹配度（shadow 优先显示命定画像）
                 ZStack {
                     Circle()
-                        .fill(matchScoreColor(user.matchScore).opacity(0.2))
+                        .fill(matchScoreColor(user.matchScore).opacity(user.isShadow ? 0.1 : 0.2))
                         .frame(width: 90, height: 90)
 
                     Circle()
-                        .stroke(matchScoreColor(user.matchScore), lineWidth: 3)
+                        .stroke(
+                            user.isShadow ? Color(hex: "#A78BFA") : matchScoreColor(user.matchScore),
+                            style: user.isShadow
+                                ? StrokeStyle(lineWidth: 2, dash: [5, 4])
+                                : StrokeStyle(lineWidth: 3)
+                        )
                         .frame(width: 90, height: 90)
 
-                    if let avatarUrl = user.avatarUrl, let url = URL(string: avatarUrl) {
+                    let displayUrl = user.portraitUrl ?? user.avatarUrl
+                    if let urlStr = displayUrl, let url = URL(string: urlStr) {
                         AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let image):
@@ -936,20 +977,19 @@ struct ConnectionView: View {
                                     .scaledToFill()
                                     .frame(width: 84, height: 84)
                                     .clipShape(Circle())
-                            case .failure(_), .empty:
-                                Image(systemName: "person.fill")
+                                    .opacity(user.isShadow ? 0.7 : 1.0)
+                            default:
+                                Image(systemName: user.isShadow ? "person.fill.questionmark" : "person.fill")
                                     .font(.system(size: 36))
-                                    .foregroundColor(matchScoreColor(user.matchScore))
-                            @unknown default:
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 36))
-                                    .foregroundColor(matchScoreColor(user.matchScore))
+                                    .foregroundColor(user.isShadow ? Color(hex: "#A78BFA") : matchScoreColor(user.matchScore))
+                                    .opacity(user.isShadow ? 0.6 : 1.0)
                             }
                         }
                     } else {
-                        Image(systemName: "person.fill")
+                        Image(systemName: user.isShadow ? "person.fill.questionmark" : "person.fill")
                             .font(.system(size: 36))
-                            .foregroundColor(matchScoreColor(user.matchScore))
+                            .foregroundColor(user.isShadow ? Color(hex: "#A78BFA") : matchScoreColor(user.matchScore))
+                            .opacity(user.isShadow ? 0.6 : 1.0)
                     }
                 }
 
@@ -970,27 +1010,44 @@ struct ConnectionView: View {
                                 .background(Color.orange.opacity(0.2))
                                 .cornerRadius(4)
                         }
+
+                        // 数字残影标签
+                        if user.isShadow {
+                            Text("数字残影")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(Color(hex: "#A78BFA"))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color(hex: "#A78BFA").opacity(0.2))
+                                .cornerRadius(4)
+                        }
                     }
 
                     HStack(spacing: 16) {
-                        // 匹配度
+                        // 匹配度（主角，字号稍大）
                         HStack(spacing: 4) {
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 13))
                                 .foregroundColor(matchScoreColor(user.matchScore))
                             Text("匹配度 \(user.matchScore)%")
-                                .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.8))
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
                         }
 
-                        // 距离
+                        // 城市或距离（全国模式显示城市）
                         HStack(spacing: 4) {
                             Image(systemName: "location.fill")
                                 .font(.system(size: 12))
                                 .foregroundColor(.white.opacity(0.5))
-                            Text(formatUserDistance(user.distance))
-                                .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.8))
+                            if matchingService.currentSearchScope == .nationwide || user.isShadow {
+                                Text(user.city ?? "未知城市")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.8))
+                            } else {
+                                Text(user.city ?? formatUserDistance(user.distance))
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
                         }
                     }
                 }
@@ -1015,29 +1072,65 @@ struct ConnectionView: View {
                     }
                 }
 
-                // 开始对话按钮
-                Button(action: {
-                    startConversation(with: user)
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bubble.left.fill")
-                            .font(.system(size: 14))
-                        Text("开始对话")
-                            .font(.system(size: 15, weight: .medium))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(25)
+                // 数字残影：性格概述
+                if user.isShadow, let summary = user.analysisSummary {
+                    let firstSentence = summary.components(separatedBy: CharacterSet(charactersIn: "。.")).first ?? summary
+                    Text(firstSentence)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.6))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
                 }
-                .padding(.top, 8)
+
+                // 对话按钮（真实用户 vs 数字残影）
+                if user.isShadow {
+                    Button(action: {
+                        startShadowConversation(with: user)
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.wave.2.fill")
+                                .font(.system(size: 14))
+                            Text("与TA的数字分身对话")
+                                .font(.system(size: 15, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "#A78BFA"), Color(hex: "#1A1A2E")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(25)
+                    }
+                    .padding(.top, 8)
+                } else {
+                    Button(action: {
+                        startConversation(with: user)
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bubble.left.fill")
+                                .font(.system(size: 14))
+                            Text("开始对话")
+                                .font(.system(size: 15, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(25)
+                    }
+                    .padding(.top, 8)
+                }
             }
             .padding(24)
             .background(
@@ -1122,9 +1215,13 @@ struct ConnectionView: View {
                                 // 用户信息
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
+                                        if user.isShadow {
+                                            Text("👻")
+                                                .font(.system(size: 12))
+                                        }
                                         Text(user.nickname)
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(user.isShadow ? .white.opacity(0.7) : .white)
                                         if user.isTestUser {
                                             Text("测试")
                                                 .font(.system(size: 9))
@@ -1132,6 +1229,15 @@ struct ConnectionView: View {
                                                 .padding(.horizontal, 4)
                                                 .padding(.vertical, 1)
                                                 .background(Color.orange.opacity(0.2))
+                                                .cornerRadius(3)
+                                        }
+                                        if user.isShadow {
+                                            Text("残影")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(Color(hex: "#A78BFA"))
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 1)
+                                                .background(Color(hex: "#A78BFA").opacity(0.2))
                                                 .cornerRadius(3)
                                         }
                                     }
@@ -1147,8 +1253,8 @@ struct ConnectionView: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(matchScoreColor(user.matchScore))
 
-                                // 距离
-                                Text(formatUserDistance(user.distance))
+                                // 城市
+                                Text(user.city ?? "附近")
                                     .font(.system(size: 11))
                                     .foregroundColor(.white.opacity(0.5))
                                     .frame(width: 50, alignment: .trailing)
@@ -1216,9 +1322,8 @@ struct ConnectionView: View {
         // 重置聚焦索引
         currentFocusIndex = 0
         Task {
-            await matchingService.findNearbyMatches(
+            await matchingService.findMatchesWithExpansion(
                 center: location,
-                radiusKm: searchRadius,
                 minMatchScore: Int(matchThreshold)
             )
         }
@@ -1294,27 +1399,30 @@ struct ConnectionView: View {
         }
     }
 
-    /// 格式化距离显示
-    private func formatDistance(_ km: Double) -> String {
-        if km < 1 {
-            return String(format: "%.0f 米", km * 1000)
-        } else if km < 100 {
-            return String(format: "%.1f 公里", km)
-        } else if km < 1000 {
-            return String(format: "%.0f 公里", km)
-        } else {
-            return String(format: "%.1f 千公里", km / 1000)
+    /// 与数字残影的数字分身开始对话
+    private func startShadowConversation(with user: MatchingService.MatchedUser) {
+        withAnimation(.spring(response: 0.3)) {
+            showUserCard = false
+        }
+        Task {
+            do {
+                _ = try await AICompanionService.shared.createShadowCompanion(from: user)
+                NotificationCenter.default.post(name: NSNotification.Name("SwitchToSoulmateTab"), object: nil)
+            } catch {
+                print("❌ [ConnectionView] 创建数字分身伴侣失败: \(error)")
+            }
         }
     }
+
+    /// 格式化距离显示
 
     /// 格式化用户距离显示
     private func formatUserDistance(_ km: Double) -> String {
         if km < 1 {
-            return String(format: "%.0f 米", km * 1000)
+            return "附近"
         } else if km < 100 {
-            return String(format: "%.1f km", km)
-        } else if km < 1000 {
-            return String(format: "%.0f km", km)
+            let rounded = (km * 2).rounded() / 2
+            return String(format: "约 %.1f km", rounded)
         } else {
             return String(format: "%.0f km", km)
         }
@@ -1369,6 +1477,51 @@ struct ConnectionView: View {
         default: return Color.white
         }
     }
+
+    // MARK: - 开发者工具
+    #if DEBUG
+    private func seedTestUsers() async {
+        typealias R = MatchingService.UserLocationRecord
+        let rows: [R] = [
+            R(id: nil, userId: "test-user-01", latitude: 39.9, longitude: 116.4, nickname: "晨曦若木", userElement: "木", soulmateElement: "水", personalityTraits: ["温柔","创意","细腻","坚韧"], soulmateTraits: ["稳重","理性","包容","幽默"], updatedAt: nil, avatarUrl: nil, city: "北京", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-02", latitude: 31.2, longitude: 121.5, nickname: "烈焰星痕", userElement: "火", soulmateElement: "木", personalityTraits: ["热情","勇敢","魅力","开朗"], soulmateTraits: ["温柔","细腻","聪明","善解人意"], updatedAt: nil, avatarUrl: nil, city: "上海", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-03", latitude: 30.7, longitude: 104.1, nickname: "厚土暖阳", userElement: "土", soulmateElement: "火", personalityTraits: ["稳重","踏实","温暖","包容"], soulmateTraits: ["活泼","创意","聪明","有趣"], updatedAt: nil, avatarUrl: nil, city: "成都", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-04", latitude: 23.1, longitude: 113.3, nickname: "霜月清金", userElement: "金", soulmateElement: "土", personalityTraits: ["理性","独立","果断","精准"], soulmateTraits: ["温柔","细腻","感性","包容"], updatedAt: nil, avatarUrl: nil, city: "广州", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-05", latitude: 30.2, longitude: 120.2, nickname: "碧波灵渊", userElement: "水", soulmateElement: "金", personalityTraits: ["聪明","灵动","善解人意","感性"], soulmateTraits: ["稳重","踏实","理性","专注"], updatedAt: nil, avatarUrl: nil, city: "杭州", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-06", latitude: 22.5, longitude: 114.1, nickname: "南木之息", userElement: "木", soulmateElement: "水", personalityTraits: ["温柔","艺术","直觉","细腻"], soulmateTraits: ["坚定","热情","包容","勇气"], updatedAt: nil, avatarUrl: nil, city: "深圳", isShadow: true, analysisSummary: "她温柔如春风，眼中有光，笑起来能令人忘却世间疲惫。内心丰盈而敏感，擅长用文字和画笔记录生活中的美好瞬间。", portraitUrl: nil),
+            R(id: nil, userId: "test-user-07", latitude: 30.6, longitude: 114.3, nickname: "炽焰流年", userElement: "火", soulmateElement: "木", personalityTraits: ["热情","直率","魅力","果敢"], soulmateTraits: ["温柔","耐心","细腻","善解人意"], updatedAt: nil, avatarUrl: nil, city: "武汉", isShadow: true, analysisSummary: "她身上有一种令人着迷的生命力，笑声爽朗，行事果决，对喜欢的事情全情投入，对陌生人也总保持善意与热忱。", portraitUrl: nil),
+            R(id: nil, userId: "test-user-08", latitude: 34.3, longitude: 108.9, nickname: "玉衡金曜", userElement: "金", soulmateElement: "木", personalityTraits: ["理性","专注","精致","自律"], soulmateTraits: ["浪漫","创意","温柔","感性"], updatedAt: nil, avatarUrl: nil, city: "西安", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-09", latitude: 32.1, longitude: 118.8, nickname: "流云涉水", userElement: "水", soulmateElement: "火", personalityTraits: ["智慧","灵气","洒脱","感性"], soulmateTraits: ["踏实","热情","包容","有担当"], updatedAt: nil, avatarUrl: nil, city: "南京", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-10", latitude: 29.6, longitude: 106.6, nickname: "山岳归尘", userElement: "土", soulmateElement: "金", personalityTraits: ["踏实","宽容","温暖","沉稳"], soulmateTraits: ["聪慧","活泼","灵动","有趣"], updatedAt: nil, avatarUrl: nil, city: "重庆", isShadow: true, analysisSummary: "她给人一种厚实的安全感，不张扬却令人信赖。喜欢安静的阅读角落，也享受朋友间的热闹聚会，懂得平衡生活的节奏。", portraitUrl: nil),
+            R(id: nil, userId: "test-user-11", latitude: 30.3, longitude: 120.3, nickname: "林间清影", userElement: "木", soulmateElement: "金", personalityTraits: ["安静","内敛","有深度","独立"], soulmateTraits: ["开朗","活力","社交","外向"], updatedAt: nil, avatarUrl: nil, city: "杭州", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+            R(id: nil, userId: "test-user-12", latitude: 39.8, longitude: 116.5, nickname: "朱雀之光", userElement: "火", soulmateElement: "水", personalityTraits: ["热情","创意","魅力","勇敢","善解人意"], soulmateTraits: ["稳重","细腻","温柔","包容","理性"], updatedAt: nil, avatarUrl: nil, city: "北京", isShadow: false, analysisSummary: nil, portraitUrl: nil),
+        ]
+        do {
+            try await supabase
+                .from("user_locations")
+                .upsert(rows, onConflict: "user_id")
+                .execute()
+            print("✅ [DEV] 测试数据种入成功")
+            refreshMatches()
+        } catch {
+            print("❌ [DEV] 种入失败: \(error)")
+        }
+    }
+
+    private func deleteTestUsers() async {
+        do {
+            try await supabase
+                .from("user_locations")
+                .delete()
+                .like("user_id", pattern: "test-user-%")
+                .execute()
+            print("✅ [DEV] 测试数据已清除")
+            refreshMatches()
+        } catch {
+            print("❌ [DEV] 清除失败: \(error)")
+        }
+    }
+    #endif
 }
 
 // MARK: - 头像响应模型
@@ -1387,7 +1540,6 @@ struct ProfileView: View {
     @State private var deleteConfirmText = ""
     @State private var isDeleting = false
     @State private var navigateToArchive = false
-    @State private var navigateToProfileSetup = false
     @State private var navigateToMoments = false
     @State private var navigateToInvite = false
 
@@ -1474,13 +1626,6 @@ struct ProfileView: View {
                                 navigateToArchive = true
                             }) {
                                 profileMenuItemContent(icon: "sparkles", title: "我的灵魂档案", subtitle: "查看你的命理分析")
-                            }
-
-                            // 我的资料 - 可导航
-                            Button(action: {
-                                navigateToProfileSetup = true
-                            }) {
-                                profileMenuItemContent(icon: "person.text.rectangle", title: "我的资料", subtitle: "完善资料让灵犀更懂你")
                             }
 
                             // 灵感动态 - 可导航
@@ -1594,9 +1739,6 @@ struct ProfileView: View {
             }
             .navigationDestination(isPresented: $navigateToArchive) {
                 SoulArchiveView()
-            }
-            .navigationDestination(isPresented: $navigateToProfileSetup) {
-                UserProfileSetupView()
             }
             .navigationDestination(isPresented: $navigateToMoments) {
                 MomentsTimelineView()

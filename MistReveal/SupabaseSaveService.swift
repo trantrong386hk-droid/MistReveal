@@ -60,14 +60,14 @@ class SupabaseSaveService {
     ///   - gender: 性别
     ///   - birthTime: 时辰
     ///   - location: 地点
-    /// - Returns: 上传后的图片URL
+    /// - Returns: (imageUrl, portraitId)
     @discardableResult
     func saveGenerationResult(
         result: SoulmateManager.SoulmateResult,
         gender: String,
         birthTime: String,
         location: String
-    ) async throws -> String {
+    ) async throws -> (imageUrl: String, portraitId: UUID) {
         guard let userId = supabase.auth.currentUser?.id else {
             print("❌ [SupabaseSave] 用户未登录")
             throw SaveError.notAuthenticated
@@ -92,8 +92,8 @@ class SupabaseSaveService {
                 imageData: result.imageData
             )
 
-            // 步骤 3: 保存画像记录
-            try await savePortraitRecord(
+            // 步骤 3: 保存画像记录，拿到插入后的 ID
+            let portraitId = try await savePortraitRecord(
                 userId: userId,
                 hexagram: result.hexagram,
                 analysis: result.analysis,
@@ -104,8 +104,16 @@ class SupabaseSaveService {
                 location: location
             )
 
+            // 步骤 4：异步写入数字残影位置（不阻塞主流程）
+            let capturedUserId = userId
+            let capturedLocation = location
+            let capturedImageUrl = imageUrl
+            Task {
+                await upsertShadowLocation(userId: capturedUserId, location: capturedLocation, imageUrl: capturedImageUrl)
+            }
+
             print("✅ [SupabaseSave] 推演结果保存成功")
-            return imageUrl
+            return (imageUrl: imageUrl, portraitId: portraitId)
 
         } catch {
             print("❌ [SupabaseSave] 保存失败: \(error)")
@@ -191,7 +199,7 @@ class SupabaseSaveService {
         return publicURL.absoluteString
     }
 
-    /// 保存画像记录
+    /// 保存画像记录，返回插入后的 UUID
     private func savePortraitRecord(
         userId: UUID,
         hexagram: String,
@@ -201,7 +209,7 @@ class SupabaseSaveService {
         gender: String,
         birthTime: String,
         location: String
-    ) async throws {
+    ) async throws -> UUID {
         print("💾 [SupabaseSave] 保存画像记录...")
 
         // 将 "1990年5月15日" 格式转换为 "1990-05-15"
@@ -226,12 +234,92 @@ class SupabaseSaveService {
             birthLocation: location
         )
 
-        try await supabase
+        struct InsertedId: Decodable { let id: UUID }
+        let inserted: InsertedId = try await supabase
             .from("generated_portraits")
             .insert(recordData)
+            .select("id")
+            .single()
             .execute()
+            .value
 
-        print("✅ [SupabaseSave] 画像记录保存成功")
+        print("✅ [SupabaseSave] 画像记录保存成功: \(inserted.id)")
+        return inserted.id
+    }
+
+    // MARK: - 数字残影位置
+
+    /// 生成完成后写入影子位置（如用户尚无真实位置记录）
+    private func upsertShadowLocation(userId: UUID, location: String, imageUrl: String) async {
+        // 检查是否已有真实位置记录（is_shadow = false）
+        struct CheckRecord: Decodable {
+            let userId: String
+            enum CodingKeys: String, CodingKey { case userId = "user_id" }
+        }
+
+        do {
+            let existing: [CheckRecord] = try await supabase
+                .from("user_locations")
+                .select("user_id")
+                .eq("user_id", value: userId.uuidString)
+                .eq("is_shadow", value: false)
+                .execute()
+                .value
+
+            if !existing.isEmpty {
+                print("ℹ️ [Shadow] 已有真实位置记录，跳过 shadow 写入")
+                return
+            }
+        } catch {
+            // 查询失败时继续尝试写入
+            print("⚠️ [Shadow] 检查真实位置失败，继续 shadow 写入: \(error)")
+        }
+
+        // 使用城市坐标库获取近似坐标
+        guard let coord = CityCoordinates.approximate(for: location, userId: userId.uuidString) else {
+            print("⚠️ [Shadow] 无法为位置 '\(location)' 找到近似坐标，跳过 shadow 写入")
+            return
+        }
+
+        // 从灵魂档案获取分析数据
+        let archiveManager = SoulArchiveManager.shared
+        let myRecord = archiveManager.myRecord
+        let analysisSummary: String?
+        if let desc = myRecord?.analysisResult.personalityDescription {
+            analysisSummary = String(desc.prefix(200))
+        } else {
+            analysisSummary = nil
+        }
+
+        let cityName = CityCoordinates.matchedCityName(for: location)
+
+        let record = MatchingService.UserLocationRecord(
+            id: nil,
+            userId: userId.uuidString,
+            latitude: coord.latitude,
+            longitude: coord.longitude,
+            nickname: myRecord?.nickname ?? "神秘旅人",
+            userElement: myRecord?.analysisResult.userElement,
+            soulmateElement: myRecord?.analysisResult.soulmateElement,
+            personalityTraits: myRecord?.analysisResult.personalityTraits,
+            soulmateTraits: myRecord?.analysisResult.soulmateTraits,
+            updatedAt: nil,
+            avatarUrl: nil,
+            city: cityName,
+            isShadow: true,
+            analysisSummary: analysisSummary,
+            portraitUrl: imageUrl
+        )
+
+        do {
+            try await supabase
+                .from("user_locations")
+                .upsert(record, onConflict: "user_id")
+                .execute()
+            print("✅ [Shadow] 写入影子位置记录成功: \(location) → \(cityName ?? "未知城市")")
+        } catch {
+            print("❌ [Shadow] 写入影子位置记录失败: \(error)")
+        }
     }
 
     // MARK: - 错误类型

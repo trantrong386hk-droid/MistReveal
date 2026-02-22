@@ -9,7 +9,8 @@ class SoulArchiveManager: ObservableObject {
 
     // MARK: - 发布属性
 
-    @Published var myRecord: UserGenerationRecord?      // 我自己的记录
+    @Published var myRecord: UserGenerationRecord?      // 我自己的最新记录（向后兼容）
+    @Published var myRecords: [UserGenerationRecord] = []   // 所有 is_self 记录
     @Published var friendRecords: [UserGenerationRecord] = []  // 帮朋友测的记录
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -139,16 +140,6 @@ class SoulArchiveManager: ObservableObject {
         let dateStr = dateFormatter.string(from: birthDate)
 
         do {
-            // 如果是"我自己"，先删除旧的"我自己"记录（一人一档）
-            if isSelf {
-                try await supabase
-                    .from("user_generations")
-                    .delete()
-                    .eq("user_id", value: userId)
-                    .eq("is_self", value: true)
-                    .execute()
-                print("🗑️ [SoulArchiveManager] 已删除旧的'我自己'记录")
-            }
 
             // 1. 先尝试插入或获取 soul_analysis_records
             var recordId: String
@@ -225,7 +216,7 @@ class SoulArchiveManager: ObservableObject {
 
             try await supabase
                 .from("user_generations")
-                .upsert(userGeneration, onConflict: "user_id,record_id")
+                .insert(userGeneration)
                 .execute()
 
             print("✅ [SoulArchiveManager] 添加用户历史记录")
@@ -311,25 +302,34 @@ class SoulArchiveManager: ObservableObject {
                 .execute()
                 .value
 
+            // 同时拉取该用户所有 soul_analysis_records（用于后续缺漏补偿）
+            let allSoulRecords: [SoulAnalysisDBRecord] = try await supabase
+                .from("soul_analysis_records")
+                .select()
+                .eq("user_id", value: userId)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            let soulRecordsById: [String: SoulAnalysisDBRecord] = Dictionary(
+                allSoulRecords.compactMap { r in r.id.map { ($0, r) } },
+                uniquingKeysWith: { first, _ in first }
+            )
+
             var myRecordTemp: UserGenerationRecord?
+            var myRecordsTemp: [UserGenerationRecord] = []
             var friendRecordsTemp: [UserGenerationRecord] = []
+            var coveredRecordIds = Set<String>()
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let createdAtFormatter = ISO8601DateFormatter()
 
             for generation in generations {
-                // 获取对应的分析记录
-                let records: [SoulAnalysisDBRecord] = try await supabase
-                    .from("soul_analysis_records")
-                    .select()
-                    .eq("id", value: generation.recordId)
-                    .execute()
-                    .value
+                coveredRecordIds.insert(generation.recordId)
 
-                guard let record = records.first else { continue }
+                guard let record = soulRecordsById[generation.recordId] else { continue }
 
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd"
                 let birthDate = dateFormatter.date(from: record.birthDate) ?? Date()
-
-                let createdAtFormatter = ISO8601DateFormatter()
                 let createdAt = createdAtFormatter.date(from: generation.createdAt ?? "") ?? Date()
 
                 let fallbackKey = "\(record.gender)_\(record.birthDate)_\(record.birthTime)_\(record.location.trimmingCharacters(in: .whitespaces).lowercased())"
@@ -349,16 +349,48 @@ class SoulArchiveManager: ObservableObject {
                 )
 
                 if generation.isSelf {
-                    myRecordTemp = userRecord
+                    if myRecordTemp == nil { myRecordTemp = userRecord }  // 最新一条（向后兼容）
+                    myRecordsTemp.append(userRecord)
                 } else {
                     friendRecordsTemp.append(userRecord)
                 }
             }
 
-            myRecord = myRecordTemp
+            // 补偿：soul_analysis_records 存在但 user_generations 写入失败的自我记录
+            // 条件：有对应的 generated_portraits（即确实生成过画像），才补入档案
+            for record in allSoulRecords {
+                guard let recordId = record.id, !coveredRecordIds.contains(recordId) else { continue }
+                let fallbackKey = "\(record.gender)_\(record.birthDate)_\(record.birthTime)_\(record.location.trimmingCharacters(in: .whitespaces).lowercased())"
+                guard let imageUrl = record.imageUrl ?? portraitUrlByKey[fallbackKey] else { continue }
+
+                let birthDate = dateFormatter.date(from: record.birthDate) ?? Date()
+                let createdAt = createdAtFormatter.date(from: record.createdAt ?? "") ?? Date()
+
+                let userRecord = UserGenerationRecord(
+                    id: recordId,
+                    nickname: "我自己",
+                    isSelf: true,
+                    gender: record.gender,
+                    birthDate: birthDate,
+                    birthTime: record.birthTime,
+                    location: record.location,
+                    analysisResult: record.analysisResult,
+                    imageUrl: imageUrl,
+                    createdAt: createdAt
+                )
+                if myRecordTemp == nil { myRecordTemp = userRecord }
+                myRecordsTemp.append(userRecord)
+                print("🔧 [SoulArchiveManager] 补偿缺漏记录: \(fallbackKey)")
+            }
+
+            // 按 createdAt 倒序排列
+            myRecordsTemp.sort { $0.createdAt > $1.createdAt }
+
+            myRecord = myRecordTemp ?? myRecordsTemp.first
+            myRecords = myRecordsTemp
             friendRecords = friendRecordsTemp
 
-            print("✅ [SoulArchiveManager] 获取记录成功: 我的=\(myRecord != nil), 朋友=\(friendRecords.count)条")
+            print("✅ [SoulArchiveManager] 获取记录成功: 我的=\(myRecords.count)条, 朋友=\(friendRecords.count)条")
 
         } catch {
             print("❌ [SoulArchiveManager] 获取记录失败: \(error)")

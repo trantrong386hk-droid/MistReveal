@@ -9,6 +9,7 @@ struct GeneratedPortraitView: View {
     var gender: String
     var birthTime: String
     var location: String
+    var isSelf: Bool = true
 
     // 管理器
     @ObservedObject private var soulmateManager = SoulmateManager.shared
@@ -238,7 +239,7 @@ struct GeneratedPortraitView: View {
                         .frame(width: 30, height: 1)
                 }
 
-                Text("Ta 一直在等你")
+                Text(isSelf ? "Ta 一直在等你" : "命定画像已生成")
                     .font(.system(size: 18))
                     .foregroundColor(.white.opacity(0.8))
 
@@ -264,26 +265,28 @@ struct GeneratedPortraitView: View {
                     }
                     .disabled(saveStatus == .saved)
 
-                    // 唤醒按钮 - 跳转到灵犀 Tab
-                    Button(action: awakenSoulmate) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "heart.circle.fill")
-                                .font(.system(size: 14))
-                            Text("唤醒")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                    // 唤醒按钮 - 仅自己的推演才显示，跳转到灵犀 Tab
+                    if isSelf {
+                        Button(action: awakenSoulmate) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "heart.circle.fill")
+                                    .font(.system(size: 14))
+                                Text("唤醒")
+                                    .font(.system(size: 14, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-                        .cornerRadius(25)
-                        .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 8, x: 0, y: 4)
+                            .cornerRadius(25)
+                            .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 8, x: 0, y: 4)
+                        }
                     }
                 }
                 .padding(.top, 8)
@@ -315,31 +318,40 @@ struct GeneratedPortraitView: View {
     // MARK: - 错误视图
 
     var errorView: some View {
-        VStack(spacing: 30) {
+        let isQuotaError = soulmateManager.errorMessage?.contains("生成次数已用完") == true
+        return VStack(spacing: 30) {
             Spacer()
 
-            Image(systemName: "cloud.fog")
+            Image(systemName: isQuotaError ? "lock.circle" : "cloud.fog")
                 .font(.system(size: 60))
                 .foregroundColor(.white.opacity(0.3))
 
             VStack(spacing: 12) {
-                Text("画像生成失败")
+                Text(isQuotaError ? "生成次数已用完" : "画像生成失败")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(.white)
 
-                Text("请稍后再试")
+                Text(isQuotaError ? "邀请好友可获得额外生成机会" : "请稍后再试")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.5))
             }
 
-            Button(action: retryGeneration) {
-                Text("重新生成")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 40)
-                    .padding(.vertical, 14)
-                    .background(Color(hex: "#E94560"))
-                    .cornerRadius(25)
+            if !isQuotaError {
+                Button(action: retryGeneration) {
+                    Text("重新生成")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 14)
+                        .background(Color(hex: "#E94560"))
+                        .cornerRadius(25)
+                }
+            }
+
+            Button(action: { dismiss() }) {
+                Text(isQuotaError ? "返回" : "关闭")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.5))
             }
 
             Spacer()
@@ -422,6 +434,10 @@ struct GeneratedPortraitView: View {
             let quotaConsumed = await QuotaManager.shared.consumeQuota()
             guard quotaConsumed else {
                 print("⚠️ [GeneratedPortraitView] 配额不足，终止生成")
+                await MainActor.run {
+                    soulmateManager.errorMessage = "生成次数已用完，邀请好友可获得额外机会"
+                    soulmateManager.state = .failed
+                }
                 return
             }
 
@@ -475,7 +491,7 @@ struct GeneratedPortraitView: View {
 
         Task {
             do {
-                let imageUrl = try await SupabaseSaveService.shared.saveGenerationResult(
+                let (imageUrl, portraitId) = try await SupabaseSaveService.shared.saveGenerationResult(
                     result: result,
                     gender: gender,
                     birthTime: birthTime,
@@ -494,13 +510,13 @@ struct GeneratedPortraitView: View {
 
                 await triggerReferrerRewardIfNeeded()
 
-                // 同步 AI 伴侣（确保灵犀使用最新人格设定）
-                if let analysis = soulmateManager.soulAnalysis {
+                // 仅为自己的生成创建 AI 伴侣（朋友的测算不创建）
+                if isSelf, let analysis = soulmateManager.soulAnalysis {
                     do {
-                        _ = try await AICompanionService.shared.createCompanion(from: analysis, userGender: gender)
-                        print("✅ [GeneratedPortraitView] AI 伴侣已同步更新")
+                        _ = try await AICompanionService.shared.createCompanion(from: analysis, portraitId: portraitId, userGender: gender)
+                        print("✅ [GeneratedPortraitView] AI 伴侣已创建")
                     } catch {
-                        print("⚠️ [GeneratedPortraitView] AI 伴侣同步失败: \(error)")
+                        print("⚠️ [GeneratedPortraitView] AI 伴侣创建失败: \(error)")
                     }
                 }
             } catch {

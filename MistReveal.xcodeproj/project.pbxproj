@@ -13,6 +13,8 @@
 		22E3E3A72F31B25C00F4107D /* SoulmateAIChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */; };
 		22E3E3A82F31B25C00F4107D /* SecretsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37D2F31B25C00F4107D /* SecretsManager.swift */; };
 		22E3E3AA2F31B25C00F4107D /* SoulmateAIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */; };
+		794A7D7067F94FEBA8A226AA /* SoulmateGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DB52015AC4B9FBE5F7F42 /* SoulmateGalleryView.swift */; };
+		AA000037 /* CityCoordinates.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000037 /* CityCoordinates.swift */; };
 		22E3E4692F31E2D500F4107D /* LunarSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 22E3E4682F31E2D500F4107D /* LunarSwift */; };
 		AA000001 /* MistRevealApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001 /* MistRevealApp.swift */; };
 		AA000002 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002 /* MainTabView.swift */; };
@@ -131,6 +133,7 @@
 		22E3E3822F31B25C00F4107D /* SoulArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulArchiveView.swift; sourceTree = "<group>"; };
 		22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatService.swift; sourceTree = "<group>"; };
 		22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatView.swift; sourceTree = "<group>"; };
+		844DB52015AC4B9FBE5F7F42 /* SoulmateGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateGalleryView.swift; sourceTree = "<group>"; };
 		22E3E3852F31B25C00F4107D /* SoulmateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateManager.swift; sourceTree = "<group>"; };
 		22E3E3862F31B25C00F4107D /* SupabaseSaveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSaveService.swift; sourceTree = "<group>"; };
 		22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseTestView.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 		AB000034 /* MatchNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchNotificationService.swift; sourceTree = "<group>"; };
 		AB000035 /* ChinaCityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChinaCityData.swift; sourceTree = "<group>"; };
 		AB000036 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
+		AB000037 /* CityCoordinates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CityCoordinates.swift; sourceTree = "<group>"; };
 		AB000040 /* Soul_Core.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = Soul_Core.md; sourceTree = "<group>"; };
 		AB000041 /* Safety_Policy.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = Safety_Policy.md; sourceTree = "<group>"; };
 		AB000042 /* Response_Schema.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = Response_Schema.md; sourceTree = "<group>"; };
@@ -295,6 +299,7 @@
 				22E3E3822F31B25C00F4107D /* SoulArchiveView.swift */,
 				22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */,
 				22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */,
+				844DB52015AC4B9FBE5F7F42 /* SoulmateGalleryView.swift */,
 				AB000031 /* AICompanionModels.swift */,
 				AB000032 /* AICompanionService.swift */,
 				AB000033 /* UserManualService.swift */,
@@ -355,6 +360,7 @@
 				AB000021 /* PulseAnnotationView.swift */,
 				AB000022 /* DestinyConnectionView.swift */,
 				AB000035 /* ChinaCityData.swift */,
+				AB000037 /* CityCoordinates.swift */,
 				AB000008 /* Assets.xcassets */,
 				AB00000A /* Info.plist */,
 				AD000004 /* Preview Content */,
@@ -479,6 +485,7 @@
 				22E3E3A72F31B25C00F4107D /* SoulmateAIChatService.swift in Sources */,
 				22E3E3A82F31B25C00F4107D /* SecretsManager.swift in Sources */,
 				22E3E3AA2F31B25C00F4107D /* SoulmateAIChatView.swift in Sources */,
+				794A7D7067F94FEBA8A226AA /* SoulmateGalleryView.swift in Sources */,
 				AA000004 /* CoordinatesInputView.swift in Sources */,
 				AA000005 /* ReportView.swift in Sources */,
 				AA000006 /* MistRevealView.swift in Sources */,
@@ -513,6 +520,7 @@
 				AA000034 /* MatchNotificationService.swift in Sources */,
 				AA000035 /* ChinaCityData.swift in Sources */,
 				AA000036 /* SupabaseManager.swift in Sources */,
+				AA000037 /* CityCoordinates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

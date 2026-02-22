@@ -20,6 +20,11 @@ struct SoulmateChatMessage: Identifiable, Equatable {
 
 // MARK: - 灵犀聊天主视图
 struct SoulmateAIChatView: View {
+    let companionId: UUID
+    var portraitImageUrl: String? = nil
+
+    @Environment(\.dismiss) private var dismiss
+
     @ObservedObject private var chatService = SoulmateAIChatService.shared
     @ObservedObject private var archiveManager = SoulArchiveManager.shared
     @ObservedObject private var companionService = AICompanionService.shared
@@ -60,17 +65,23 @@ struct SoulmateAIChatView: View {
             }
         }
         .onAppear {
+            // 隐藏 TabBar（进入聊天时全屏）
+            NotificationCenter.default.post(name: NSNotification.Name("HideTabBar"), object: nil)
+
             Task {
                 await archiveManager.fetchUserRecords()
+                // 清空上一个伴侣的消息，重置欢迎语标记
+                chatService.clearMessages()
+                chatService.hasTriggeredWelcome = false
                 // 背景图加载放到独立 Task，不阻塞聊天功能
                 Task { await loadBackgroundImage() }
-                // 加载 AI 伴侣数据（必须在发送消息前加载，否则消息无法保存）
-                await AICompanionService.shared.fetchCompanion()
-                // 加载历史聊天记录
-                await chatService.loadChatHistory()
+                // 按 ID 加载指定伴侣
+                try? await AICompanionService.shared.loadCompanion(byId: companionId)
+                // 加载该伴侣的历史聊天记录
+                await chatService.loadChatHistory(companionId: companionId)
 
-                // 只有历史为空且未触发过欢迎语时才发送
-                if chatService.messages.isEmpty, let record = archiveManager.myRecord, !chatService.hasTriggeredWelcome {
+                // 历史为空时发欢迎语
+                if chatService.messages.isEmpty, let record = archiveManager.myRecord {
                     chatService.hasTriggeredWelcome = true
                     await chatService.sendWelcomeMessage(record: record)
                 } else if let record = archiveManager.myRecord {
@@ -78,11 +89,9 @@ struct SoulmateAIChatView: View {
                 }
             }
         }
-        .onChange(of: archiveManager.myRecord?.imageUrl) { _, _ in
-            Task {
-                backgroundImage = nil
-                await loadBackgroundImage()
-            }
+        .onDisappear {
+            // 恢复 TabBar
+            NotificationCenter.default.post(name: NSNotification.Name("ShowTabBar"), object: nil)
         }
         // 监听高匹配用户出现的通知
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("HighMatchUserAppeared"))) { _ in
@@ -106,6 +115,7 @@ struct SoulmateAIChatView: View {
         } message: {
             Text("这个名字会显示在聊天界面顶部")
         }
+        .navigationBarHidden(true)
     }
 
     // MARK: - 背景视图（清晰全屏人像）
@@ -190,10 +200,8 @@ struct SoulmateAIChatView: View {
     // MARK: - 顶部信息栏（星野风格）
     private var headerView: some View {
         HStack(spacing: 12) {
-            // 返回按钮
-            Button(action: {
-                NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
-            }) {
+            // 返回按钮（返回画廊）
+            Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(.white)
@@ -204,7 +212,8 @@ struct SoulmateAIChatView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 36, height: 36)
+                    .frame(width: 36)
+                    .frame(height: 36, alignment: .top)
                     .clipShape(Circle())
             } else {
                 headerAvatarPlaceholder
@@ -212,13 +221,18 @@ struct SoulmateAIChatView: View {
 
             // 名字 + 标签
             VStack(alignment: .leading, spacing: 2) {
-                Text(companionName)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .onTapGesture {
-                        editingName = companionName == "灵犀" ? "" : companionName
-                        showNameEditor = true
-                    }
+                HStack(spacing: 5) {
+                    Text(companionName)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.45))
+                }
+                .onTapGesture {
+                    editingName = companionName == "灵犀" ? "" : companionName
+                    showNameEditor = true
+                }
 
             }
 
@@ -452,8 +466,10 @@ struct SoulmateAIChatView: View {
     }
 
     private func loadBackgroundImage() async {
-        guard let imageUrl = archiveManager.myRecord?.imageUrl,
-              let url = URL(string: imageUrl),
+        // 优先使用传入的画像 URL，否则使用档案中的图片
+        let urlString = portraitImageUrl ?? archiveManager.myRecord?.imageUrl
+        guard let urlString = urlString,
+              let url = URL(string: urlString),
               backgroundImage == nil else { return }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
@@ -656,5 +672,5 @@ extension Publishers {
 }
 
 #Preview {
-    SoulmateAIChatView()
+    SoulmateAIChatView(companionId: UUID())
 }

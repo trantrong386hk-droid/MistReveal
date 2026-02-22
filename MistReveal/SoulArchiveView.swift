@@ -14,7 +14,7 @@ struct SoulArchiveView: View {
 
             if archiveManager.isLoading {
                 loadingView
-            } else if archiveManager.myRecord == nil && archiveManager.friendRecords.isEmpty {
+            } else if archiveManager.myRecords.isEmpty && archiveManager.friendRecords.isEmpty {
                 emptyStateView
             } else {
                 contentView
@@ -101,7 +101,7 @@ struct SoulArchiveView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 // 我的命定
-                if let myRecord = archiveManager.myRecord {
+                if !archiveManager.myRecords.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Image(systemName: "heart.fill")
@@ -112,7 +112,9 @@ struct SoulArchiveView: View {
                                 .foregroundColor(.white.opacity(0.8))
                         }
 
-                        myRecordCard(record: myRecord)
+                        ForEach(archiveManager.myRecords) { record in
+                            myRecordCard(record: record)
+                        }
                     }
                 }
 

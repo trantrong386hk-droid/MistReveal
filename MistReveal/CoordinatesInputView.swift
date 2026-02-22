@@ -286,7 +286,8 @@ struct CoordinatesInputView: View {
                 birthDate: birthDate,
                 gender: gender,
                 birthTime: birthTimeString,
-                location: locationString
+                location: locationString,
+                isSelf: !forFriend
             )
         }
         .onChange(of: soulmateManager.soulAnalysis) { _, newValue in

@@ -2,6 +2,13 @@ import Foundation
 import CoreLocation
 import Supabase
 
+/// 搜索范围枚举
+enum SearchScope {
+    case nearby       // 附近 100 km
+    case city         // 同城扩展
+    case nationwide   // 全国扩展
+}
+
 /// 缘分匹配服务
 @MainActor
 class MatchingService: ObservableObject {
@@ -13,6 +20,8 @@ class MatchingService: ObservableObject {
     @Published var nearbyMatches: [MatchedUser] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var currentSearchScope: SearchScope = .nearby
+    @Published var myCity: String?
 
     // MARK: - 数据模型
 
@@ -27,6 +36,10 @@ class MatchingService: ObservableObject {
         let personalityTraits: [String]
         let distance: Double         // 距离（公里）
         let avatarUrl: String?       // 头像URL
+        let city: String?            // 城市名（城市级隐私保护）
+        let isShadow: Bool           // 是否为数字残影
+        let analysisSummary: String? // 性格描述前 200 字（仅 shadow）
+        let portraitUrl: String?     // 命定画像 URL（仅 shadow）
 
         var coordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -51,6 +64,10 @@ class MatchingService: ObservableObject {
         let soulmateTraits: [String]?
         let updatedAt: String?
         let avatarUrl: String?
+        let city: String?
+        let isShadow: Bool
+        let analysisSummary: String?
+        let portraitUrl: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -64,6 +81,52 @@ class MatchingService: ObservableObject {
             case soulmateTraits = "soulmate_traits"
             case updatedAt = "updated_at"
             case avatarUrl = "avatar_url"
+            case city
+            case isShadow = "is_shadow"
+            case analysisSummary = "analysis_summary"
+            case portraitUrl = "portrait_url"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try? c.decodeIfPresent(String.self, forKey: .id)
+            userId = try c.decode(String.self, forKey: .userId)
+            latitude = try c.decode(Double.self, forKey: .latitude)
+            longitude = try c.decode(Double.self, forKey: .longitude)
+            nickname = (try? c.decode(String.self, forKey: .nickname)) ?? "神秘旅人"
+            userElement = try? c.decodeIfPresent(String.self, forKey: .userElement)
+            soulmateElement = try? c.decodeIfPresent(String.self, forKey: .soulmateElement)
+            personalityTraits = try? c.decodeIfPresent([String].self, forKey: .personalityTraits)
+            soulmateTraits = try? c.decodeIfPresent([String].self, forKey: .soulmateTraits)
+            updatedAt = try? c.decodeIfPresent(String.self, forKey: .updatedAt)
+            avatarUrl = try? c.decodeIfPresent(String.self, forKey: .avatarUrl)
+            city = try? c.decodeIfPresent(String.self, forKey: .city)
+            isShadow = (try? c.decode(Bool.self, forKey: .isShadow)) ?? false
+            analysisSummary = try? c.decodeIfPresent(String.self, forKey: .analysisSummary)
+            portraitUrl = try? c.decodeIfPresent(String.self, forKey: .portraitUrl)
+        }
+
+        // Memberwise initializer for construction
+        init(id: String?, userId: String, latitude: Double, longitude: Double,
+             nickname: String, userElement: String?, soulmateElement: String?,
+             personalityTraits: [String]?, soulmateTraits: [String]?,
+             updatedAt: String?, avatarUrl: String?, city: String?,
+             isShadow: Bool = false, analysisSummary: String? = nil, portraitUrl: String? = nil) {
+            self.id = id
+            self.userId = userId
+            self.latitude = latitude
+            self.longitude = longitude
+            self.nickname = nickname
+            self.userElement = userElement
+            self.soulmateElement = soulmateElement
+            self.personalityTraits = personalityTraits
+            self.soulmateTraits = soulmateTraits
+            self.updatedAt = updatedAt
+            self.avatarUrl = avatarUrl
+            self.city = city
+            self.isShadow = isShadow
+            self.analysisSummary = analysisSummary
+            self.portraitUrl = portraitUrl
         }
     }
 
@@ -85,27 +148,47 @@ class MatchingService: ObservableObject {
         let myRecord = archiveManager.myRecord
 
         do {
+            // 模糊化到 ~11 km 网格（城市级隐私保护）
+            let fuzzedLat = (latitude * 10).rounded() / 10
+            let fuzzedLon = (longitude * 10).rounded() / 10
+
+            // 反地理编码取城市名（在真实坐标上执行）
+            var cityName: String? = nil
+            let geocoder = CLGeocoder()
+            let clLocation = CLLocation(latitude: latitude, longitude: longitude)
+            if let placemarks = try? await geocoder.reverseGeocodeLocation(clLocation),
+               let placemark = placemarks.first {
+                cityName = placemark.locality ?? placemark.administrativeArea
+            }
+
+            // 保存城市名供后续扩展搜索使用
+            myCity = cityName
+
             let record = UserLocationRecord(
                 id: nil,
                 userId: userId,
-                latitude: latitude,
-                longitude: longitude,
+                latitude: fuzzedLat,
+                longitude: fuzzedLon,
                 nickname: myRecord?.nickname ?? "神秘旅人",
                 userElement: myRecord?.analysisResult.userElement,
                 soulmateElement: myRecord?.analysisResult.soulmateElement,
                 personalityTraits: myRecord?.analysisResult.personalityTraits,
                 soulmateTraits: myRecord?.analysisResult.soulmateTraits,
                 updatedAt: nil,
-                avatarUrl: nil
+                avatarUrl: nil,
+                city: cityName,
+                isShadow: false,
+                analysisSummary: nil,
+                portraitUrl: nil
             )
 
-            // 使用 upsert：如果存在则更新，不存在则插入
+            // 使用 upsert：如果存在则更新，不存在则插入（is_shadow=false 会将影子记录晋升为真实用户）
             try await supabase
                 .from("user_locations")
                 .upsert(record, onConflict: "user_id")
                 .execute()
 
-            print("✅ [MatchingService] 位置更新成功")
+            print("✅ [MatchingService] 位置更新成功，城市: \(cityName ?? "未知")")
             return true
         } catch {
             print("❌ [MatchingService] 位置更新失败: \(error)")
@@ -113,11 +196,75 @@ class MatchingService: ObservableObject {
         }
     }
 
-    /// 查找附近的匹配用户
-    /// - Parameters:
-    ///   - center: 中心位置
-    ///   - radiusKm: 搜索半径（公里）
-    ///   - minMatchScore: 最低匹配度
+    /// 动态半径扩展搜索：near → city → nationwide
+    /// 取代 ConnectionView 中固定 500 km 的 findNearbyMatches 调用
+    func findMatchesWithExpansion(center: CLLocationCoordinate2D, minMatchScore: Int = 60) async {
+        guard let userId = await getCurrentUserId() else {
+            print("⚠️ [MatchingService] 用户未登录")
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        let archiveManager = SoulArchiveManager.shared
+        guard let myRecord = archiveManager.myRecord else {
+            print("⚠️ [MatchingService] 没有灵魂分析结果，无法匹配")
+            nearbyMatches = []
+            isLoading = false
+            return
+        }
+
+        do {
+            // 阶段 1：100 km 附近
+            let stage1Records = try await queryByRadius(center: center, radiusKm: 100, userId: userId)
+            let stage1Matches = buildMatchedUsers(
+                from: stage1Records, center: center,
+                myAnalysis: myRecord.analysisResult, minMatchScore: minMatchScore, radiusKm: 100
+            )
+            print("📍 [MatchingService] 阶段1(附近): \(stage1Records.count) 条记录 → \(stage1Matches.count) 个匹配")
+            if stage1Matches.count >= 5 {
+                currentSearchScope = .nearby
+                nearbyMatches = stage1Matches
+                isLoading = false
+                return
+            }
+
+            // 阶段 2：同城
+            if let city = myCity, !city.isEmpty {
+                let stage2Records = try await queryByCity(city: city, userId: userId)
+                let stage2Matches = buildMatchedUsers(
+                    from: stage2Records, center: center,
+                    myAnalysis: myRecord.analysisResult, minMatchScore: minMatchScore
+                )
+                print("📍 [MatchingService] 阶段2(同城 \(city)): \(stage2Records.count) 条记录 → \(stage2Matches.count) 个匹配")
+                if stage2Matches.count >= 5 {
+                    currentSearchScope = .city
+                    nearbyMatches = stage2Matches
+                    isLoading = false
+                    return
+                }
+            }
+
+            // 阶段 3：全国
+            let stage3Records = try await queryNationwide(userId: userId)
+            let stage3Matches = buildMatchedUsers(
+                from: stage3Records, center: center,
+                myAnalysis: myRecord.analysisResult, minMatchScore: minMatchScore
+            )
+            print("📍 [MatchingService] 阶段3(全国): \(stage3Records.count) 条记录 → \(stage3Matches.count) 个匹配")
+            currentSearchScope = .nationwide
+            nearbyMatches = stage3Matches
+
+        } catch {
+            print("❌ [MatchingService] findMatchesWithExpansion 失败: \(error)")
+            errorMessage = "查询附近用户失败"
+        }
+
+        isLoading = false
+    }
+
+    /// 查找附近的匹配用户（旧接口，保留兼容）
     func findNearbyMatches(
         center: CLLocationCoordinate2D,
         radiusKm: Double = 50,
@@ -132,30 +279,9 @@ class MatchingService: ObservableObject {
         errorMessage = nil
 
         do {
-            // 计算经纬度范围（粗略筛选）
-            let latDelta = radiusKm / 111.0  // 1度纬度约111公里
-            let lonDelta = radiusKm / (111.0 * cos(center.latitude * .pi / 180))
-
-            let minLat = center.latitude - latDelta
-            let maxLat = center.latitude + latDelta
-            let minLon = center.longitude - lonDelta
-            let maxLon = center.longitude + lonDelta
-
-            // 查询附近用户（排除自己）
-            let records: [UserLocationRecord] = try await supabase
-                .from("user_locations")
-                .select()
-                .neq("user_id", value: userId)
-                .gte("latitude", value: minLat)
-                .lte("latitude", value: maxLat)
-                .gte("longitude", value: minLon)
-                .lte("longitude", value: maxLon)
-                .execute()
-                .value
-
+            let records = try await queryByRadius(center: center, radiusKm: radiusKm, userId: userId)
             print("📍 [MatchingService] 找到 \(records.count) 个附近用户")
 
-            // 获取我的灵魂分析结果
             let archiveManager = SoulArchiveManager.shared
             guard let myRecord = archiveManager.myRecord else {
                 print("⚠️ [MatchingService] 没有灵魂分析结果，无法匹配")
@@ -164,51 +290,12 @@ class MatchingService: ObservableObject {
                 return
             }
 
-            // 计算匹配度并筛选
-            var matches: [MatchedUser] = []
-
-            for record in records {
-                // 计算距离
-                let distance = calculateDistance(
-                    from: center,
-                    to: CLLocationCoordinate2D(latitude: record.latitude, longitude: record.longitude)
-                )
-
-                // 只保留在半径内的用户
-                guard distance <= radiusKm else { continue }
-
-                // 计算匹配度
-                let score = calculateMatchScore(
-                    myAnalysis: myRecord.analysisResult,
-                    otherRecord: record
-                )
-
-                // 只保留达到最低匹配度的用户
-                guard score >= minMatchScore else { continue }
-
-                let matchedUser = MatchedUser(
-                    id: record.userId,
-                    nickname: record.nickname,
-                    latitude: record.latitude,
-                    longitude: record.longitude,
-                    matchScore: score,
-                    userElement: record.userElement ?? "未知",
-                    personalityTraits: record.personalityTraits ?? [],
-                    distance: distance,
-                    avatarUrl: record.avatarUrl
-                )
-
-                matches.append(matchedUser)
-            }
-
-            // 按匹配度排序
-            matches.sort { $0.matchScore > $1.matchScore }
-
-            // 限制返回数量（最多50个），优先显示高匹配度用户
-            let limitedMatches = Array(matches.prefix(50))
-
-            nearbyMatches = limitedMatches
-            print("💕 [MatchingService] 匹配到 \(matches.count) 个用户，显示 \(limitedMatches.count) 个")
+            let matches = buildMatchedUsers(
+                from: records, center: center,
+                myAnalysis: myRecord.analysisResult, minMatchScore: minMatchScore, radiusKm: radiusKm
+            )
+            nearbyMatches = matches
+            print("💕 [MatchingService] 匹配到 \(matches.count) 个用户")
 
         } catch {
             print("❌ [MatchingService] 查询失败: \(error)")
@@ -218,6 +305,87 @@ class MatchingService: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - 私有查询方法
+
+    private func queryByRadius(center: CLLocationCoordinate2D, radiusKm: Double, userId: String) async throws -> [UserLocationRecord] {
+        let latDelta = radiusKm / 111.0
+        let lonDelta = radiusKm / (111.0 * cos(center.latitude * .pi / 180))
+
+        return try await supabase
+            .from("user_locations")
+            .select()
+            .neq("user_id", value: userId)
+            .gte("latitude", value: center.latitude - latDelta)
+            .lte("latitude", value: center.latitude + latDelta)
+            .gte("longitude", value: center.longitude - lonDelta)
+            .lte("longitude", value: center.longitude + lonDelta)
+            .execute()
+            .value
+    }
+
+    private func queryByCity(city: String, userId: String) async throws -> [UserLocationRecord] {
+        return try await supabase
+            .from("user_locations")
+            .select()
+            .neq("user_id", value: userId)
+            .eq("city", value: city)
+            .execute()
+            .value
+    }
+
+    private func queryNationwide(userId: String) async throws -> [UserLocationRecord] {
+        return try await supabase
+            .from("user_locations")
+            .select()
+            .neq("user_id", value: userId)
+            .execute()
+            .value
+    }
+
+    /// 将数据库记录转换为 MatchedUser 列表并按匹配度排序
+    private func buildMatchedUsers(
+        from records: [UserLocationRecord],
+        center: CLLocationCoordinate2D,
+        myAnalysis: SoulAnalysisResult,
+        minMatchScore: Int,
+        radiusKm: Double? = nil
+    ) -> [MatchedUser] {
+        var matches: [MatchedUser] = []
+
+        for record in records {
+            let distance = calculateDistance(
+                from: center,
+                to: CLLocationCoordinate2D(latitude: record.latitude, longitude: record.longitude)
+            )
+
+            // 仅限半径内（阶段1使用精确距离过滤）
+            if let r = radiusKm, distance > r { continue }
+
+            let score = calculateMatchScore(myAnalysis: myAnalysis, otherRecord: record)
+            guard score >= minMatchScore else { continue }
+
+            let matchedUser = MatchedUser(
+                id: record.userId,
+                nickname: record.nickname,
+                latitude: record.latitude,
+                longitude: record.longitude,
+                matchScore: score,
+                userElement: record.userElement ?? "未知",
+                personalityTraits: record.personalityTraits ?? [],
+                distance: distance,
+                avatarUrl: record.avatarUrl,
+                city: record.city,
+                isShadow: record.isShadow,
+                analysisSummary: record.analysisSummary,
+                portraitUrl: record.portraitUrl
+            )
+            matches.append(matchedUser)
+        }
+
+        matches.sort { $0.matchScore > $1.matchScore }
+        return Array(matches.prefix(50))
+    }
+
     // MARK: - 匹配算法
 
     /// 计算匹配度
@@ -225,20 +393,16 @@ class MatchingService: ObservableObject {
         var score = 0
 
         // 1. 五行匹配（30分）
-        // 对方的 userElement 是否等于我的 soulmateElement
         if let otherElement = otherRecord.userElement,
            otherElement == myAnalysis.soulmateElement {
             score += 30
-            print("   五行匹配: +30 (对方\(otherElement) = 我需要的\(myAnalysis.soulmateElement))")
         } else if let otherElement = otherRecord.userElement {
-            // 部分匹配（相生关系）
             if isElementCompatible(myAnalysis.soulmateElement, otherElement) {
                 score += 15
             }
         }
 
         // 2. 性格特质匹配（40分）
-        // 对方的 personalityTraits 与我的 soulmateTraits 的重合度
         if let otherTraits = otherRecord.personalityTraits {
             let myWantedTraits = Set(myAnalysis.soulmateTraits)
             let otherTraitsSet = Set(otherTraits)
@@ -247,25 +411,21 @@ class MatchingService: ObservableObject {
             if !myWantedTraits.isEmpty {
                 let traitScore = Int(Double(intersection.count) / Double(myWantedTraits.count) * 40)
                 score += traitScore
-                print("   性格匹配: +\(traitScore) (重合\(intersection.count)个特质)")
             }
         }
 
         // 3. 互补匹配（20分）
-        // 对方的 soulmateElement 是否等于我的 userElement（说明我们互相需要）
         if let otherSoulmateElement = otherRecord.soulmateElement,
            otherSoulmateElement == myAnalysis.userElement {
             score += 20
-            print("   互补匹配: +20 (对方也需要\(myAnalysis.userElement)命的人)")
         }
 
         // 4. 基础分（10分）
-        // 只要有完整的分析数据就给基础分
         if otherRecord.userElement != nil && otherRecord.personalityTraits != nil {
             score += 10
         }
 
-        return min(score, 100) // 最高100分
+        return min(score, 100)
     }
 
     /// 判断五行是否相容（相生关系）

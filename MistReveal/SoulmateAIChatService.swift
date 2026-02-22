@@ -586,12 +586,12 @@ class SoulmateAIChatService: ObservableObject {
     }
 
     private func shouldUseDailyWorldShare(chatHistory: [[String: String]]) -> Bool {
-        // 晚间更容易触发“废话逻辑”，减少机械分析感
+        // 晚间更容易触发"废话逻辑"，减少机械分析感
         let hour = Calendar.current.component(.hour, from: Date())
         let inWindow = (20...23).contains(hour) || (0...1).contains(hour)
         guard inWindow else { return false }
 
-        // 最近一次 AI 消息若已经是“碎碎念”，则避免连续触发
+        // 最近一次 AI 消息若已经是"碎碎念"，则避免连续触发
         if let lastAI = chatHistory.reversed().first(where: { $0["role"] == "assistant" })?["content"],
            lastAI.contains("刚才") || lastAI.contains("我这边") || lastAI.contains("我刚") {
             return false
@@ -749,10 +749,11 @@ class SoulmateAIChatService: ObservableObject {
         }
     }
 
-    /// 构建长期关系锚点：把高价值历史记忆压缩成短摘要，减少“每轮都像陌生人”
+    /// 构建长期关系锚点：把高价值历史记忆压缩成短摘要，减少"每轮都像陌生人"
     private func buildRelationshipAnchor() async -> String {
         let companion = AICompanionService.shared.companion
-        let records = await AICompanionService.shared.fetchRecentChats(limit: 120)
+        guard let companionId = companion?.id else { return "" }
+        let records = await AICompanionService.shared.fetchRecentChats(limit: 120, companionId: companionId)
         let liked = records.filter { $0.isLiked }
         let recent = records.suffix(24)
 
@@ -780,7 +781,7 @@ class SoulmateAIChatService: ObservableObject {
         ## 长期关系锚点
         你们已经有连续对话历史。回复前先对齐以下关系记忆，再给出自然回应：
         \(lines.joined(separator: "\n"))
-        - 回应时优先延续上述记忆线索，让对方感到“你一直在同一段关系里”。
+        - 回应时优先延续上述记忆线索，让对方感到"你一直在同一段关系里"。
         """
     }
 
@@ -1097,7 +1098,7 @@ class SoulmateAIChatService: ObservableObject {
         )
 
         var instruction = """
-        你需要生成一条“心跳触发”的结构化回复，严格遵循 Response Schema。
+        你需要生成一条"心跳触发"的结构化回复，严格遵循 Response Schema。
         intent=\(intent)
         tone=\(tone)
         topic=\(topic)
@@ -1142,15 +1143,9 @@ class SoulmateAIChatService: ObservableObject {
 
     // MARK: - 加载历史消息
 
-    /// 从数据库加载历史聊天记录
-    func loadChatHistory() async {
-        // 内存中已有消息则跳过（避免覆盖正在进行的对话）
-        guard messages.isEmpty else {
-            print("🔮 [灵犀] 内存中已有 \(messages.count) 条消息，跳过加载")
-            return
-        }
-
-        let records = await AICompanionService.shared.fetchRecentChats(limit: 50)
+    /// 从数据库加载指定伴侣的历史聊天记录
+    func loadChatHistory(companionId: UUID) async {
+        let records = await AICompanionService.shared.fetchRecentChats(limit: 50, companionId: companionId)
 
         guard !records.isEmpty else {
             print("🔮 [灵犀] 没有历史消息")

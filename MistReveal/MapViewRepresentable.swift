@@ -42,8 +42,8 @@ struct MapViewRepresentable: UIViewRepresentable {
         if let location = userLocation, !context.coordinator.hasInitialCentered {
             let region = MKCoordinateRegion(
                 center: location,
-                latitudinalMeters: 10000,  // 10公里范围
-                longitudinalMeters: 10000
+                latitudinalMeters: 300_000,  // 地级市级范围 ~300km
+                longitudinalMeters: 300_000
             )
             mapView.setRegion(region, animated: true)
             context.coordinator.hasInitialCentered = true
@@ -53,8 +53,8 @@ struct MapViewRepresentable: UIViewRepresentable {
         if shouldRecenter, let location = userLocation {
             let region = MKCoordinateRegion(
                 center: location,
-                latitudinalMeters: 10000,
-                longitudinalMeters: 10000
+                latitudinalMeters: 300_000,
+                longitudinalMeters: 300_000
             )
             mapView.setRegion(region, animated: true)
             DispatchQueue.main.async {
@@ -66,8 +66,8 @@ struct MapViewRepresentable: UIViewRepresentable {
         if let coord = focusCoordinate {
             let region = MKCoordinateRegion(
                 center: coord,
-                latitudinalMeters: 5000,  // 5km 范围，能看清标记
-                longitudinalMeters: 5000
+                latitudinalMeters: 300_000,  // 地级市级范围
+                longitudinalMeters: 300_000
             )
             mapView.setRegion(region, animated: true)
 
@@ -129,8 +129,8 @@ struct MapViewRepresentable: UIViewRepresentable {
         )
 
         let span = MKCoordinateSpan(
-            latitudeDelta: (maxLat - minLat) * 1.5 + 0.01,  // 添加边距
-            longitudeDelta: (maxLon - minLon) * 1.5 + 0.01
+            latitudeDelta: max((maxLat - minLat) * 1.5 + 0.01, 2.5),  // 最小 ~300km
+            longitudeDelta: max((maxLon - minLon) * 1.5 + 0.01, 2.5)
         )
 
         let region = MKCoordinateRegion(center: center, span: span)
@@ -202,10 +202,11 @@ struct MapViewRepresentable: UIViewRepresentable {
                     annotationView?.annotation = matchAnnotation
                 }
 
-                // 配置五行颜色和动画
+                // 配置五行颜色、动画和 shadow 样式
                 annotationView?.configure(
                     element: matchAnnotation.user.userElement,
-                    matchScore: matchAnnotation.user.matchScore
+                    matchScore: matchAnnotation.user.matchScore,
+                    isShadow: matchAnnotation.user.isShadow
                 )
 
                 return annotationView
