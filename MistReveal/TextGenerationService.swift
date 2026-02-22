@@ -296,7 +296,7 @@ class TextGenerationService {
 
         print("🔵 [TextGeneration] 发送请求到 aliyun-proxy Edge Function...")
 
-        let session = try await supabase.auth.session
+        let session = try await supabase.auth.refreshSession()
         let chatResponse: ChatResponse = try await supabase.functions.invoke(
             "aliyun-proxy",
             options: FunctionInvokeOptions(
@@ -526,7 +526,18 @@ class TextGenerationService {
 
         print("🔵 [TextGeneration] 发送灵魂分析请求到 aliyun-proxy Edge Function...")
 
-        let efSession = try await supabase.auth.session
+        // 强制刷新 session，确保 accessToken 有效
+        let efSession: Session
+        do {
+            efSession = try await supabase.auth.refreshSession()
+            // 诊断：打印 token 过期时间
+            let expiresAt = Date(timeIntervalSince1970: efSession.expiresAt)
+            print("🔑 [TextGeneration] refreshSession 成功，token 过期时间: \(expiresAt), 距离过期: \(Int(efSession.expiresAt - Date().timeIntervalSince1970))秒")
+        } catch {
+            print("❌ [TextGeneration] refreshSession 失败: \(error) — 需要重新登录")
+            throw error
+        }
+
         let chatResponse: ChatResponse = try await supabase.functions.invoke(
             "aliyun-proxy",
             options: FunctionInvokeOptions(

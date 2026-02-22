@@ -428,15 +428,11 @@ class ImageGenerationService {
         )
 
         print("🔵 [ImageGen] 提交异步任务到 volcano-submit...")
-
-        let efSession = try await supabase.auth.session
-        let submitResponse: SubmitResponse = try await supabase.functions.invoke(
+        let submitHeaders = try await edgeAuthHeaders()
+        let submitResponse: SubmitResponse = try await invokeFunctionWithAuthFallback(
             "volcano-submit",
-            options: FunctionInvokeOptions(
-                method: .post,
-                headers: ["Authorization": "Bearer \(efSession.accessToken)"],
-                body: submitBody
-            )
+            body: submitBody,
+            headers: submitHeaders
         )
 
         let taskId = submitResponse.task_id
@@ -446,14 +442,11 @@ class ImageGenerationService {
             try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
 
             let pollBody = PollBody(task_id: taskId, reqKey: reqKey)
-            let pollSession = try await supabase.auth.session
-            let pollResult: PollResponse = try await supabase.functions.invoke(
+            let pollHeaders = try await edgeAuthHeaders()
+            let pollResult: PollResponse = try await invokeFunctionWithAuthFallback(
                 "volcano-poll",
-                options: FunctionInvokeOptions(
-                    method: .post,
-                    headers: ["Authorization": "Bearer \(pollSession.accessToken)"],
-                    body: pollBody
-                )
+                body: pollBody,
+                headers: pollHeaders
             )
 
             // Check for content risk error code
@@ -506,6 +499,86 @@ class ImageGenerationService {
         let code = json["code"] as? Int
         let message = (json["message"] as? String) ?? rawText
         return (code, message)
+    }
+
+    /// 获取 Edge Function 调用 headers。
+    /// 与 TextGenerationService 对齐：直接调 refreshSession() 确保 token 新鲜有效。
+    /// volcano-submit EF 需要真实用户 JWT（anon key 会导致 getUser 返回 null → 401）。
+    private func edgeAuthHeaders() async throws -> [String: String] {
+        var headers: [String: String] = [
+            "apikey": AppConfig.Supabase.anonKey
+        ]
+        let session = try await supabase.auth.refreshSession()
+        headers["Authorization"] = "Bearer \(session.accessToken)"
+        return headers
+    }
+
+    private func invokeFunctionWithAuthFallback<T: Decodable, B: Encodable>(
+        _ functionName: String,
+        body: B,
+        headers: [String: String]
+    ) async throws -> T {
+        do {
+            return try await supabase.functions.invoke(
+                functionName,
+                options: FunctionInvokeOptions(
+                    method: .post,
+                    headers: headers,
+                    body: body
+                )
+            )
+        } catch {
+            if isInvalidJWTError(error) {
+                // 用户 token 过期/污染时，自动降级为 anon key，再试一次。
+                var fallbackHeaders = headers
+                fallbackHeaders["Authorization"] = "Bearer \(AppConfig.Supabase.anonKey)"
+                print("⚠️ [ImageGen] \(functionName) JWT 无效，回退 anon key 重试")
+                do {
+                    return try await supabase.functions.invoke(
+                        functionName,
+                        options: FunctionInvokeOptions(
+                            method: .post,
+                            headers: fallbackHeaders,
+                            body: body
+                        )
+                    )
+                } catch {
+                    logFunctionError(error, functionName: functionName)
+                    throw error
+                }
+            }
+            logFunctionError(error, functionName: functionName)
+            throw error
+        }
+    }
+
+    private func isInvalidJWTError(_ error: Error) -> Bool {
+        guard let fnError = error as? FunctionsError else {
+            return false
+        }
+        guard case let .httpError(code, data) = fnError else {
+            return false
+        }
+        if code == 401 {
+            let (_, message) = parseServerError(from: data)
+            return message.localizedCaseInsensitiveContains("invalid jwt")
+        }
+        return false
+    }
+
+    private func logFunctionError(_ error: Error, functionName: String) {
+        if let fnErr = error as? FunctionsError {
+            switch fnErr {
+            case let .httpError(code, data):
+                let (_, message) = parseServerError(from: data)
+                print("❌ [ImageGen] \(functionName) HTTP \(code): \(message)")
+                return
+            default:
+                print("❌ [ImageGen] \(functionName) error: \(fnErr)")
+                return
+            }
+        }
+        print("❌ [ImageGen] \(functionName) error: \(error)")
     }
 
     private func sanitizePromptForPolicy(_ text: String) -> String {

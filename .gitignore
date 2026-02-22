@@ -23,3 +23,6 @@ Pods/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# Secrets (never commit)
+.env
