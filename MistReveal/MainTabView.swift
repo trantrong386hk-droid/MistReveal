@@ -78,14 +78,19 @@ struct MainTabView: View {
                 selectedTab = 1
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToStarMapTab"))) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = 2
+            }
+        }
     }
 
     // MARK: - 自定义底部导航栏
     var customTabBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                // 命理
-                tabBarItem(icon: "sparkles", title: "命理", index: 0)
+                // 探索
+                tabBarItem(icon: "sparkles", title: "探索", index: 0)
 
                 // 灵犀
                 tabBarItem(icon: "heart.fill", title: "灵犀", index: 1)
@@ -408,6 +413,12 @@ struct ConnectionView: View {
     // 控制面板收起状态
     @State private var isControlPanelExpanded = false
 
+    // 注册城市坐标（上传后存储，供 threshold 重搜用）
+    @State private var registeredCoord: CLLocationCoordinate2D?
+
+    // 命盘切换栏（多命盘时显示）
+    // 无额外状态：直接通过 archiveManager.myRecords.count > 1 控制显示
+
     // 开发者工具
     #if DEBUG
     @State private var showDevMenu = false
@@ -490,23 +501,94 @@ struct ConnectionView: View {
             // 请求定位权限
             locationManager.requestAuthorization()
         }
-        .onChange(of: locationManager.userLocation) { _, newLocation in
-            guard let location = newLocation, !hasUpdatedLocation else { return }
+        .onChange(of: locationManager.userLocation) { _, _ in
+            // GPS 仅用于地图视觉定心，上传/搜索由注册城市坐标驱动（见下方 onChange）
+        }
+        .onChange(of: archiveManager.myRecord != nil) { _, hasRecord in
+            guard hasRecord, !hasUpdatedLocation else { return }
             hasUpdatedLocation = true
-
             Task {
-                // 更新自己的位置到数据库
-                let success = await matchingService.updateUserLocation(
-                    latitude: location.latitude,
-                    longitude: location.longitude
-                )
-                if success {
-                    // 动态半径扩展搜索
+                // GPS 坐标作为 fallback（城市未匹配时使用）
+                let gpsLat = locationManager.userLocation?.latitude ?? 0
+                let gpsLon = locationManager.userLocation?.longitude ?? 0
+                if let coord = await matchingService.updateUserLocation(
+                    latitude: gpsLat, longitude: gpsLon
+                ) {
+                    registeredCoord = coord
                     await matchingService.findMatchesWithExpansion(
-                        center: location,
+                        center: coord,
                         minMatchScore: Int(matchThreshold)
                     )
                 }
+            }
+        }
+    }
+
+    // MARK: - 命盘切换栏
+
+    private var recordSwitcherBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(archiveManager.myRecords) { record in
+                    let isActive = record.id == archiveManager.activeRecord?.id
+                    Button {
+                        switchActiveRecord(record)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(record.nickname)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(isActive ? Color(hex: "#E94560") : .white)
+                                .lineLimit(1)
+                            HStack(spacing: 4) {
+                                Text(record.analysisResult.userElement)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(isActive ? Color(hex: "#E94560") : .gray)
+                                Text("·")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray)
+                                Text(record.location.isEmpty ? "未知" : record.location)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isActive
+                                      ? Color(hex: "#E94560").opacity(0.15)
+                                      : Color(hex: "#1A1A2E"))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isActive ? Color(hex: "#E94560").opacity(0.5) : Color.clear,
+                                        lineWidth: 1)
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(Color(hex: "#0A0A12").opacity(0.85))
+    }
+
+    private func switchActiveRecord(_ record: SoulArchiveManager.UserGenerationRecord) {
+        guard record.id != archiveManager.activeRecord?.id else { return }
+        archiveManager.setActiveRecord(record)
+        Task {
+            let gpsLat = locationManager.userLocation?.latitude ?? 0
+            let gpsLon = locationManager.userLocation?.longitude ?? 0
+            if let coord = await matchingService.updateUserLocation(
+                latitude: gpsLat, longitude: gpsLon
+            ) {
+                registeredCoord = coord
+                focusCoordinate = coord          // 地图立即跳到新城市
+                await matchingService.findMatchesWithExpansion(
+                    center: coord,
+                    minMatchScore: Int(matchThreshold)
+                )
             }
         }
     }
@@ -742,6 +824,11 @@ struct ConnectionView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
             .padding(.bottom, 12)
+
+            // 命盘切换栏（多命盘时显示）
+            if archiveManager.myRecords.count > 1 {
+                recordSwitcherBar
+            }
 
             // 搜索范围扩展 Banner
             if matchingService.currentSearchScope == .city || matchingService.currentSearchScope == .nationwide {
@@ -1318,12 +1405,12 @@ struct ConnectionView: View {
     }
 
     private func refreshMatches() {
-        guard let location = locationManager.userLocation else { return }
+        guard let coord = registeredCoord else { return }
         // 重置聚焦索引
         currentFocusIndex = 0
         Task {
             await matchingService.findMatchesWithExpansion(
-                center: location,
+                center: coord,
                 minMatchScore: Int(matchThreshold)
             )
         }
@@ -1502,7 +1589,26 @@ struct ConnectionView: View {
                 .upsert(rows, onConflict: "user_id")
                 .execute()
             print("✅ [DEV] 测试数据种入成功")
-            refreshMatches()
+            currentFocusIndex = 0
+
+            // registeredCoord 已有值：直接重搜，跳过重新上传位置
+            if let coord = registeredCoord {
+                await matchingService.findMatchesWithExpansion(
+                    center: coord,
+                    minMatchScore: Int(matchThreshold)
+                )
+            } else {
+                // updateUserLocation 因 RLS 失败时的后备路径：
+                // 直接用 GPS/北京坐标作搜索中心，findMatchesWithExpansion 不要求当前用户行存在
+                let gpsLat = locationManager.userLocation?.latitude ?? 39.9042
+                let gpsLon = locationManager.userLocation?.longitude ?? 116.4074
+                let fallbackCoord = CLLocationCoordinate2D(latitude: gpsLat, longitude: gpsLon)
+                registeredCoord = fallbackCoord   // 设置后，threshold 滑动等也能正常工作
+                await matchingService.findMatchesWithExpansion(
+                    center: fallbackCoord,
+                    minMatchScore: Int(matchThreshold)
+                )
+            }
         } catch {
             print("❌ [DEV] 种入失败: \(error)")
         }
@@ -1542,6 +1648,7 @@ struct ProfileView: View {
     @State private var navigateToArchive = false
     @State private var navigateToMoments = false
     @State private var navigateToInvite = false
+    @State private var navigateToFateRecords = false
 
     // 头像上传相关状态
     @State private var selectedPhoto: PhotosPickerItem?
@@ -1643,7 +1750,9 @@ struct ProfileView: View {
                             }
 
                             // 缘分记录
-                            profileMenuItem(icon: "heart.circle", title: "缘分记录", subtitle: "查看历史匹配")
+                            Button(action: { navigateToFateRecords = true }) {
+                                profileMenuItemContent(icon: "heart.circle", title: "缘分记录", subtitle: "查看历史匹配")
+                            }
 
                             // 设置
                             profileMenuItem(icon: "gearshape", title: "设置", subtitle: "账号与偏好设置")
@@ -1745,6 +1854,9 @@ struct ProfileView: View {
             }
             .navigationDestination(isPresented: $navigateToInvite) {
                 InviteFriendsView()
+            }
+            .navigationDestination(isPresented: $navigateToFateRecords) {
+                FateRecordsView()
             }
             .onAppear {
                 Task {

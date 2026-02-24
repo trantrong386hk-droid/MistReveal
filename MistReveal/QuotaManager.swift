@@ -19,6 +19,7 @@ class QuotaManager: ObservableObject {
         let userId: String
         var freeQuotaUsed: Bool
         var referralQuota: Int
+        var friendAnalysesUsed: Int
         let createdAt: String?
         let updatedAt: String?
 
@@ -26,6 +27,7 @@ class QuotaManager: ObservableObject {
             case userId = "user_id"
             case freeQuotaUsed = "free_quota_used"
             case referralQuota = "referral_quota"
+            case friendAnalysesUsed = "friend_analyses_used"
             case createdAt = "created_at"
             case updatedAt = "updated_at"
         }
@@ -40,6 +42,12 @@ class QuotaManager: ObservableObject {
             let freeCount = freeQuotaUsed ? 0 : 1
             return freeCount + referralQuota
         }
+
+        /// 是否可以帮朋友分析（限 2 次）
+        var canAnalyzeFriend: Bool { friendAnalysesUsed < 2 }
+
+        /// 帮朋友分析的剩余次数
+        var friendAnalysesRemaining: Int { max(0, 2 - friendAnalysesUsed) }
     }
 
     // MARK: - 初始化
@@ -90,6 +98,7 @@ class QuotaManager: ObservableObject {
                 userId: userId,
                 freeQuotaUsed: false,
                 referralQuota: 0,
+                friendAnalysesUsed: 0,
                 createdAt: nil,
                 updatedAt: nil
             )
@@ -128,6 +137,26 @@ class QuotaManager: ObservableObject {
             return result
         } catch {
             print("❌ [QuotaManager] 配额扣减失败: \(error)")
+            return false
+        }
+    }
+
+    /// 消耗一次帮朋友分析的配额（原子 RPC，上限 2 次）
+    func consumeFriendQuota() async -> Bool {
+        do {
+            let result: Bool = try await supabase
+                .rpc("consume_friend_quota")
+                .execute()
+                .value
+            if result {
+                await fetchQuota()  // 成功后刷新本地缓存
+            }
+            print(result
+                ? "✅ [QuotaManager] 朋友配额扣减成功"
+                : "⚠️ [QuotaManager] 朋友配额已用完")
+            return result
+        } catch {
+            print("❌ [QuotaManager] 朋友配额扣减失败: \(error)")
             return false
         }
     }

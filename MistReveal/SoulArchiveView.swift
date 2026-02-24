@@ -2,7 +2,9 @@ import SwiftUI
 
 struct SoulArchiveView: View {
     @ObservedObject private var archiveManager = SoulArchiveManager.shared
+    @ObservedObject private var quotaManager = QuotaManager.shared
     @State private var showAddFriendSheet = false
+    @State private var showFriendQuotaAlert = false
     @State private var friendNickname = ""
     @State private var navigateToInput = false
     @State private var selectedRecord: SoulArchiveManager.UserGenerationRecord?
@@ -35,6 +37,11 @@ struct SoulArchiveView: View {
             Task {
                 await archiveManager.fetchUserRecords()
             }
+        }
+        .alert("帮朋友测算的机会已用完", isPresented: $showFriendQuotaAlert) {
+            Button("好的") {}
+        } message: {
+            Text("每人有 2 次帮朋友测算的机会，已全部使用")
         }
     }
 
@@ -138,7 +145,11 @@ struct SoulArchiveView: View {
 
                 // 添加朋友按钮
                 Button(action: {
-                    showAddFriendSheet = true
+                    if quotaManager.quota?.canAnalyzeFriend == true {
+                        showAddFriendSheet = true
+                    } else {
+                        showFriendQuotaAlert = true
+                    }
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
@@ -302,6 +313,10 @@ struct SoulArchiveView: View {
                         .font(.system(size: 14))
                         .foregroundColor(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
+
+                    Text("剩余次数：\(quotaManager.quota?.friendAnalysesRemaining ?? 0)/2")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.4))
 
                     TextField("", text: $friendNickname, prompt: Text("朋友昵称").foregroundColor(.white.opacity(0.3)))
                         .font(.system(size: 16))

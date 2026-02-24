@@ -137,63 +137,76 @@ class MatchingService: ObservableObject {
     // MARK: - 公开方法
 
     /// 更新用户位置到数据库
-    func updateUserLocation(latitude: Double, longitude: Double) async -> Bool {
+    /// 优先使用注册城市坐标（确定性抖动），fallback 到 GPS 模糊化
+    /// - Returns: 实际写入的坐标（供后续搜索使用），失败返回 nil
+    func updateUserLocation(latitude: Double, longitude: Double) async -> CLLocationCoordinate2D? {
         guard let userId = await getCurrentUserId() else {
             print("⚠️ [MatchingService] 用户未登录")
-            return false
+            return nil
         }
 
         // 获取用户的灵魂分析结果
         let archiveManager = SoulArchiveManager.shared
-        let myRecord = archiveManager.myRecord
+        let myRecord = archiveManager.activeRecord ?? archiveManager.myRecord
 
-        do {
-            // 模糊化到 ~11 km 网格（城市级隐私保护）
-            let fuzzedLat = (latitude * 10).rounded() / 10
-            let fuzzedLon = (longitude * 10).rounded() / 10
+        // ── 坐标计算（不依赖 DB，不会因 RLS 失败）────────────────────────
+        let finalLat: Double
+        let finalLon: Double
+        var cityName: String?
 
-            // 反地理编码取城市名（在真实坐标上执行）
-            var cityName: String? = nil
+        if let location = myRecord?.location, !location.isEmpty,
+           let cityCoord = CityCoordinates.approximate(for: location, userId: userId) {
+            // 注册城市路径：确定性坐标 + 直接取城市名（跳过 CLGeocoder）
+            finalLat = cityCoord.latitude
+            finalLon = cityCoord.longitude
+            cityName = CityCoordinates.matchedCityName(for: location)
+            print("📍 [MatchingService] 使用注册城市坐标: \(location) → (\(finalLat), \(finalLon))")
+        } else {
+            // Fallback：GPS 模糊化到 ~11 km 网格 + 反地理编码
+            finalLat = (latitude * 10).rounded() / 10
+            finalLon = (longitude * 10).rounded() / 10
             let geocoder = CLGeocoder()
             let clLocation = CLLocation(latitude: latitude, longitude: longitude)
             if let placemarks = try? await geocoder.reverseGeocodeLocation(clLocation),
                let placemark = placemarks.first {
                 cityName = placemark.locality ?? placemark.administrativeArea
             }
+            print("📍 [MatchingService] 注册城市未匹配，使用 GPS fallback: (\(finalLat), \(finalLon))")
+        }
 
-            // 保存城市名供后续扩展搜索使用
-            myCity = cityName
+        // 保存城市名供后续扩展搜索使用
+        myCity = cityName
 
-            let record = UserLocationRecord(
-                id: nil,
-                userId: userId,
-                latitude: fuzzedLat,
-                longitude: fuzzedLon,
-                nickname: myRecord?.nickname ?? "神秘旅人",
-                userElement: myRecord?.analysisResult.userElement,
-                soulmateElement: myRecord?.analysisResult.soulmateElement,
-                personalityTraits: myRecord?.analysisResult.personalityTraits,
-                soulmateTraits: myRecord?.analysisResult.soulmateTraits,
-                updatedAt: nil,
-                avatarUrl: nil,
-                city: cityName,
-                isShadow: false,
-                analysisSummary: nil,
-                portraitUrl: nil
-            )
-
+        // ── DB 写入（失败只打 warning，不影响坐标返回）────────────────────
+        let record = UserLocationRecord(
+            id: nil,
+            userId: userId,
+            latitude: finalLat,
+            longitude: finalLon,
+            nickname: myRecord?.nickname ?? "神秘旅人",
+            userElement: myRecord?.analysisResult.userElement,
+            soulmateElement: myRecord?.analysisResult.soulmateElement,
+            personalityTraits: myRecord?.analysisResult.personalityTraits,
+            soulmateTraits: myRecord?.analysisResult.soulmateTraits,
+            updatedAt: nil,
+            avatarUrl: nil,
+            city: cityName,
+            isShadow: false,
+            analysisSummary: nil,
+            portraitUrl: nil
+        )
+        do {
             // 使用 upsert：如果存在则更新，不存在则插入（is_shadow=false 会将影子记录晋升为真实用户）
             try await supabase
                 .from("user_locations")
                 .upsert(record, onConflict: "user_id")
                 .execute()
-
             print("✅ [MatchingService] 位置更新成功，城市: \(cityName ?? "未知")")
-            return true
         } catch {
-            print("❌ [MatchingService] 位置更新失败: \(error)")
-            return false
+            print("⚠️ [MatchingService] 位置上传失败（不影响本地搜索）: \(error)")
         }
+
+        return CLLocationCoordinate2D(latitude: finalLat, longitude: finalLon)
     }
 
     /// 动态半径扩展搜索：near → city → nationwide
@@ -208,7 +221,7 @@ class MatchingService: ObservableObject {
         errorMessage = nil
 
         let archiveManager = SoulArchiveManager.shared
-        guard let myRecord = archiveManager.myRecord else {
+        guard let myRecord = archiveManager.activeRecord ?? archiveManager.myRecord else {
             print("⚠️ [MatchingService] 没有灵魂分析结果，无法匹配")
             nearbyMatches = []
             isLoading = false

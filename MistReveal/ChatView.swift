@@ -44,27 +44,32 @@ struct ChatView: View {
 
                     // 输入框 - 固定在底部
                     inputBar
-                        .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - bottomSafeArea : max(bottomSafeArea, 90))
-                        .animation(.easeOut(duration: 0.25), value: keyboardHeight)
+                        .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - bottomSafeArea : bottomSafeArea)
                 }
             }
             .ignoresSafeArea()
         }
         .navigationBarHidden(true)
         .onAppear {
+            NotificationCenter.default.post(name: NSNotification.Name("HideTabBar"), object: nil)
             setupChat()
         }
         .onDisappear {
+            NotificationCenter.default.post(name: NSNotification.Name("ShowTabBar"), object: nil)
             chatService.unsubscribe()
         }
         // 键盘监听
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
             if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                keyboardHeight = keyboardFrame.height
+                withAnimation(.easeOut(duration: 0.25)) {
+                    keyboardHeight = keyboardFrame.height
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            keyboardHeight = 0
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
+            }
         }
         // 错误提示 Alert
         .alert("发送失败", isPresented: $showError) {
@@ -207,6 +212,7 @@ struct ChatView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: chatService.messages.count) { _, _ in
                 // 滚动到底部
                 scrollToBottom(proxy: proxy)
@@ -277,71 +283,65 @@ struct ChatView: View {
     // MARK: - 输入框
 
     private var inputBar: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // 输入框
-                HStack {
-                    TextField("发送消息...", text: $inputMessage)
-                        .font(.system(size: 15))
-                        .foregroundColor(.white)
-                        .focused($isInputFocused)
-                        .submitLabel(.send)
-                        .onSubmit {
-                            if canSend {
-                                sendMessage()
-                            }
-                        }
-
+        HStack(spacing: 12) {
+            // 输入框
+            TextField("发送消息...", text: $inputMessage)
+                .font(.system(size: 15))
+                .foregroundColor(.white)
+                .focused($isInputFocused)
+                .submitLabel(.send)
+                .onSubmit {
+                    if canSend {
+                        sendMessage()
+                    }
+                }
+                .padding(.leading, 16)
+                .padding(.trailing, inputMessage.isEmpty ? 16 : 40)
+                .padding(.vertical, 12)
+                .overlay(alignment: .trailing) {
                     if !inputMessage.isEmpty {
-                        Button(action: {
-                            inputMessage = ""
-                        }) {
+                        Button(action: { inputMessage = "" }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 16))
                                 .foregroundColor(.white.opacity(0.3))
                         }
+                        .padding(.trailing, 12)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.white.opacity(0.08))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
-                )
-
-                // 发送按钮
-                Button(action: sendMessage) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .background(
+                        .fill(
                             LinearGradient(
-                                colors: canSend ? [Color(hex: "#E94560"), Color(hex: "#1A1A2E")] : [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
+                                colors: [Color(hex: "#1A1A2E").opacity(0.78), Color(hex: "#0F1020").opacity(0.7)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .cornerRadius(22)
-                }
-                .disabled(!canSend)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .background(
-            Color(hex: "#1A1A2E")
-                .overlay(
-                    Rectangle()
-                        .fill(Color.white.opacity(0.05))
-                        .frame(height: 1),
-                    alignment: .top
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(Color.white.opacity(0.09), lineWidth: 0.8)
+                        )
                 )
-        )
+                .cornerRadius(24)
+
+            // 发送按钮
+            Button(action: sendMessage) {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        canSend
+                            ? LinearGradient(colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : LinearGradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .clipShape(Circle())
+            }
+            .disabled(!canSend)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .padding(.bottom, 10)
     }
 
     // MARK: - 计算属性
@@ -633,4 +633,3 @@ struct AITypingIndicator: View {
         }
     }
 }
-

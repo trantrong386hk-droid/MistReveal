@@ -591,6 +591,95 @@ class ChatService: ObservableObject {
         }
     }
 
+    /// 删除指定对话及其全部消息
+    func deleteConversation(id: String) async throws {
+        // 先删消息，避免 FK 冲突
+        try await supabase
+            .from("messages")
+            .delete()
+            .eq("conversation_id", value: id)
+            .execute()
+        // 再删对话记录
+        try await supabase
+            .from("conversations")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
+
+    // MARK: - 缘分记录
+
+    /// 缘分记录展示模型
+    struct FateRecord: Identifiable, Hashable {
+        let id: String               // conversation_id
+        let partnerId: String
+        let partnerNickname: String
+        let partnerElement: String
+        let partnerAvatarUrl: String?
+        let partnerPortraitUrl: String?
+        let partnerCity: String?
+        let partnerPersonalityTraits: [String]
+        let lastMessageAt: Date?
+        let status: String
+    }
+
+    /// 获取当前用户的所有缘分记录（按最后消息时间降序）
+    func fetchFateRecords() async throws -> [FateRecord] {
+        guard let myId = await getCurrentUserId() else {
+            throw ChatError.notAuthenticated
+        }
+
+        let conversations: [Conversation] = try await supabase
+            .from("conversations")
+            .select()
+            .or("user1_id.eq.\(myId),user2_id.eq.\(myId)")
+            .order("last_message_at", ascending: false)
+            .execute()
+            .value
+
+        guard !conversations.isEmpty else { return [] }
+
+        let partnerIds = conversations.map { $0.otherUserId(myId: myId) }
+        let orFilter = partnerIds.map { "user_id.eq.\($0)" }.joined(separator: ",")
+
+        let locationRecords: [MatchingService.UserLocationRecord] = try await supabase
+            .from("user_locations")
+            .select()
+            .or(orFilter)
+            .execute()
+            .value
+
+        let locationDict = Dictionary(uniqueKeysWithValues: locationRecords.map { ($0.userId, $0) })
+
+        let isoFull = ISO8601DateFormatter()
+        isoFull.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoBasic = ISO8601DateFormatter()
+        isoBasic.formatOptions = [.withInternetDateTime]
+
+        return conversations.compactMap { conv in
+            let partnerId = conv.otherUserId(myId: myId)
+            guard let location = locationDict[partnerId] else { return nil }
+
+            var lastDate: Date? = nil
+            if let ts = conv.lastMessageAt {
+                lastDate = isoFull.date(from: ts) ?? isoBasic.date(from: ts)
+            }
+
+            return FateRecord(
+                id: conv.id,
+                partnerId: partnerId,
+                partnerNickname: location.nickname,
+                partnerElement: location.userElement ?? "木",
+                partnerAvatarUrl: location.avatarUrl,
+                partnerPortraitUrl: location.portraitUrl,
+                partnerCity: location.city,
+                partnerPersonalityTraits: location.personalityTraits ?? [],
+                lastMessageAt: lastDate,
+                status: conv.status
+            )
+        }
+    }
+
     /// 清理当前状态
     func clearCurrentChat() {
         currentConversation = nil

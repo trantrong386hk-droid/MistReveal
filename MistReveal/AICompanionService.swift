@@ -804,6 +804,26 @@ class AICompanionService: ObservableObject {
         }
     }
 
+    /// 删除指定 AI 伴侣及其全部聊天记录
+    func deleteCompanion(id: UUID) async throws {
+        guard let userId = try? await supabase.auth.session.user.id else {
+            throw CompanionError.notAuthenticated
+        }
+        // 先删子表，避免 FK 冲突
+        try await supabase
+            .from("chat_history")
+            .delete()
+            .eq("companion_id", value: id.uuidString)
+            .execute()
+        // 再删主记录（加 user_id 校验防止越权）
+        try await supabase
+            .from("ai_companions")
+            .delete()
+            .eq("id", value: id.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+    }
+
     /// 按 ID 加载指定伴侣（设置为当前活跃伴侣）
     func loadCompanion(byId companionId: UUID) async throws {
         let response: AICompanion = try await supabase

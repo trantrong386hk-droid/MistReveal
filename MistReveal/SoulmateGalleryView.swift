@@ -23,6 +23,8 @@ struct SoulmateGalleryView: View {
     @State private var fallbackPortraits: [UUID: PortraitInfo] = [:]
     @State private var chatCounts: [UUID: Int] = [:]
     @State private var isLoading = true
+    @State private var companionToDelete: AICompanion? = nil
+    @State private var showDeleteAlert = false
 
     var body: some View {
         ZStack {
@@ -49,6 +51,16 @@ struct SoulmateGalleryView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             Task { await loadData() }
+        }
+        .alert("确认删除", isPresented: $showDeleteAlert) {
+            Button("删除", role: .destructive) {
+                if let c = companionToDelete {
+                    Task { await performDelete(companion: c) }
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("确定删除这位灵魂伴侣？所有聊天记录和亲密度将被永久清除，无法恢复。")
         }
     }
 
@@ -214,6 +226,14 @@ struct SoulmateGalleryView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
+        .contextMenu {
+            Button(role: .destructive) {
+                companionToDelete = companion
+                showDeleteAlert = true
+            } label: {
+                Label("删除伴侣", systemImage: "trash")
+            }
+        }
         .buttonStyle(.plain)
     }
 
@@ -266,6 +286,17 @@ struct SoulmateGalleryView: View {
         case "火": return Color(hex: "#E94560")
         case "土": return Color(hex: "#8B6914")
         default: return Color(hex: "#E94560")
+        }
+    }
+
+    // MARK: - 删除
+
+    private func performDelete(companion: AICompanion) async {
+        do {
+            try await AICompanionService.shared.deleteCompanion(id: companion.id)
+            companions.removeAll { $0.id == companion.id }
+        } catch {
+            print("❌ [Gallery] 删除伴侣失败: \(error)")
         }
     }
 

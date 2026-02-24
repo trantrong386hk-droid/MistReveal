@@ -134,6 +134,8 @@
 		22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatService.swift; sourceTree = "<group>"; };
 		22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateAIChatView.swift; sourceTree = "<group>"; };
 		844DB52015AC4B9FBE5F7F42 /* SoulmateGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateGalleryView.swift; sourceTree = "<group>"; };
+		23100326CBAC4039B6E84F8A /* FateRecordsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FateRecordsView.swift; sourceTree = "<group>"; };
+		A092922FE37F48FDB2D7E01F /* FateRecordsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23100326CBAC4039B6E84F8A /* FateRecordsView.swift */; };
 		22E3E3852F31B25C00F4107D /* SoulmateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoulmateManager.swift; sourceTree = "<group>"; };
 		22E3E3862F31B25C00F4107D /* SupabaseSaveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSaveService.swift; sourceTree = "<group>"; };
 		22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseTestView.swift; sourceTree = "<group>"; };
@@ -300,6 +302,7 @@
 				22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */,
 				22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */,
 				844DB52015AC4B9FBE5F7F42 /* SoulmateGalleryView.swift */,
+				23100326CBAC4039B6E84F8A /* FateRecordsView.swift */,
 				AB000031 /* AICompanionModels.swift */,
 				AB000032 /* AICompanionService.swift */,
 				AB000033 /* UserManualService.swift */,
@@ -486,6 +489,7 @@
 				22E3E3A82F31B25C00F4107D /* SecretsManager.swift in Sources */,
 				22E3E3AA2F31B25C00F4107D /* SoulmateAIChatView.swift in Sources */,
 				794A7D7067F94FEBA8A226AA /* SoulmateGalleryView.swift in Sources */,
+				A092922FE37F48FDB2D7E01F /* FateRecordsView.swift in Sources */,
 				AA000004 /* CoordinatesInputView.swift in Sources */,
 				AA000005 /* ReportView.swift in Sources */,
 				AA000006 /* MistRevealView.swift in Sources */,

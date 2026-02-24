@@ -12,6 +12,7 @@ class SoulArchiveManager: ObservableObject {
     @Published var myRecord: UserGenerationRecord?      // 我自己的最新记录（向后兼容）
     @Published var myRecords: [UserGenerationRecord] = []   // 所有 is_self 记录
     @Published var friendRecords: [UserGenerationRecord] = []  // 帮朋友测的记录
+    @Published var activeRecord: UserGenerationRecord?   // 用于星图匹配的当前命盘
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -84,6 +85,11 @@ class SoulArchiveManager: ObservableObject {
     private init() {}
 
     // MARK: - 公开方法
+
+    /// 设置用于星图匹配的当前命盘
+    func setActiveRecord(_ record: UserGenerationRecord) {
+        activeRecord = record
+    }
 
     /// 生成 birth_key
     static func generateBirthKey(gender: String, birthDate: Date, birthTime: String, location: String) -> String {
@@ -389,6 +395,14 @@ class SoulArchiveManager: ObservableObject {
             myRecord = myRecordTemp ?? myRecordsTemp.first
             myRecords = myRecordsTemp
             friendRecords = friendRecordsTemp
+
+            // 保持已选命盘稳定：若仍在新列表中则刷新值，否则回退到最新
+            if let currentId = activeRecord?.id,
+               let refreshed = myRecordsTemp.first(where: { $0.id == currentId }) {
+                activeRecord = refreshed
+            } else {
+                activeRecord = myRecord
+            }
 
             print("✅ [SoulArchiveManager] 获取记录成功: 我的=\(myRecords.count)条, 朋友=\(friendRecords.count)条")
 

@@ -318,7 +318,9 @@ struct GeneratedPortraitView: View {
     // MARK: - 错误视图
 
     var errorView: some View {
-        let isQuotaError = soulmateManager.errorMessage?.contains("生成次数已用完") == true
+        let isSelfQuotaError = soulmateManager.errorMessage?.contains("生成次数已用完") == true
+        let isFriendQuotaError = soulmateManager.errorMessage?.contains("帮朋友测算的机会已用完") == true
+        let isQuotaError = isSelfQuotaError || isFriendQuotaError
         return VStack(spacing: 30) {
             Spacer()
 
@@ -430,12 +432,19 @@ struct GeneratedPortraitView: View {
         let birthDateString = formatter.string(from: birthDate)
 
         Task {
-            // 原子扣减配额，失败直接返回，不进入生成管线
-            let quotaConsumed = await QuotaManager.shared.consumeQuota()
+            // 原子扣减配额：自己用 consume_quota，朋友用 consume_friend_quota
+            let quotaConsumed: Bool
+            if isSelf {
+                quotaConsumed = await QuotaManager.shared.consumeQuota()
+            } else {
+                quotaConsumed = await QuotaManager.shared.consumeFriendQuota()
+            }
             guard quotaConsumed else {
                 print("⚠️ [GeneratedPortraitView] 配额不足，终止生成")
                 await MainActor.run {
-                    soulmateManager.errorMessage = "生成次数已用完，邀请好友可获得额外机会"
+                    soulmateManager.errorMessage = isSelf
+                        ? "生成次数已用完，邀请好友可获得额外机会"
+                        : "帮朋友测算的机会已用完（限 2 次）"
                     soulmateManager.state = .failed
                 }
                 return
