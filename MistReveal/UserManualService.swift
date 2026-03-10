@@ -343,7 +343,7 @@ class UserManualService {
         }
 
         let requestBody = LLMReq(
-            model: AppConfig.MiniMax.model,
+            model: AppConfig.AliyunBailian.model,
             messages: [
                 LLMMsg(role: "system", content: systemPrompt),
                 LLMMsg(role: "user", content: userMessage)
@@ -353,7 +353,7 @@ class UserManualService {
 
         let session = try await supabase.auth.session
         let llmResp: LLMResp = try await supabase.functions.invoke(
-            AppConfig.MiniMax.edgeFunction,
+            "aliyun-proxy",
             options: FunctionInvokeOptions(
                 method: .post,
                 headers: ["Authorization": "Bearer \(session.accessToken)"],
