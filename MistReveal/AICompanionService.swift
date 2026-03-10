@@ -776,6 +776,23 @@ class AICompanionService: ObservableObject {
             .eq("id", value: id.uuidString)
             .eq("user_id", value: userId.uuidString)
             .execute()
+
+        // 如果用户已无任何伴侣，同步从星图移除自己的位置
+        struct CompanionIdOnly: Decodable { let id: UUID }
+        let remaining: [CompanionIdOnly] = (try? await supabase
+            .from("ai_companions")
+            .select("id")
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+            .value) ?? []
+        if remaining.isEmpty {
+            try? await supabase
+                .from("user_locations")
+                .delete()
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            print("✅ [AICompanion] 已无伴侣，从星图移除自己的位置")
+        }
     }
 
     /// 按 ID 加载指定伴侣（设置为当前活跃伴侣）

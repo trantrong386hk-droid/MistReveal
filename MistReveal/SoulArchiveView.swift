@@ -8,6 +8,8 @@ struct SoulArchiveView: View {
     @State private var friendNickname = ""
     @State private var navigateToInput = false
     @State private var selectedRecord: SoulArchiveManager.UserGenerationRecord?
+    @State private var recordToDelete: SoulArchiveManager.UserGenerationRecord? = nil
+    @State private var showDeleteAlert = false
 
     var body: some View {
         ZStack {
@@ -36,6 +38,18 @@ struct SoulArchiveView: View {
         .onAppear {
             Task {
                 await archiveManager.fetchUserRecords()
+            }
+        }
+        .alert("确认删除", isPresented: $showDeleteAlert) {
+            Button("删除", role: .destructive) {
+                if let r = recordToDelete {
+                    Task { await performDelete(record: r) }
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            if let r = recordToDelete {
+                Text(r.isSelf ? "确定删除这条命定记录？相关分析数据将被永久清除，无法恢复。" : "确定删除「\(r.nickname)」的测算记录？")
             }
         }
         .alert("帮朋友测算的机会已用完", isPresented: $showFriendQuotaAlert) {
@@ -232,6 +246,14 @@ struct SoulArchiveView: View {
                     .stroke(Color(hex: "#E94560").opacity(0.4), lineWidth: 1)
             )
         }
+        .contextMenu {
+            Button(role: .destructive) {
+                recordToDelete = record
+                showDeleteAlert = true
+            } label: {
+                Label("删除记录", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: - 朋友记录卡片
@@ -281,6 +303,14 @@ struct SoulArchiveView: View {
             .padding(16)
             .background(Color.white.opacity(0.05))
             .cornerRadius(16)
+        }
+        .contextMenu {
+            Button(role: .destructive) {
+                recordToDelete = record
+                showDeleteAlert = true
+            } label: {
+                Label("删除记录", systemImage: "trash")
+            }
         }
     }
 
@@ -369,6 +399,16 @@ struct SoulArchiveView: View {
         }
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
+    }
+
+    // MARK: - 删除
+
+    private func performDelete(record: SoulArchiveManager.UserGenerationRecord) async {
+        _ = await archiveManager.deleteRecord(recordId: record.id)
+        // 若删除的是当前活跃命盘，重置为剩余最新的
+        if archiveManager.activeRecord?.id == record.id {
+            archiveManager.activeRecord = archiveManager.myRecords.first
+        }
     }
 
     // MARK: - 辅助方法
