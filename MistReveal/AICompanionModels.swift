@@ -98,6 +98,9 @@ struct PersonaSettings: Codable, Equatable {
     /// 用户自定义伴侣名字
     var name: String?
 
+    /// 星图分身来源的 user_id（仅数字分身伴侣有此字段，删除时用于清理 user_locations）
+    var shadowUserId: String?
+
     enum CodingKeys: String, CodingKey {
         case element
         case personalityKeywords = "personality_keywords"
@@ -106,6 +109,7 @@ struct PersonaSettings: Codable, Equatable {
         case destinyType = "destiny_type"
         case soulmateGender = "soulmate_gender"
         case name
+        case shadowUserId = "shadow_user_id"
     }
 
     /// 默认设定

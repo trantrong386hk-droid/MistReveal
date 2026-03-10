@@ -293,7 +293,10 @@ struct SoulmateGalleryView: View {
 
     private func performDelete(companion: AICompanion) async {
         do {
-            try await AICompanionService.shared.deleteCompanion(id: companion.id)
+            try await AICompanionService.shared.deleteCompanion(
+                id: companion.id,
+                shadowUserId: companion.personaSettings.shadowUserId
+            )
             companions.removeAll { $0.id == companion.id }
         } catch {
             print("❌ [Gallery] 删除伴侣失败: \(error)")

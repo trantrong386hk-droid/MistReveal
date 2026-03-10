@@ -713,7 +713,8 @@ class AICompanionService: ObservableObject {
             personalityKeywords: shadow.personalityTraits,
             speakingStyle: AICompanionService.getElementSpeakingStyle(shadow.userElement),
             traits: shadow.personalityTraits,
-            destinyType: "数字缘分"
+            destinyType: "数字缘分",
+            shadowUserId: shadow.id
         )
 
         var insert = AICompanionInsert(
@@ -760,7 +761,7 @@ class AICompanionService: ObservableObject {
     }
 
     /// 删除指定 AI 伴侣及其全部聊天记录
-    func deleteCompanion(id: UUID) async throws {
+    func deleteCompanion(id: UUID, shadowUserId: String? = nil) async throws {
         guard let userId = try? await supabase.auth.session.user.id else {
             throw CompanionError.notAuthenticated
         }
@@ -777,6 +778,16 @@ class AICompanionService: ObservableObject {
             .eq("id", value: id.uuidString)
             .eq("user_id", value: userId.uuidString)
             .execute()
+
+        // 如果是数字分身伴侣，同步从星图删除该分身
+        if let shadowId = shadowUserId {
+            try? await supabase
+                .from("user_locations")
+                .delete()
+                .eq("user_id", value: shadowId)
+                .execute()
+            print("✅ [AICompanion] 数字分身已从星图移除: \(shadowId)")
+        }
 
         // 如果用户已无任何伴侣，同步从星图移除自己的位置
         struct CompanionIdOnly: Decodable { let id: UUID }
