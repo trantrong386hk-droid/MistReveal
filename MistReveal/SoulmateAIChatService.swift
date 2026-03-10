@@ -1002,7 +1002,7 @@ class SoulmateAIChatService: ObservableObject {
 
     // MARK: - LLM API 调用
 
-    /// 调用阿里云百炼 LLM API（via aliyun-proxy Edge Function）
+    /// 调用 MiniMax LLM API（via minimax-proxy Edge Function）
     private func callLLM(
         systemPrompt: String,
         chatHistory: [[String: String]],
