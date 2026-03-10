@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // API key 仅存在于 Deno 环境变量，客户端永不可见。
 // ============================================================
 
-const MINIMAX_API_URL = "https://api.minimax.chat/v1/text/chatcompletion_v2";
+const MINIMAX_API_URL = "https://api.minimaxi.com/v1/text/chatcompletion_v2";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

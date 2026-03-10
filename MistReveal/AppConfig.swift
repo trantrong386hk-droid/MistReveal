@@ -28,8 +28,8 @@ enum AppConfig {
 
     enum MiniMax {
         /// 模型名称
-        /// 可选: abab6.5s-chat（快速）, abab6.5-chat（标准）, MiniMax-Text-01（旗舰）
-        static let model = "abab6.5s-chat"
+        /// 可选: M2-her, abab6.5s-chat（快速）, abab6.5-chat（标准）
+        static let model = "M2-her"
 
         /// Edge Function 名称
         static let edgeFunction = "minimax-proxy"
