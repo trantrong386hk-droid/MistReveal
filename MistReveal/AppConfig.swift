@@ -24,6 +24,17 @@ enum AppConfig {
         static let model = "qwen-plus"  // 可选: qwen-turbo, qwen-plus, qwen-max
     }
 
+    // MARK: - MiniMax 大模型（灵犀对话）
+
+    enum MiniMax {
+        /// 模型名称
+        /// 可选: abab6.5s-chat（快速）, abab6.5-chat（标准）, MiniMax-Text-01（旗舰）
+        static let model = "abab6.5s-chat"
+
+        /// Edge Function 名称
+        static let edgeFunction = "minimax-proxy"
+    }
+
     // MARK: - 火山引擎即梦 (图片生成)
 
     enum VolcanoJimeng {

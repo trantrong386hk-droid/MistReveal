@@ -1039,17 +1039,17 @@ class SoulmateAIChatService: ObservableObject {
         apiMessages.append(LLMMessage(role: "user", content: currentMessage))
 
         let requestBody = LLMRequest(
-            model: AppConfig.AliyunBailian.model,
+            model: AppConfig.MiniMax.model,
             messages: apiMessages,
             temperature: 0.92,
             max_tokens: 500
         )
 
-        print("🔮 [灵犀] 调用 aliyun-proxy，消息历史: \(chatHistory.count) 条")
+        print("🔮 [灵犀] 调用 minimax-proxy，消息历史: \(chatHistory.count) 条")
 
         let session = try await supabase.auth.session
         let llmResponse: LLMResponse = try await supabase.functions.invoke(
-            "aliyun-proxy",
+            AppConfig.MiniMax.edgeFunction,
             options: FunctionInvokeOptions(
                 method: .post,
                 headers: ["Authorization": "Bearer \(session.accessToken)"],
