@@ -56,7 +56,8 @@ struct FateRecordsView: View {
                 city: record.partnerCity,
                 isShadow: false,
                 analysisSummary: nil,
-                portraitUrl: record.partnerPortraitUrl
+                portraitUrl: record.partnerPortraitUrl,
+                lastActiveAt: nil
             )
             ChatView(user: user, conversationId: record.id, initialMessage: nil)
         }

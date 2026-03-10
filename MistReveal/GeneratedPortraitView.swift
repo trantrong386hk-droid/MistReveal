@@ -34,6 +34,10 @@ struct GeneratedPortraitView: View {
     @State private var saveStatus: SaveStatus = .idle
     @State private var supabaseSaveFailed = false
 
+    // 分享卡片
+    @State private var showShareSheet = false
+    @State private var shareCardImage: UIImage?
+
     // 加载文字
     private let loadingTexts = [
         "连接命运之线...",
@@ -244,18 +248,18 @@ struct GeneratedPortraitView: View {
                     .foregroundColor(.white.opacity(0.8))
 
                 // 按钮组
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     // 保存按钮
                     Button(action: saveImage) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             Image(systemName: saveStatus == .saved ? "checkmark" : "arrow.down.to.line")
-                                .font(.system(size: 14))
-                            Text(saveStatus == .saved ? "已保存" : "保存到相册")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.system(size: 13))
+                            Text(saveStatus == .saved ? "已保存" : "保存")
+                                .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 11)
                         .background(saveStatus == .saved ? Color(hex: "#E94560").opacity(0.6) : Color.white.opacity(0.15))
                         .cornerRadius(25)
                         .overlay(
@@ -265,18 +269,42 @@ struct GeneratedPortraitView: View {
                     }
                     .disabled(saveStatus == .saved)
 
+                    // 分享按钮
+                    Button(action: shareCard) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 13))
+                            Text("分享")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 11)
+                        .background(Color.white.opacity(0.15))
+                        .cornerRadius(25)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 25)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .sheet(isPresented: $showShareSheet) {
+                        if let img = shareCardImage {
+                            ShareSheet(items: [img])
+                        }
+                    }
+
                     // 唤醒按钮 - 仅自己的推演才显示，跳转到灵犀 Tab
                     if isSelf {
                         Button(action: awakenSoulmate) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "heart.circle.fill")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 13))
                                 Text("唤醒")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.system(size: 13, weight: .medium))
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 11)
                             .background(
                                 LinearGradient(
                                     colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
@@ -492,6 +520,90 @@ struct GeneratedPortraitView: View {
 
         withAnimation {
             saveStatus = .saved
+        }
+    }
+
+    func shareCard() {
+        guard let result = soulmateManager.result,
+              let portrait = UIImage(data: result.imageData) else { return }
+
+        let quote = soulmateManager.soulAnalysis?.shareQuote ?? "Ta 一直在等你"
+        shareCardImage = buildShareCard(portrait: portrait, quote: quote)
+        showShareSheet = true
+    }
+
+    /// 合成分享卡片：画像 + 金句 + 品牌水印
+    private func buildShareCard(portrait: UIImage, quote: String) -> UIImage {
+        let cardW: CGFloat = 750
+        let cardH: CGFloat = 1080
+        let cardSize = CGSize(width: cardW, height: cardH)
+
+        let renderer = UIGraphicsImageRenderer(size: cardSize)
+        return renderer.image { ctx in
+            let cgCtx = ctx.cgContext
+
+            // 背景
+            UIColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: cardSize))
+
+            // 画像（占上方 80%，居中裁切）
+            let imageH = cardH * 0.82
+            let imageRect = CGRect(x: 0, y: 0, width: cardW, height: imageH)
+            let scaleX = cardW / portrait.size.width
+            let scaleY = imageH / portrait.size.height
+            let scale = max(scaleX, scaleY)
+            let drawW = portrait.size.width * scale
+            let drawH = portrait.size.height * scale
+            let drawX = (cardW - drawW) / 2
+            let drawY = (imageH - drawH) / 2
+            cgCtx.saveGState()
+            cgCtx.clip(to: imageRect)
+            portrait.draw(in: CGRect(x: drawX, y: drawY, width: drawW, height: drawH))
+            cgCtx.restoreGState()
+
+            // 底部渐变遮罩
+            let gradientColors = [UIColor.clear.cgColor,
+                                  UIColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 0.85).cgColor,
+                                  UIColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1).cgColor] as CFArray
+            let locations: [CGFloat] = [0, 0.45, 1.0]
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: gradientColors, locations: locations) {
+                let gradStart = CGPoint(x: 0, y: imageH * 0.45)
+                let gradEnd = CGPoint(x: 0, y: imageH)
+                cgCtx.drawLinearGradient(gradient, start: gradStart, end: gradEnd, options: [])
+            }
+
+            // 金句文字
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .center
+            paragraphStyle.lineSpacing = 10
+            let quoteAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 30, weight: .medium),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: paragraphStyle
+            ]
+            let quoteStr = NSAttributedString(string: quote, attributes: quoteAttrs)
+            let quoteRect = CGRect(x: 48, y: imageH * 0.68, width: cardW - 96, height: 160)
+            quoteStr.draw(in: quoteRect)
+
+            // 装饰线
+            let lineY = imageH * 0.66
+            UIColor.white.withAlphaComponent(0.2).setStroke()
+            let linePath = UIBezierPath()
+            linePath.move(to: CGPoint(x: cardW * 0.3, y: lineY))
+            linePath.addLine(to: CGPoint(x: cardW * 0.7, y: lineY))
+            linePath.lineWidth = 0.8
+            linePath.stroke()
+
+            // 品牌水印
+            let brandAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 20, weight: .light),
+                .foregroundColor: UIColor.white.withAlphaComponent(0.35),
+                .paragraphStyle: paragraphStyle
+            ]
+            let brandStr = NSAttributedString(string: "命迷 MistReveal · 灵魂解析", attributes: brandAttrs)
+            let brandRect = CGRect(x: 48, y: cardH - 56, width: cardW - 96, height: 40)
+            brandStr.draw(in: brandRect)
         }
     }
 

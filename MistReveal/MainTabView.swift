@@ -406,6 +406,9 @@ struct ConnectionView: View {
     // 连线动画状态
     @State private var showConnectionAnimation = false
 
+    // 高亮连接目标（我 → TA 的大圆弧线）
+    @State private var highlightTarget: CLLocationCoordinate2D?
+
     // 连接线显示状态
     @State private var showConnectionLines = false
     @State private var shouldFitAllAnnotations = false
@@ -418,6 +421,17 @@ struct ConnectionView: View {
 
     // 命盘切换栏（多命盘时显示）
     // 无额外状态：直接通过 archiveManager.myRecords.count > 1 控制显示
+
+    @State private var showShareSheet = false
+
+    // 星影对话
+    @State private var showShadowChat = false
+    @State private var shadowCompanionId: UUID?
+    @State private var shadowPortraitUrl: String?
+
+    // 首次引导（T7）
+    @State private var showStarMapGuide = !UserDefaults.standard.bool(forKey: "hasSeenStarMapGuide")
+    @State private var guideStep = 0
 
     // 开发者工具
     #if DEBUG
@@ -444,7 +458,7 @@ struct ConnectionView: View {
                 }
 
                 // 破冰话题界面
-                if showIceBreaker, let user = selectedUser, let myRecord = archiveManager.myRecord {
+                if showIceBreaker, let user = selectedUser, let myRecord = archiveManager.activeRecord ?? archiveManager.myRecord {
                     IceBreakerView(
                         user: user,
                         myRecord: myRecord,
@@ -460,14 +474,23 @@ struct ConnectionView: View {
                     .transition(.opacity)
                 }
 
-                // 命运连接动画
-                if showConnectionAnimation, let user = selectedUser, let myRecord = archiveManager.myRecord {
+                // 首次进入星图引导浮层（T7）
+                if showStarMapGuide {
+                    starMapGuideOverlay
+                }
+
+                // 命运连接动画（底部 HUD，地图透过）
+                if showConnectionAnimation, let user = selectedUser, let myRecord = archiveManager.activeRecord ?? archiveManager.myRecord {
                     DestinyConnectionView(
                         fromElement: myRecord.analysisResult.userElement,
                         toElement: user.userElement,
                         fromName: "我",
                         toName: user.nickname,
+                        fromCity: matchingService.myCity,
+                        toCity: user.city,
                         onComplete: {
+                            // 清除高亮连接线
+                            highlightTarget = nil
                             withAnimation(.easeOut(duration: 0.3)) {
                                 showConnectionAnimation = false
                             }
@@ -488,7 +511,17 @@ struct ConnectionView: View {
                         initialMessage: initialChatMessage
                     )
                     .onDisappear {
-                        // 返回时恢复 TabBar
+                        hideTabBar.wrappedValue = false
+                    }
+                }
+            }
+            .navigationDestination(isPresented: $showShadowChat) {
+                if let companionId = shadowCompanionId {
+                    SoulmateAIChatView(
+                        companionId: companionId,
+                        portraitImageUrl: shadowPortraitUrl
+                    )
+                    .onDisappear {
                         hideTabBar.wrappedValue = false
                     }
                 }
@@ -597,12 +630,12 @@ struct ConnectionView: View {
 
     private var scopeBanner: some View {
         HStack(spacing: 6) {
-            Image(systemName: matchingService.currentSearchScope == .nationwide ? "globe.asia.australia.fill" : "building.2.fill")
+            Image(systemName: matchingService.currentSearchScope == .global ? "globe.fill" : "building.2.fill")
                 .font(.system(size: 11))
                 .foregroundColor(Color(hex: "#A78BFA"))
 
-            Text(matchingService.currentSearchScope == .nationwide
-                 ? "已扩展至全国 · 最匹配的命缘"
+            Text(matchingService.currentSearchScope == .global
+                 ? "已扩展至全球 · 最匹配的命缘"
                  : "附近人数较少 · 已扩展至同城")
                 .font(.system(size: 12))
                 .foregroundColor(Color(hex: "#A78BFA"))
@@ -621,64 +654,160 @@ struct ConnectionView: View {
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
-    // MARK: - 地图空状态浮层
+    // MARK: - 首次进入星图引导浮层（T7）
+
+    private var starMapGuideOverlay: some View {
+        let steps: [(title: String, body: String, icon: String)] = [
+            ("脉冲点", "彩色脉冲点代表与你命格共振的缘人\n颜色代表他们的五行属性", "dot.radiowaves.left.and.right"),
+            ("命定星影", "星图上的星影是命定灵魂的数字化身\n点击可与 TA 的分身对话", "person.fill.questionmark"),
+            ("操作按钮", "点击链接图标显示所有缘线\n点击定位图标回到你的位置", "location.fill")
+        ]
+        let step = steps[min(guideStep, steps.count - 1)]
+
+        return ZStack {
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 20) {
+                    Image(systemName: step.icon)
+                        .font(.system(size: 36, weight: .ultraLight))
+                        .foregroundColor(Color(hex: "#A78BFA"))
+
+                    VStack(spacing: 8) {
+                        Text(step.title)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        Text(step.body)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.65))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
+
+                    // 步骤指示点
+                    HStack(spacing: 8) {
+                        ForEach(0..<steps.count, id: \.self) { i in
+                            Circle()
+                                .fill(i == guideStep ? Color(hex: "#A78BFA") : Color.white.opacity(0.25))
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+
+                    Button(action: {
+                        if guideStep < steps.count - 1 {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                guideStep += 1
+                            }
+                        } else {
+                            UserDefaults.standard.set(true, forKey: "hasSeenStarMapGuide")
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showStarMapGuide = false
+                            }
+                        }
+                    }) {
+                        Text(guideStep < steps.count - 1 ? "下一步" : "开始探索")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 40)
+                            .padding(.vertical, 12)
+                            .background(Color(hex: "#A78BFA"))
+                            .cornerRadius(20)
+                    }
+                }
+                .padding(32)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color(hex: "#1A1A2E").opacity(0.97))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(Color(hex: "#A78BFA").opacity(0.3), lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 120)
+            }
+        }
+        .transition(.opacity)
+        .zIndex(200)
+    }
+
+    // MARK: - 地图空状态浮层（T6）
     private var mapEmptyStateOverlay: some View {
         VStack(spacing: 24) {
             Spacer()
 
+            // 星轨装饰
             ZStack {
                 Circle()
-                    .stroke(Color(hex: "#E94560").opacity(0.15), lineWidth: 1)
-                    .frame(width: 120, height: 120)
-
+                    .stroke(Color(hex: "#A78BFA").opacity(0.12), lineWidth: 1)
+                    .frame(width: 140, height: 140)
                 Circle()
-                    .stroke(Color(hex: "#E94560").opacity(0.25), lineWidth: 1)
-                    .frame(width: 100, height: 100)
-
-                Image(systemName: "person.2.wave.2")
-                    .font(.system(size: 40))
-                    .foregroundColor(Color(hex: "#E94560").opacity(0.5))
+                    .stroke(Color(hex: "#A78BFA").opacity(0.2), lineWidth: 1)
+                    .frame(width: 110, height: 110)
+                Circle()
+                    .stroke(Color(hex: "#A78BFA").opacity(0.3), lineWidth: 1)
+                    .frame(width: 80, height: 80)
+                Image(systemName: "sparkles")
+                    .font(.system(size: 36, weight: .ultraLight))
+                    .foregroundColor(Color(hex: "#A78BFA").opacity(0.8))
             }
 
-            VStack(spacing: 12) {
-                Text("你的命定之人尚未出现")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+            VStack(spacing: 10) {
+                Text("✦  你的命格之网正在编织中  ✦")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Color(hex: "#A78BFA"))
 
-                Text("在遇见 Ta 之前，先遇见自己...")
+                Text("当前尚未有与你命格共振的缘人出现")
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+                Text("邀请好友加入，或等待命运的安排")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.4))
                     .multilineTextAlignment(.center)
             }
 
-            if let onBackTap = onBackTap {
-                Button(action: onBackTap) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bubble.left.fill")
-                            .font(.system(size: 14))
-                        Text("回到灵犀对话")
-                            .font(.system(size: 15, weight: .medium))
+            // 操作按钮
+            HStack(spacing: 12) {
+                Button(action: {
+                    showShareSheet = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 13))
+                        Text("邀请缘人加入")
+                            .font(.system(size: 14, weight: .medium))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                     .background(
                         LinearGradient(
-                            colors: [Color(hex: "#E94560"), Color(hex: "#1A1A2E")],
+                            colors: [Color(hex: "#A78BFA"), Color(hex: "#1A1A2E")],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .cornerRadius(25)
+                    .cornerRadius(20)
                 }
-                .padding(.top, 8)
+                .sheet(isPresented: $showShareSheet) {
+                    ShareSheet(items: ["我在用命迷（MistReveal）探索命中注定的灵魂，邀你一起！"])
+                }
+
             }
+            .padding(.top, 4)
 
             Spacer()
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .background(Color(hex: "#0A0A12").opacity(0.85))
+        .background(Color(hex: "#0A0A12").opacity(0.88))
+        .transition(.opacity)
     }
 
     // MARK: - 未解锁视图
@@ -831,20 +960,21 @@ struct ConnectionView: View {
             }
 
             // 搜索范围扩展 Banner
-            if matchingService.currentSearchScope == .city || matchingService.currentSearchScope == .nationwide {
+            if matchingService.currentSearchScope == .city || matchingService.currentSearchScope == .global {
                 scopeBanner
             }
 
             // 地图
             ZStack(alignment: .bottom) {
                 MapViewRepresentable(
-                    userLocation: $locationManager.userLocation,
+                    userLocation: $registeredCoord,
                     matchedUsers: $matchingService.nearbyMatches,
                     selectedUser: $selectedUser,
                     shouldRecenter: $shouldRecenterMap,
                     focusCoordinate: $focusCoordinate,
                     showConnectionLines: $showConnectionLines,
                     shouldFitAllAnnotations: $shouldFitAllAnnotations,
+                    highlightTarget: $highlightTarget,
                     onAnnotationSelected: { user in
                         selectedUser = user
                         withAnimation(.spring(response: 0.3)) {
@@ -1098,9 +1228,9 @@ struct ConnectionView: View {
                                 .cornerRadius(4)
                         }
 
-                        // 数字残影标签
+                        // 星影标签
                         if user.isShadow {
-                            Text("数字残影")
+                            Text("命定星影")
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundColor(Color(hex: "#A78BFA"))
                                 .padding(.horizontal, 6)
@@ -1126,7 +1256,7 @@ struct ConnectionView: View {
                             Image(systemName: "location.fill")
                                 .font(.system(size: 12))
                                 .foregroundColor(.white.opacity(0.5))
-                            if matchingService.currentSearchScope == .nationwide || user.isShadow {
+                            if matchingService.currentSearchScope == .global || user.isShadow {
                                 Text(user.city ?? "未知城市")
                                     .font(.system(size: 13))
                                     .foregroundColor(.white.opacity(0.8))
@@ -1159,7 +1289,7 @@ struct ConnectionView: View {
                     }
                 }
 
-                // 数字残影：性格概述
+                // 星影：性格概述
                 if user.isShadow, let summary = user.analysisSummary {
                     let firstSentence = summary.components(separatedBy: CharacterSet(charactersIn: "。.")).first ?? summary
                     Text(firstSentence)
@@ -1170,7 +1300,7 @@ struct ConnectionView: View {
                         .padding(.horizontal, 4)
                 }
 
-                // 对话按钮（真实用户 vs 数字残影）
+                // 对话按钮（真实用户 vs 星影）
                 if user.isShadow {
                     Button(action: {
                         startShadowConversation(with: user)
@@ -1319,7 +1449,7 @@ struct ConnectionView: View {
                                                 .cornerRadius(3)
                                         }
                                         if user.isShadow {
-                                            Text("残影")
+                                            Text("星影")
                                                 .font(.system(size: 9))
                                                 .foregroundColor(Color(hex: "#A78BFA"))
                                                 .padding(.horizontal, 4)
@@ -1422,9 +1552,10 @@ struct ConnectionView: View {
     private func startConversation(with user: MatchingService.MatchedUser) {
         print("🔵 [ConnectionView] 开始对话，用户ID: \(user.id), 是否测试用户: \(user.isTestUser)")
 
-        // 关闭用户卡片，播放连线动画
+        // 关闭用户卡片，设置高亮目标（地图 fit + 大圆弧线），播放连线动画
         withAnimation(.spring(response: 0.3)) {
             showUserCard = false
+            highlightTarget = user.coordinate  // 触发地图 fit 并绘制高亮弧线
             showConnectionAnimation = true
         }
     }
@@ -1486,17 +1617,20 @@ struct ConnectionView: View {
         }
     }
 
-    /// 与数字残影的数字分身开始对话
+    /// 与星影的 AI 分身开始对话（在当前页面内直接 push）
     private func startShadowConversation(with user: MatchingService.MatchedUser) {
         withAnimation(.spring(response: 0.3)) {
             showUserCard = false
         }
         Task {
             do {
-                _ = try await AICompanionService.shared.createShadowCompanion(from: user)
-                NotificationCenter.default.post(name: NSNotification.Name("SwitchToSoulmateTab"), object: nil)
+                let companion = try await AICompanionService.shared.createShadowCompanion(from: user)
+                shadowCompanionId = companion.id
+                shadowPortraitUrl = user.portraitUrl
+                hideTabBar.wrappedValue = true
+                showShadowChat = true
             } catch {
-                print("❌ [ConnectionView] 创建数字分身伴侣失败: \(error)")
+                print("❌ [ConnectionView] 创建星影分身失败: \(error)")
             }
         }
     }

@@ -9,6 +9,7 @@ class PulseAnnotationView: MKAnnotationView {
     private var centerLayer: CAShapeLayer?
     private var dashedRingLayer: CAShapeLayer?
     private var scoreLabel: UILabel?
+    private var shadowLabel: UILabel?
     private var ghostIconView: UIImageView?
     private var isAnimating = false
 
@@ -28,29 +29,35 @@ class PulseAnnotationView: MKAnnotationView {
         centerOffset = CGPoint(x: 0, y: 0)
     }
 
+    /// 配置"我的位置"标注（蓝色脉冲，无文字标签）
+    func configureAsMyLocation() {
+        configure(element: "水", matchScore: 100)  // 蓝色 #2196F3，最大尺寸
+        // 移除分数标签，蓝色光点只显示脉冲动画
+        scoreLabel?.removeFromSuperview()
+        scoreLabel = nil
+    }
+
     /// 配置脉冲动画视图
     /// - Parameters:
     ///   - element: 五行元素（金木水火土）
     ///   - matchScore: 匹配度分数
     ///   - isShadow: 是否为数字残影
-    func configure(element: String, matchScore: Int, isShadow: Bool = false) {
+    ///   - isRecentlyActive: 是否为 24h 内活跃的真实用户
+    func configure(element: String, matchScore: Int, isShadow: Bool = false, isRecentlyActive: Bool = false) {
         pulseColor = elementColor(element)
 
         if isShadow {
             configureShadow(element: element)
         } else {
-            configureReal(matchScore: matchScore)
+            configureReal(matchScore: matchScore, isRecentlyActive: isRecentlyActive)
         }
     }
 
     // MARK: - 真实用户配置
 
-    private func configureReal(matchScore: Int) {
+    private func configureReal(matchScore: Int, isRecentlyActive: Bool) {
         // 清理 shadow 专用元素
-        dashedRingLayer?.removeFromSuperlayer()
-        dashedRingLayer = nil
-        ghostIconView?.removeFromSuperview()
-        ghostIconView = nil
+        clearShadowLayers()
 
         // 计算匹配度驱动尺寸（40–65 pt）
         let sizeFactor = CGFloat(40.0 + Double(max(matchScore - 40, 0)) * 0.5)
@@ -64,6 +71,20 @@ class PulseAnnotationView: MKAnnotationView {
         setupPulseLayers(alphaCentre: alphaCentre)
         startPulseAnimation()
         setupScoreLabel(score: matchScore, containerSize: clampedSize)
+
+        // 在线状态白点（右上角）
+        if isRecentlyActive {
+            let activeDot = CAShapeLayer()
+            activeDot.path = UIBezierPath(ovalIn: CGRect(
+                x: bounds.maxX - 8, y: bounds.minY + 2, width: 6, height: 6
+            )).cgPath
+            activeDot.fillColor = UIColor.white.cgColor
+            activeDot.shadowColor = UIColor.white.cgColor
+            activeDot.shadowRadius = 2
+            activeDot.shadowOpacity = 0.8
+            activeDot.shadowOffset = .zero
+            layer.addSublayer(activeDot)
+        }
     }
 
     // MARK: - Shadow 用户配置
@@ -78,26 +99,30 @@ class PulseAnnotationView: MKAnnotationView {
         scoreLabel = nil
         isAnimating = false
 
-        frame = CGRect(x: 0, y: 0, width: 50, height: 50)
-        alpha = 0.45
+        // 清理 shadow 旧图层（重用时）
+        clearShadowLayers()
+
+        frame = CGRect(x: 0, y: 0, width: 56, height: 56)
+        alpha = 0.9
 
         setupDashedRing()
         setupGhostIcon()
+        setupShadowLabel()
     }
 
-    // MARK: - 虚线外环（shadow 专用）
+    // MARK: - 虚线外环（shadow 专用，静态）
 
     private func setupDashedRing() {
         dashedRingLayer?.removeFromSuperlayer()
 
         let ringLayer = CAShapeLayer()
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let radius: CGFloat = 20
+        let radius: CGFloat = 22
         ringLayer.path = UIBezierPath(arcCenter: center, radius: radius, startAngle: 0, endAngle: .pi * 2, clockwise: true).cgPath
         ringLayer.fillColor = UIColor.clear.cgColor
-        ringLayer.strokeColor = pulseColor.withAlphaComponent(0.7).cgColor
+        ringLayer.strokeColor = pulseColor.withAlphaComponent(0.6).cgColor
         ringLayer.lineWidth = 1.5
-        ringLayer.lineDashPattern = [4, 4]
+        ringLayer.lineDashPattern = [5, 4]
         layer.addSublayer(ringLayer)
         dashedRingLayer = ringLayer
     }
@@ -107,19 +132,53 @@ class PulseAnnotationView: MKAnnotationView {
     private func setupGhostIcon() {
         ghostIconView?.removeFromSuperview()
 
-        let iconSize: CGFloat = 18
+        let iconSize: CGFloat = 22
         let iconView = UIImageView(frame: CGRect(
             x: bounds.midX - iconSize / 2,
-            y: bounds.midY - iconSize / 2,
+            y: bounds.midY - iconSize / 2 - 2,
             width: iconSize,
             height: iconSize
         ))
-        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .light)
-        iconView.image = UIImage(systemName: "person.fill", withConfiguration: config)
-        iconView.tintColor = pulseColor.withAlphaComponent(0.5)
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        iconView.image = UIImage(systemName: "person.fill.questionmark", withConfiguration: config)
+        iconView.tintColor = pulseColor.withAlphaComponent(0.75)
         iconView.contentMode = .scaleAspectFit
         addSubview(iconView)
         ghostIconView = iconView
+    }
+
+    // MARK: - "星影"文字标签（shadow 专用）
+
+    private func setupShadowLabel() {
+        shadowLabel?.removeFromSuperview()
+
+        let label = UILabel()
+        label.text = "星影"
+        label.font = UIFont.systemFont(ofSize: 10, weight: .regular)
+        label.textColor = pulseColor.withAlphaComponent(0.8)
+        label.textAlignment = .center
+        label.sizeToFit()
+        label.frame = CGRect(
+            x: (bounds.width - label.bounds.width) / 2,
+            y: bounds.height - label.bounds.height - 1,
+            width: label.bounds.width,
+            height: label.bounds.height
+        )
+        addSubview(label)
+        shadowLabel = label
+    }
+
+    // MARK: - 清理 shadow 专用图层
+
+    private func clearShadowLayers() {
+        dashedRingLayer?.removeFromSuperlayer()
+        dashedRingLayer = nil
+        centerLayer?.removeFromSuperlayer()
+        centerLayer = nil
+        ghostIconView?.removeFromSuperview()
+        ghostIconView = nil
+        shadowLabel?.removeFromSuperview()
+        shadowLabel = nil
     }
 
     // MARK: - 分数标签
@@ -256,12 +315,11 @@ class PulseAnnotationView: MKAnnotationView {
         pulseLayers.removeAll()
         centerLayer?.removeFromSuperlayer()
         centerLayer = nil
-        dashedRingLayer?.removeFromSuperlayer()
-        dashedRingLayer = nil
+        clearShadowLayers()
         scoreLabel?.removeFromSuperview()
         scoreLabel = nil
-        ghostIconView?.removeFromSuperview()
-        ghostIconView = nil
+        // 清理在线状态白点（匿名 CAShapeLayer）
+        layer.sublayers?.filter { $0 is CAShapeLayer && $0 !== dashedRingLayer && $0 !== centerLayer }.forEach { $0.removeFromSuperlayer() }
         alpha = 1.0
     }
 

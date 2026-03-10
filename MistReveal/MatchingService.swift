@@ -6,7 +6,7 @@ import Supabase
 enum SearchScope {
     case nearby       // 附近 100 km
     case city         // 同城扩展
-    case nationwide   // 全国扩展
+    case global       // 全球扩展
 }
 
 /// 缘分匹配服务
@@ -40,6 +40,7 @@ class MatchingService: ObservableObject {
         let isShadow: Bool           // 是否为数字残影
         let analysisSummary: String? // 性格描述前 200 字（仅 shadow）
         let portraitUrl: String?     // 命定画像 URL（仅 shadow）
+        let lastActiveAt: Date?      // 最近活跃时间（来自 updated_at）
 
         var coordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -48,6 +49,12 @@ class MatchingService: ObservableObject {
         /// 判断是否为测试用户
         var isTestUser: Bool {
             id.hasPrefix("test-user-")
+        }
+
+        /// 24 小时内活跃的真实用户
+        var isRecentlyActive: Bool {
+            guard !isShadow, let lastActive = lastActiveAt else { return false }
+            return Date().timeIntervalSince(lastActive) < 86400
         }
     }
 
@@ -209,7 +216,7 @@ class MatchingService: ObservableObject {
         return CLLocationCoordinate2D(latitude: finalLat, longitude: finalLon)
     }
 
-    /// 动态半径扩展搜索：near → city → nationwide
+    /// 动态半径扩展搜索：near → city → global
     /// 取代 ConnectionView 中固定 500 km 的 findNearbyMatches 调用
     func findMatchesWithExpansion(center: CLLocationCoordinate2D, minMatchScore: Int = 60) async {
         guard let userId = await getCurrentUserId() else {
@@ -219,6 +226,7 @@ class MatchingService: ObservableObject {
 
         isLoading = true
         errorMessage = nil
+        nearbyMatches = []  // 立即清除旧标注，避免切换命盘时残留上一个命盘的标注
 
         let archiveManager = SoulArchiveManager.shared
         guard let myRecord = archiveManager.activeRecord ?? archiveManager.myRecord else {
@@ -259,14 +267,14 @@ class MatchingService: ObservableObject {
                 }
             }
 
-            // 阶段 3：全国
-            let stage3Records = try await queryNationwide(userId: userId)
+            // 阶段 3：全球
+            let stage3Records = try await queryGlobal(userId: userId)
             let stage3Matches = buildMatchedUsers(
                 from: stage3Records, center: center,
                 myAnalysis: myRecord.analysisResult, minMatchScore: minMatchScore
             )
-            print("📍 [MatchingService] 阶段3(全国): \(stage3Records.count) 条记录 → \(stage3Matches.count) 个匹配")
-            currentSearchScope = .nationwide
+            print("📍 [MatchingService] 阶段3(全球): \(stage3Records.count) 条记录 → \(stage3Matches.count) 个匹配")
+            currentSearchScope = .global
             nearbyMatches = stage3Matches
 
         } catch {
@@ -346,7 +354,7 @@ class MatchingService: ObservableObject {
             .value
     }
 
-    private func queryNationwide(userId: String) async throws -> [UserLocationRecord] {
+    private func queryGlobal(userId: String) async throws -> [UserLocationRecord] {
         return try await supabase
             .from("user_locations")
             .select()
@@ -377,6 +385,17 @@ class MatchingService: ObservableObject {
             let score = calculateMatchScore(myAnalysis: myAnalysis, otherRecord: record)
             guard score >= minMatchScore else { continue }
 
+            // 解析 updated_at 字符串为 Date
+            let lastActiveAt: Date?
+            if let updatedAtStr = record.updatedAt {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                lastActiveAt = formatter.date(from: updatedAtStr)
+                    ?? ISO8601DateFormatter().date(from: updatedAtStr)
+            } else {
+                lastActiveAt = nil
+            }
+
             let matchedUser = MatchedUser(
                 id: record.userId,
                 nickname: record.nickname,
@@ -390,7 +409,8 @@ class MatchingService: ObservableObject {
                 city: record.city,
                 isShadow: record.isShadow,
                 analysisSummary: record.analysisSummary,
-                portraitUrl: record.portraitUrl
+                portraitUrl: record.portraitUrl,
+                lastActiveAt: lastActiveAt
             )
             matches.append(matchedUser)
         }

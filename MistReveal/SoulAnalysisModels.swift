@@ -216,6 +216,9 @@ struct SoulAnalysisResult: Codable, Equatable {
     let soulmateAnalysis: String
     let promptToken: String    // 服务端令牌，替代明文 image_prompt
 
+    // 分享金句（一句话，用于分享卡）
+    var shareQuote: String?
+
     // MARK: - 成员初始化器
     init(
         hexagram: String,
@@ -233,7 +236,8 @@ struct SoulAnalysisResult: Codable, Equatable {
         destinyType: String,
         soulmateAppearance: SoulmateAppearance,
         soulmateAnalysis: String,
-        promptToken: String
+        promptToken: String,
+        shareQuote: String? = nil
     ) {
         self.hexagram = hexagram
         self.userElement = userElement
@@ -251,6 +255,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         self.soulmateAppearance = soulmateAppearance
         self.soulmateAnalysis = soulmateAnalysis
         self.promptToken = promptToken
+        self.shareQuote = shareQuote
     }
 
     enum CodingKeys: String, CodingKey {
@@ -270,6 +275,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         case soulmateAppearance = "soulmate_appearance"
         case soulmateAnalysis = "soulmate_analysis"
         case promptToken = "promptToken"
+        case shareQuote = "share_quote"
     }
 
     // MARK: - 自定义解码器（兼容旧数据）
@@ -304,6 +310,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         // 生图相关
         soulmateAnalysis = (try? container.decode(String.self, forKey: .soulmateAnalysis)) ?? ""
         promptToken = (try? container.decode(String.self, forKey: .promptToken)) ?? ""
+        shareQuote = try? container.decode(String.self, forKey: .shareQuote)
     }
 }
 
