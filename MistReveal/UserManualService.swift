@@ -1,6 +1,16 @@
 import Foundation
 import Supabase
 
+// MARK: - 共同故事条目
+
+/// 你们之间发生过的真实事件（OurStory）
+struct OurStoryEntry: Codable, Equatable {
+    /// 日期，格式 "2026-03-10"
+    var date: String
+    /// 事件描述，自然语言，20字以内
+    var event: String
+}
+
 // MARK: - 用户喜好说明书模型
 
 /// 用户喜好说明书（从聊天记录分析生成）
@@ -32,6 +42,9 @@ struct UserManual: Codable, Equatable {
     /// 分析时的消息数量
     var analyzedMessageCount: Int
 
+    /// 你们之间的共同故事（OurStory），最多保留 30 条
+    var ourStory: [OurStoryEntry]?
+
     enum CodingKeys: String, CodingKey {
         case personalityNotes = "personality_notes"
         case preferences
@@ -42,6 +55,7 @@ struct UserManual: Codable, Equatable {
         case summary
         case lastUpdated = "last_updated"
         case analyzedMessageCount = "analyzed_message_count"
+        case ourStory = "our_story"
     }
 
     init(
@@ -53,7 +67,8 @@ struct UserManual: Codable, Equatable {
         greenFlags: [String],
         summary: String,
         lastUpdated: Date?,
-        analyzedMessageCount: Int
+        analyzedMessageCount: Int,
+        ourStory: [OurStoryEntry]? = nil
     ) {
         self.personalityNotes = personalityNotes
         self.preferences = preferences
@@ -64,6 +79,7 @@ struct UserManual: Codable, Equatable {
         self.summary = summary
         self.lastUpdated = lastUpdated
         self.analyzedMessageCount = analyzedMessageCount
+        self.ourStory = ourStory
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +93,7 @@ struct UserManual: Codable, Equatable {
         summary = (try? container.decode(String.self, forKey: .summary)) ?? "尚未收集足够的对话数据"
         lastUpdated = try? container.decode(Date.self, forKey: .lastUpdated)
         analyzedMessageCount = (try? container.decode(Int.self, forKey: .analyzedMessageCount)) ?? 0
+        ourStory = try? container.decodeIfPresent([OurStoryEntry].self, forKey: .ourStory)
     }
 
     /// 默认空手册
