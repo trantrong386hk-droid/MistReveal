@@ -34,6 +34,13 @@ struct GeneratedPortraitView: View {
     @State private var saveStatus: SaveStatus = .idle
     @State private var supabaseSaveFailed = false
 
+    // 新建的伴侣 ID 和画像 URL（用于唤醒后直接跳转对话，携带正确背景图）
+    @State private var createdCompanionId: UUID? = nil
+    @State private var createdPortraitImageUrl: String? = nil
+
+    // 防止重复保存（onAppear 可能因 SwiftUI 重渲染触发多次）
+    @State private var hasSavedToSupabase = false
+
     // 分享卡片
     @State private var showShareSheet = false
     @State private var shareCardImage: UIImage?
@@ -329,6 +336,7 @@ struct GeneratedPortraitView: View {
                         .foregroundColor(.secondary)
                     Button("重新保存") {
                         supabaseSaveFailed = false
+                        hasSavedToSupabase = false  // 允许重试
                         saveResultToSupabase()
                     }
                     .buttonStyle(.bordered)
@@ -608,7 +616,8 @@ struct GeneratedPortraitView: View {
     }
 
     func saveResultToSupabase() {
-        guard let result = soulmateManager.result else { return }
+        guard !hasSavedToSupabase, let result = soulmateManager.result else { return }
+        hasSavedToSupabase = true
 
         Task {
             do {
@@ -620,6 +629,7 @@ struct GeneratedPortraitView: View {
                 )
                 print("✅ [GeneratedPortraitView] 数据已保存到 Supabase")
                 supabaseSaveFailed = false
+                createdPortraitImageUrl = imageUrl
 
                 await archiveManager.updateImageUrl(
                     gender: gender,
@@ -634,8 +644,11 @@ struct GeneratedPortraitView: View {
                 // 仅为自己的生成创建 AI 伴侣（朋友的测算不创建）
                 if isSelf, let analysis = soulmateManager.soulAnalysis {
                     do {
-                        _ = try await AICompanionService.shared.createCompanion(from: analysis, portraitId: portraitId, userGender: gender)
-                        print("✅ [GeneratedPortraitView] AI 伴侣已创建")
+                        let companion = try await AICompanionService.shared.createCompanion(from: analysis, portraitId: portraitId, userGender: gender)
+                        createdCompanionId = companion.id
+                        print("✅ [GeneratedPortraitView] AI 伴侣已创建: \(companion.id)")
+                        // companion 创建完成后再刷新一次档案，确保过滤逻辑拿到最新的伴侣列表
+                        await archiveManager.fetchUserRecords()
                     } catch {
                         print("⚠️ [GeneratedPortraitView] AI 伴侣创建失败: \(error)")
                     }
@@ -662,10 +675,20 @@ struct GeneratedPortraitView: View {
         dismiss()
 
         // 延迟发送通知，确保页面已关闭
+        let companionId = createdCompanionId
+        let portraitUrl = createdPortraitImageUrl
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            var userInfo: [String: Any] = [:]
+            if let id = companionId {
+                userInfo["companionId"] = id.uuidString
+            }
+            if let url = portraitUrl {
+                userInfo["portraitImageUrl"] = url
+            }
             NotificationCenter.default.post(
                 name: NSNotification.Name("SwitchToSoulmateTab"),
-                object: nil
+                object: nil,
+                userInfo: userInfo
             )
         }
     }

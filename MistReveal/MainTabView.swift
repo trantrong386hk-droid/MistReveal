@@ -26,6 +26,8 @@ extension CLLocationCoordinate2D: @retroactive Equatable {
 struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var hideTabBar = false  // 控制 TabBar 显示/隐藏
+    @State private var pendingChatCompanionId: UUID? = nil     // 唤醒后直接跳转对话
+    @State private var pendingChatPortraitUrl: String? = nil   // 唤醒时携带的画像 URL
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -36,7 +38,10 @@ struct MainTabView: View {
                     HomeView()
                 case 1:
                     NavigationStack {
-                        SoulmateGalleryView()  // 灵犀：伴侣画廊（导航到各自聊天）
+                        SoulmateGalleryView(
+                            pendingChatCompanionId: $pendingChatCompanionId,
+                            pendingChatPortraitUrl: $pendingChatPortraitUrl
+                        )
                     }
                 case 2:
                     ConnectionView(onBackTap: nil)  // 星图：缘分探索
@@ -68,7 +73,12 @@ struct MainTabView: View {
                 selectedTab = 0
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToSoulmateTab"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToSoulmateTab"))) { notification in
+            if let idString = notification.userInfo?["companionId"] as? String,
+               let uuid = UUID(uuidString: idString) {
+                pendingChatCompanionId = uuid
+            }
+            pendingChatPortraitUrl = notification.userInfo?["portraitImageUrl"] as? String
             withAnimation(.easeInOut(duration: 0.2)) {
                 selectedTab = 1
             }

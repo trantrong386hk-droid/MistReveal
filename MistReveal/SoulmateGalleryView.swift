@@ -18,6 +18,9 @@ struct PortraitInfo: Decodable, Identifiable {
 // MARK: - 灵犀画廊视图
 
 struct SoulmateGalleryView: View {
+    var pendingChatCompanionId: Binding<UUID?> = .constant(nil)
+    var pendingChatPortraitUrl: Binding<String?> = .constant(nil)
+
     @State private var companions: [AICompanion] = []
     @State private var portraits: [UUID: PortraitInfo] = [:]
     @State private var fallbackPortraits: [UUID: PortraitInfo] = [:]
@@ -25,6 +28,8 @@ struct SoulmateGalleryView: View {
     @State private var isLoading = true
     @State private var companionToDelete: AICompanion? = nil
     @State private var showDeleteAlert = false
+    @State private var awakeningCompanionId: UUID? = nil  // 触发直接跳转对话
+    @State private var awakeningPortraitUrl: String? = nil  // 唤醒时携带的画像 URL（companions 未加载时兜底）
 
     var body: some View {
         ZStack {
@@ -49,7 +54,21 @@ struct SoulmateGalleryView: View {
         .navigationTitle("灵犀")
         .navigationBarTitleDisplayMode(.large)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .navigationDestination(item: $awakeningCompanionId) { companionId in
+            let companion = companions.first { $0.id == companionId }
+            let portrait = companion?.portraitId.flatMap { portraits[$0] } ?? companion.flatMap { fallbackPortraits[$0.id] }
+            // companions 可能还未加载完毕，用 awakeningPortraitUrl 兜底确保背景图正确
+            let imageUrl = portrait?.imageUrl ?? awakeningPortraitUrl
+            SoulmateAIChatView(companionId: companionId, portraitImageUrl: imageUrl)
+        }
         .onAppear {
+            // 若有待唤醒的伴侣，立刻触发导航；同时保存画像 URL 作为兜底
+            if let id = pendingChatCompanionId.wrappedValue {
+                awakeningPortraitUrl = pendingChatPortraitUrl.wrappedValue
+                awakeningCompanionId = id
+                pendingChatCompanionId.wrappedValue = nil
+                pendingChatPortraitUrl.wrappedValue = nil
+            }
             Task { await loadData() }
         }
         .alert("确认删除", isPresented: $showDeleteAlert) {
@@ -295,7 +314,8 @@ struct SoulmateGalleryView: View {
         do {
             try await AICompanionService.shared.deleteCompanion(
                 id: companion.id,
-                shadowUserId: companion.personaSettings.shadowUserId
+                shadowUserId: companion.personaSettings.shadowUserId,
+                soulAnalysisRecordId: companion.soulAnalysisRecordId
             )
             companions.removeAll { $0.id == companion.id }
         } catch {

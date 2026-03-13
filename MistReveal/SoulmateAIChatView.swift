@@ -73,10 +73,9 @@ struct SoulmateAIChatView: View {
                 // 清空上一个伴侣的消息，重置欢迎语标记
                 chatService.clearMessages()
                 chatService.hasTriggeredWelcome = false
-                // 背景图加载放到独立 Task，不阻塞聊天功能
-                Task { await loadBackgroundImage() }
-                // 按 ID 加载指定伴侣
+                // 先加载伴侣数据（含 portraitId），再加载背景图，确保拿到正确画像
                 try? await AICompanionService.shared.loadCompanion(byId: companionId)
+                Task { await loadBackgroundImage() }
                 // 加载该伴侣的历史聊天记录
                 await chatService.loadChatHistory(companionId: companionId)
 
@@ -219,21 +218,23 @@ struct SoulmateAIChatView: View {
                 headerAvatarPlaceholder
             }
 
-            // 名字 + 标签
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Text(companionName)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                    Image(systemName: "pencil")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.45))
-                }
-                .onTapGesture {
-                    editingName = companionName == "灵犀" ? "" : companionName
-                    showNameEditor = true
-                }
-
+            // 名字（可点击改名）
+            HStack(spacing: 5) {
+                Text(companionName)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+                Image(systemName: "pencil")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.75))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(0.13))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.5))
+            .onTapGesture {
+                editingName = companionName == "灵犀" ? "" : companionName
+                showNameEditor = true
             }
 
             Spacer()
@@ -466,11 +467,29 @@ struct SoulmateAIChatView: View {
     }
 
     private func loadBackgroundImage() async {
-        // 优先使用传入的画像 URL，否则使用档案中的图片
-        let urlString = portraitImageUrl ?? archiveManager.myRecord?.imageUrl
-        guard let urlString = urlString,
-              let url = URL(string: urlString),
-              backgroundImage == nil else { return }
+        guard backgroundImage == nil else { return }
+
+        // 1. 优先用传入的 URL（唤醒时从通知带过来的最新画像）
+        var urlString = portraitImageUrl
+
+        // 2. 没有则通过 companion.portraitId 直接查 DB，确保画像与伴侣对应
+        if urlString == nil, let portraitId = companionService.companion?.portraitId {
+            struct PortraitRow: Decodable {
+                let imageUrl: String
+                enum CodingKeys: String, CodingKey { case imageUrl = "image_url" }
+            }
+            if let row = try? await supabase
+                .from("generated_portraits")
+                .select("image_url")
+                .eq("id", value: portraitId.uuidString)
+                .single()
+                .execute()
+                .value as PortraitRow {
+                urlString = row.imageUrl
+            }
+        }
+
+        guard let urlString, let url = URL(string: urlString) else { return }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let image = UIImage(data: data) {
