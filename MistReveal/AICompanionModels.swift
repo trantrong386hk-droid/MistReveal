@@ -75,6 +75,30 @@ struct AICompanion: Codable, Equatable, Identifiable {
     }
 }
 
+// MARK: - 角色档案（LLM 生成，存入 persona_settings.character）
+
+struct CharacterCard: Codable, Equatable {
+    var name: String
+    var age: Int
+    var occupationDesc: String
+    var hobbies: [String]
+    var loveStyle: String
+    var speakingHabit: String
+    var introTagline: String
+    var introStory: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case age
+        case occupationDesc = "occupation_desc"
+        case hobbies
+        case loveStyle = "love_style"
+        case speakingHabit = "speaking_habit"
+        case introTagline = "intro_tagline"
+        case introStory = "intro_story"
+    }
+}
+
 /// 人设设定
 struct PersonaSettings: Codable, Equatable {
     /// 五行属性（金/木/水/火/土）
@@ -101,6 +125,9 @@ struct PersonaSettings: Codable, Equatable {
     /// 星图分身来源的 user_id（仅数字分身伴侣有此字段，删除时用于清理 user_locations）
     var shadowUserId: String?
 
+    /// LLM 生成的角色档案（名字/年龄/职业/故事等）
+    var character: CharacterCard?
+
     enum CodingKeys: String, CodingKey {
         case element
         case personalityKeywords = "personality_keywords"
@@ -110,6 +137,7 @@ struct PersonaSettings: Codable, Equatable {
         case soulmateGender = "soulmate_gender"
         case name
         case shadowUserId = "shadow_user_id"
+        case character
     }
 
     /// 默认设定

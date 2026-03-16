@@ -170,8 +170,9 @@ struct SoulmateGalleryView: View {
         let portrait = companion.portraitId.flatMap { portraits[$0] } ?? fallbackPortraits[companion.id]
         let imageUrl = portrait?.imageUrl
         let hexagram = portrait?.hexagram ?? ""
-        let name = companion.personaSettings.name ?? "灵犀"
+        let name = companion.personaSettings.character?.name ?? companion.personaSettings.name ?? "灵犀"
         let element = companion.personaSettings.element
+        let occupationDesc = companion.personaSettings.character?.occupationDesc
 
         return NavigationLink(destination: SoulmateAIChatView(
             companionId: companion.id,
@@ -197,7 +198,12 @@ struct SoulmateGalleryView: View {
                             .cornerRadius(10)
                     }
 
-                    if !hexagram.isEmpty {
+                    if let occ = occupationDesc {
+                        Text(occ)
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.55))
+                            .lineLimit(1)
+                    } else if !hexagram.isEmpty {
                         Text(hexagram)
                             .font(.system(size: 13))
                             .foregroundColor(.white.opacity(0.55))

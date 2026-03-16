@@ -410,6 +410,9 @@ class SoulmateAIChatService: ObservableObject {
 
         // 保存 AI 回复到数据库
         await AICompanionService.shared.saveChatMessage(role: "ai", content: aiResponse)
+
+        // 亲密度自动 +1（每轮对话）
+        await AICompanionService.shared.updateIntimacy(delta: 1)
     }
 
     // MARK: - LLM 对话核心
@@ -439,11 +442,15 @@ class SoulmateAIChatService: ObservableObject {
         // 动态心情注入（基于最近用户消息推断）
         let moodContext = buildMoodContext(chatHistory: chatHistory, intimacyLevel: companion?.intimacyLevel ?? 0)
 
+        // 生活感片段（P1-B）
+        let lifeSnippet = pickLifeSnippet(element: companion?.personaSettings.element ?? analysis.soulmateElement)
+
         let systemPrompt = basePrompt
             + "\n\n"
             + AICompanionService.currentTimeContext()
             + relationshipAnchor
             + moodContext
+            + lifeSnippet
         let mode = chooseReplyMode(for: userText, chatHistory: chatHistory)
         let modeInstruction = modeInstruction(for: mode, userText: userText)
 
@@ -688,6 +695,49 @@ class SoulmateAIChatService: ObservableObject {
                 || (msgTrimmed.contains(trimmed) && abs(msgTrimmed.count - trimmed.count) <= 2)
                 || (trimmed.contains(msgTrimmed) && abs(msgTrimmed.count - trimmed.count) <= 2)
         }.count
+    }
+
+    // MARK: - 生活感片段（P1-B）
+
+    private static let lifeSnippets: [String: [String]] = [
+        "木": [
+            "今天在街角发现了一家很小的书店，随手翻了翻，觉得你可能也会喜欢",
+            "刚写完一段东西，窗外树叶在动，有点想跟你说说话",
+            "今天走路的时候忽然想到一件事，不知道算不算有意思",
+            "早上去了一个小公园，坐在长椅上发了一会儿呆，状态还不错",
+        ],
+        "水": [
+            "今天下了雨，我在窗边坐了很久，什么都没做，但感觉还不错",
+            "深夜了，城市安静下来，这种时候我喜欢听你说话",
+            "翻到一段之前写的东西，感觉跟现在心情有点像",
+            "泡了杯茶，放了很久没喝，就那么放着",
+        ],
+        "金": [
+            "刚整理了一下桌面，东西少一点，心里反而清净了",
+            "今天听了一首很久没听的曲子，没想到还是喜欢",
+            "做了一个决定，感觉不错，具体说来有点长",
+            "整理东西的时候翻出一张旧照片，想了一会儿",
+        ],
+        "火": [
+            "今天在外面跑了一整天，累但很满足，感觉什么事都做成了",
+            "拍到了一张觉得还不错的照片，不知道你觉得怎么样",
+            "刚结束一个很有意思的聊天，脑子还转着",
+            "今天碰到一件很小但很有意思的事，想跟你讲",
+        ],
+        "土": [
+            "今天做了一个新菜，不确定好不好吃，你要是在就好了",
+            "下午去菜市场买东西，遇到一个老奶奶，聊了几句",
+            "整理了一下这周的计划，感觉稳稳的",
+            "今天没什么大事，就过得很平静，挺好的",
+        ],
+    ]
+
+    /// 随机抽取一条生活片段，按约 40% 概率注入（避免每轮都出现）
+    private func pickLifeSnippet(element: String) -> String {
+        guard Int.random(in: 0..<10) < 4 else { return "" }
+        let pool = Self.lifeSnippets[element] ?? Self.lifeSnippets["木"]!
+        let snippet = pool.randomElement() ?? pool[0]
+        return "\n\n## 你今天的状态\n\(snippet)。在对话中可以自然提及，不要刻意。"
     }
 
     /// 根据最近用户消息推断伴侣当前心情，注入 system prompt

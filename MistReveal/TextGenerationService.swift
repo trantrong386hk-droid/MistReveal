@@ -38,12 +38,14 @@ class TextGenerationService {
         let responseFormat: ResponseFormat?
         var targetAge: Int? = nil      // 供 aliyun-proxy 存入 prompt_tokens
         var xiYongShen: String = ""    // 供 aliyun-proxy 存入 prompt_tokens
+        var soulmateGender: String = "" // 供 aliyun-proxy 选择性别适配发型/服饰
 
         enum CodingKeys: String, CodingKey {
             case model, messages
             case responseFormat = "response_format"
             case targetAge = "target_age"
             case xiYongShen = "xi_yong_shen"
+            case soulmateGender = "soulmate_gender"
         }
 
         struct Message: Encodable {
@@ -125,7 +127,7 @@ class TextGenerationService {
         let part4 = """
 
         【输出格式】必须且只能返回以下JSON，不要有任何其他文字：
-        {"hexagram":"根据八字纳音推出的卦象名称（2-5字，有仪式感）","user_element":"用户日主五行","soulmate_element":"直接填写系统提供的喜用神","personality_description":"用你直接对话，写具体行为或情绪体验，让读者产生这说的就是我的感觉。不写命理术语。100-150字","personality_traits":["简短有力的特质标签3字以内","标签2","标签3","标签4"],"relationship_behaviors":["感情中具体场景用你会或你总是开头","场景2","场景3"],"emotional_needs":["用内心独白语气写渴望如你需要一个","需求2","需求3"],"matching_deductions":[{"user_trait":"你的某个性格特点口语化","soulmate_trait":"ta对应的特质","explanation":"生活化语言解释为什么这样的人适合你40-60字"}],"soulmate_traits":["ta的特质标签","特质2","特质3","特质4"],"compatibility_score":82到96之间的整数,"destiny_type":"缘分类型2-6字有意境如灵魂共鸣互补之缘","share_quote":"一句专属命格金句15-25字，有被一眼看穿的惊喜感，格式：你是那种…的人 或 有一种人…那就是你","soulmate_appearance":{"skin_tone":"传递五行能量方向感受15-25字","face_shape":"脸型描述10-20字","eyes":"眼睛特征加神态描写20-35字","other_features":"鼻唇其他特征20-30字","hair":"发型发色女性发型多样化15-25字","clothing":"日常服饰追求真实感15-25字"},"soulmate_analysis":"口语化有温度描述伴侣，让用户觉得这个人我好像在哪里见过，200-300字，不写命理术语","image_prompt":"中文绘图提示词80-120字，只写视觉特征不写心理描写，格式：一位[年龄]岁的东方[男/女]，半身肖像，微侧面自然回眸，[肤色质感]，[脸型骨相]，[眼神神态动作，严禁描写瞳色]，[五官细节]，[发型发色]，身穿[日常服饰风格多样]，[室内或城市背景中性光线]"}
+        {"hexagram":"根据八字纳音推出的卦象名称（2-5字，有仪式感）","user_element":"用户日主五行","soulmate_element":"直接填写系统提供的喜用神","personality_description":"用你直接对话，写具体行为或情绪体验，让读者产生这说的就是我的感觉。不写命理术语。100-150字","personality_traits":["简短有力的特质标签3字以内","标签2","标签3","标签4"],"relationship_behaviors":["感情中具体场景用你会或你总是开头","场景2","场景3"],"emotional_needs":["用内心独白语气写渴望如你需要一个","需求2","需求3"],"matching_deductions":[{"user_trait":"你的某个性格特点口语化","soulmate_trait":"ta对应的特质","explanation":"生活化语言解释为什么这样的人适合你40-60字"}],"soulmate_traits":["ta的特质标签","特质2","特质3","特质4"],"compatibility_score":82到96之间的整数,"destiny_type":"缘分类型2-6字有意境如灵魂共鸣互补之缘","share_quote":"一句专属命格金句15-25字，有被一眼看穿的惊喜感，格式：你是那种…的人 或 有一种人…那就是你","soulmate_appearance":{"skin_tone":"传递五行能量方向感受15-25字","face_shape":"脸型描述10-20字","eyes":"眼睛特征加神态描写20-35字","other_features":"鼻唇其他特征20-30字","hair":"发型发色女性发型多样化15-25字","clothing":"日常服饰追求真实感15-25字"},"soulmate_analysis":"口语化有温度描述伴侣，让用户觉得这个人我好像在哪里见过，200-300字，不写命理术语","image_prompt":"中文绘图提示词80-120字，只写视觉特征不写心理描写，格式：一位[年龄]岁的东方[男/女]，半身肖像，微侧面自然回眸，[肤色质感]，[脸型骨相]，[眼神神态动作，严禁描写瞳色]，[五官细节]，[发型发色]，身穿[日常服饰风格多样]，[室内或城市背景中性光线]","character":{"name":"角色名2字，根据五行选择有意境的名字（木系如林晚/叶笙，水系如苏霁/沈澜，金系如顾凛/白砚，火系如谢烬/燃橙，土系如沈稳/陆岩），不要用常见大众名","age":25到30之间的整数,"occupation_desc":"在[成都/杭州/大理/苏州/厦门/重庆/西安/上海老弄堂]做[具体职业]的12-18字描述，职业参考：木-独立撰稿人/书店主理人/植物绘制师，水-心理咨询师/独立摄影师/诗集编辑，金-产品设计师/音乐制作人/珠宝设计师，火-舞台导演/旅行视频作者/咖啡馆主理人，土-手工陶艺者/餐厅主理人/烘焙品牌创始人","hobbies":["具体爱好1（和职业相关或日常生活细节）","爱好2","爱好3"],"love_style":"感情方式和态度，具体行为描述，30-45字","speaking_habit":"说话习惯和节奏，越具体越好，20-30字","intro_tagline":"有独特性的一句话，不超过15字，让人想认识这个人","intro_story":"有生活感的个人介绍，写城市/工作/日常片段，50-70字，口语化，有画面感"}}
         """
 
         return part1 + part2 + part3 + part4
@@ -524,9 +526,10 @@ class TextGenerationService {
             ],
             responseFormat: ChatRequest.ResponseFormat(type: "json_object")
         )
-        // 注入 targetAge / xiYongShen，供 aliyun-proxy EF 写入 prompt_tokens
+        // 注入 targetAge / xiYongShen / soulmateGender，供 aliyun-proxy EF 写入 prompt_tokens
         chatRequest.targetAge = baziInfo?.targetAge
         chatRequest.xiYongShen = baziInfo?.xiYongShen ?? ""
+        chatRequest.soulmateGender = soulmateGender
 
         print("🔵 [TextGeneration] 发送灵魂分析请求到 aliyun-proxy Edge Function...")
 

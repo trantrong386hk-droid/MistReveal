@@ -68,7 +68,8 @@ class SoulArchiveManager: ObservableObject {
 
     /// 用于展示的完整记录
     struct UserGenerationRecord: Identifiable {
-        let id: String
+        let id: String                    // user_generations.id（或补偿记录时为 soul_analysis_records.id）
+        let soulAnalysisRecordId: String  // soul_analysis_records.id（删除时需要）
         let nickname: String
         let isSelf: Bool
         let gender: String
@@ -321,28 +322,25 @@ class SoulArchiveManager: ObservableObject {
                 uniquingKeysWith: { first, _ in first }
             )
 
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let createdAtFormatter = ISO8601DateFormatter()
+
             var myRecordTemp: UserGenerationRecord?
             var myRecordsTemp: [UserGenerationRecord] = []
             var friendRecordsTemp: [UserGenerationRecord] = []
             var coveredRecordIds = Set<String>()
 
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd"
-            let createdAtFormatter = ISO8601DateFormatter()
-
             for generation in generations {
                 coveredRecordIds.insert(generation.recordId)
-
                 guard let record = soulRecordsById[generation.recordId] else { continue }
-
                 let birthDate = dateFormatter.date(from: record.birthDate) ?? Date()
                 let createdAt = createdAtFormatter.date(from: generation.createdAt ?? "") ?? Date()
-
                 let fallbackKey = "\(record.gender)_\(record.birthDate)_\(record.birthTime)_\(record.location.trimmingCharacters(in: .whitespaces).lowercased())"
                 let resolvedImageUrl = record.imageUrl ?? portraitUrlByKey[fallbackKey]
-
                 let userRecord = UserGenerationRecord(
                     id: generation.id ?? UUID().uuidString,
+                    soulAnalysisRecordId: generation.recordId,
                     nickname: generation.nickname,
                     isSelf: generation.isSelf,
                     gender: record.gender,
@@ -353,9 +351,8 @@ class SoulArchiveManager: ObservableObject {
                     imageUrl: resolvedImageUrl,
                     createdAt: createdAt
                 )
-
                 if generation.isSelf {
-                    if myRecordTemp == nil { myRecordTemp = userRecord }  // 最新一条（向后兼容）
+                    if myRecordTemp == nil { myRecordTemp = userRecord }
                     myRecordsTemp.append(userRecord)
                 } else {
                     friendRecordsTemp.append(userRecord)
@@ -363,17 +360,15 @@ class SoulArchiveManager: ObservableObject {
             }
 
             // 补偿：soul_analysis_records 存在但 user_generations 写入失败的自我记录
-            // 条件：有对应的 generated_portraits（即确实生成过画像），才补入档案
             for record in allSoulRecords {
                 guard let recordId = record.id, !coveredRecordIds.contains(recordId) else { continue }
                 let fallbackKey = "\(record.gender)_\(record.birthDate)_\(record.birthTime)_\(record.location.trimmingCharacters(in: .whitespaces).lowercased())"
                 guard let imageUrl = record.imageUrl ?? portraitUrlByKey[fallbackKey] else { continue }
-
                 let birthDate = dateFormatter.date(from: record.birthDate) ?? Date()
                 let createdAt = createdAtFormatter.date(from: record.createdAt ?? "") ?? Date()
-
                 let userRecord = UserGenerationRecord(
                     id: recordId,
+                    soulAnalysisRecordId: recordId,
                     nickname: "我自己",
                     isSelf: true,
                     gender: record.gender,
@@ -386,13 +381,28 @@ class SoulArchiveManager: ObservableObject {
                 )
                 if myRecordTemp == nil { myRecordTemp = userRecord }
                 myRecordsTemp.append(userRecord)
-                print("🔧 [SoulArchiveManager] 补偿缺漏记录: \(fallbackKey)")
             }
 
-            // 按 createdAt 倒序排列
             myRecordsTemp.sort { $0.createdAt > $1.createdAt }
 
-            myRecord = myRecordTemp ?? myRecordsTemp.first
+            // 过滤：与灵犀伴侣对齐，只展示有对应伴侣的命盘
+            // 用 AICompanionService（已验证可用）拉取伴侣列表
+            let companions = await AICompanionService.shared.fetchAllCompanions()
+            let validSoulIds = Set(companions.compactMap { $0.soulAnalysisRecordId?.uuidString.lowercased() })
+
+            if !validSoulIds.isEmpty {
+                // 精确匹配：按 soul_analysis_record_id 过滤
+                let filtered = myRecordsTemp.filter { validSoulIds.contains($0.soulAnalysisRecordId.lowercased()) }
+                if !filtered.isEmpty {
+                    myRecordsTemp = filtered
+                }
+            } else if !companions.isEmpty {
+                // 兜底：老数据没有 soul_analysis_record_id，按伴侣数量截取最新 N 条
+                myRecordsTemp = Array(myRecordsTemp.prefix(companions.count))
+            }
+            // companions.isEmpty 时不过滤，保持原样（避免数据异常时全空）
+
+            myRecord = myRecordsTemp.first
             myRecords = myRecordsTemp
             friendRecords = friendRecordsTemp
 
@@ -431,13 +441,21 @@ class SoulArchiveManager: ObservableObject {
         }
     }
 
-    /// 删除记录
-    func deleteRecord(recordId: String) async -> Bool {
+    /// 删除记录（同时清理 user_generations 和 soul_analysis_records，防止补偿逻辑把记录加回来）
+    func deleteRecord(generationId: String, soulAnalysisRecordId: String) async -> Bool {
         do {
-            try await supabase
+            // 先删 user_generations（补偿记录可能没有此行，忽略失败）
+            try? await supabase
                 .from("user_generations")
                 .delete()
-                .eq("id", value: recordId)
+                .eq("id", value: generationId)
+                .execute()
+
+            // 再删 soul_analysis_records，补偿逻辑不会把它加回来
+            try await supabase
+                .from("soul_analysis_records")
+                .delete()
+                .eq("id", value: soulAnalysisRecordId)
                 .execute()
 
             await fetchUserRecords()

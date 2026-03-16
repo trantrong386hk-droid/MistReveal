@@ -18,6 +18,57 @@ struct SoulmateChatMessage: Identifiable, Equatable {
     }
 }
 
+// MARK: - 简介名片卡（P0-B）
+
+struct IntroCardView: View {
+    let character: CharacterCard
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("简介")
+                .font(.system(size: 10, weight: .medium))
+                .tracking(2)
+                .foregroundColor(.white.opacity(0.3))
+
+            Text("「\(character.introTagline)」")
+                .font(.system(size: 14))
+                .italic()
+                .foregroundColor(.white.opacity(0.75))
+
+            HStack(spacing: 4) {
+                Text(character.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.65))
+                Text("·").foregroundColor(.white.opacity(0.3))
+                Text("\(character.age)岁")
+                    .foregroundColor(.white.opacity(0.45))
+                Text("·").foregroundColor(.white.opacity(0.3))
+                Text(character.occupationDesc)
+                    .foregroundColor(.white.opacity(0.45))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .font(.system(size: 12))
+
+            Text(character.introStory)
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.78))
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 0.8)
+                )
+        )
+    }
+}
+
 // MARK: - 灵犀聊天主视图
 struct SoulmateAIChatView: View {
     let companionId: UUID
@@ -38,9 +89,11 @@ struct SoulmateAIChatView: View {
     @State private var showNameEditor = false
     @State private var editingName = ""
 
-    /// 伴侣名字：优先使用用户自定义名字，否则默认"灵犀"
+    /// 伴侣名字：优先角色卡名字 → 用户自定义名字 → 默认"灵犀"
     private var companionName: String {
-        companionService.companion?.personaSettings.name ?? "灵犀"
+        companionService.companion?.personaSettings.character?.name
+            ?? companionService.companion?.personaSettings.name
+            ?? "灵犀"
     }
 
     var body: some View {
@@ -329,6 +382,11 @@ struct SoulmateAIChatView: View {
                         LazyVStack(spacing: 16) {
                             // 顶部留白 — 让初始消息从屏幕中下部开始，不遮挡人物面部
                             Color.clear.frame(height: geometry.size.height * 0.4)
+
+                            // 简介名片卡（有角色档案时显示）
+                            if let character = companionService.companion?.personaSettings.character {
+                                IntroCardView(character: character)
+                            }
 
                             ForEach(chatService.messages) { message in
                                 ChatBubbleView(message: message)

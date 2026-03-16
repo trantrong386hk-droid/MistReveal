@@ -23,11 +23,17 @@ extension CLLocationCoordinate2D: @retroactive Equatable {
     }
 }
 
+/// 唤醒后直接跳转聊天的目标（用于 fullScreenCover）
+private struct ChatDestination: Identifiable {
+    let id = UUID()
+    let companionId: UUID
+    let portraitUrl: String?
+}
+
 struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var hideTabBar = false  // 控制 TabBar 显示/隐藏
-    @State private var pendingChatCompanionId: UUID? = nil     // 唤醒后直接跳转对话
-    @State private var pendingChatPortraitUrl: String? = nil   // 唤醒时携带的画像 URL
+    @State private var pendingChatDestination: ChatDestination? = nil  // 唤醒后直接弹出聊天
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -38,10 +44,7 @@ struct MainTabView: View {
                     HomeView()
                 case 1:
                     NavigationStack {
-                        SoulmateGalleryView(
-                            pendingChatCompanionId: $pendingChatCompanionId,
-                            pendingChatPortraitUrl: $pendingChatPortraitUrl
-                        )
+                        SoulmateGalleryView()
                     }
                 case 2:
                     ConnectionView(onBackTap: nil)  // 星图：缘分探索
@@ -74,14 +77,21 @@ struct MainTabView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToSoulmateTab"))) { notification in
+            let portraitUrl = notification.userInfo?["portraitImageUrl"] as? String
             if let idString = notification.userInfo?["companionId"] as? String,
                let uuid = UUID(uuidString: idString) {
-                pendingChatCompanionId = uuid
+                // 直接弹出聊天，不经过画廊
+                pendingChatDestination = ChatDestination(companionId: uuid, portraitUrl: portraitUrl)
             }
-            pendingChatPortraitUrl = notification.userInfo?["portraitImageUrl"] as? String
             withAnimation(.easeInOut(duration: 0.2)) {
                 selectedTab = 1
             }
+        }
+        .fullScreenCover(item: $pendingChatDestination) { dest in
+            SoulmateAIChatView(
+                companionId: dest.companionId,
+                portraitImageUrl: dest.portraitUrl
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToGalleryTab"))) { _ in
             withAnimation(.easeInOut(duration: 0.2)) {

@@ -460,6 +460,7 @@ struct SoulArchiveDetailView: View {
 
     let mockRecord = SoulArchiveManager.UserGenerationRecord(
         id: "1",
+        soulAnalysisRecordId: "1",
         nickname: "我自己",
         isSelf: true,
         gender: "男",

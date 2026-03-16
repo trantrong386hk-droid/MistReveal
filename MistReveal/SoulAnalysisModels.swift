@@ -219,6 +219,9 @@ struct SoulAnalysisResult: Codable, Equatable {
     // 分享金句（一句话，用于分享卡）
     var shareQuote: String?
 
+    // 角色档案（LLM 生成，存入 persona_settings.character）
+    var character: CharacterCard?
+
     // MARK: - 成员初始化器
     init(
         hexagram: String,
@@ -237,7 +240,8 @@ struct SoulAnalysisResult: Codable, Equatable {
         soulmateAppearance: SoulmateAppearance,
         soulmateAnalysis: String,
         promptToken: String,
-        shareQuote: String? = nil
+        shareQuote: String? = nil,
+        character: CharacterCard? = nil
     ) {
         self.hexagram = hexagram
         self.userElement = userElement
@@ -256,6 +260,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         self.soulmateAnalysis = soulmateAnalysis
         self.promptToken = promptToken
         self.shareQuote = shareQuote
+        self.character = character
     }
 
     enum CodingKeys: String, CodingKey {
@@ -276,6 +281,7 @@ struct SoulAnalysisResult: Codable, Equatable {
         case soulmateAnalysis = "soulmate_analysis"
         case promptToken = "promptToken"
         case shareQuote = "share_quote"
+        case character
     }
 
     // MARK: - 自定义解码器（兼容旧数据）
@@ -311,6 +317,9 @@ struct SoulAnalysisResult: Codable, Equatable {
         soulmateAnalysis = (try? container.decode(String.self, forKey: .soulmateAnalysis)) ?? ""
         promptToken = (try? container.decode(String.self, forKey: .promptToken)) ?? ""
         shareQuote = try? container.decode(String.self, forKey: .shareQuote)
+
+        // 角色档案（新字段，旧数据无此字段时降级为 nil）
+        character = try? container.decodeIfPresent(CharacterCard.self, forKey: .character)
     }
 }
 

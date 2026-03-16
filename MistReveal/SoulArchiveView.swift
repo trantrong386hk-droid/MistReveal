@@ -404,7 +404,10 @@ struct SoulArchiveView: View {
     // MARK: - 删除
 
     private func performDelete(record: SoulArchiveManager.UserGenerationRecord) async {
-        _ = await archiveManager.deleteRecord(recordId: record.id)
+        _ = await archiveManager.deleteRecord(
+            generationId: record.id,
+            soulAnalysisRecordId: record.soulAnalysisRecordId
+        )
         // 若删除的是当前活跃命盘，重置为剩余最新的
         if archiveManager.activeRecord?.id == record.id {
             archiveManager.activeRecord = archiveManager.myRecords.first

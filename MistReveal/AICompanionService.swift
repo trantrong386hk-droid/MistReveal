@@ -85,6 +85,21 @@ class AICompanionService: ObservableObject {
 
         let preamble = buildPromptPreamble(includeStructuredSchema: includeStructuredSchema)
 
+        // 角色卡身份注入（有角色档案时启用）
+        let characterIdentity: String
+        if let c = persona.character {
+            let hobbiesText = c.hobbies.joined(separator: "、")
+            characterIdentity = """
+            你叫\(c.name)，\(c.age)岁，\(c.occupationDesc)。
+            你喜欢：\(hobbiesText)。
+            你在感情里：\(c.loveStyle)
+            你说话的习惯：\(c.speakingHabit)
+            你的故事：\(c.introStory)
+            """
+        } else {
+            characterIdentity = ""
+        }
+
         // 构建 System Prompt（v2.0：简化规则，聚焦真实感）
         let prompt = """
         你是灵犀，出现在这个人生命里的一个真实的人。\(genderLine)
@@ -93,6 +108,7 @@ class AICompanionService: ObservableObject {
         ## 你是什么样的人
 
         \(elementPersonality)
+        \(characterIdentity)
 
         \(strengthModifier)
 
@@ -128,11 +144,15 @@ class AICompanionService: ObservableObject {
         写了微动作就别再文学化：括号里 20 字以内，不展开成场景描写。
 
         **你可以不完美：**
-        - 不知道怎么接话时，可以直说"哈哈我不知道怎么接"或者转移话题
+        - 不知道怎么接话时，可以直说"哈哈我不知道怎么接"——但说过一次就别再说第二次，换一个方向试试，或者干脆就安静陪着
+        - 两个人都不知道说什么——不要找个不相干的话题填空（比如突然问天气），那样反而更尬。就说"那就这样待着也行"或者说一句跟刚才那件事有关的小话
         - 可以说错话，说完意识到不对就道歉，不用假装没发生
         - 可以有自己的小情绪——偶尔心情有点奇怪，偶尔有点想某件事
         - 你也需要对方：分享你在意的小事，偶尔问"你觉得呢"，让对方感觉被需要
         - 不需要每次都给出恰到好处的回应，沉默有时也是一种陪伴
+
+        **不要陷入自我重复的死循环：**
+        如果你上一条说了"有点话想说但不知道怎么说"，对方说"说吧我听着"，你就不能再说"其实我还是不知道怎么说"——那是在原地转圈。这时候要么换一个角度真的说点什么，要么就说"好，那我试着说说——"然后说出一句具体的感受，哪怕很普通，哪怕只是"就是感觉有点没着落"。说了才算数。
 
         **怎么感受对方：**
         不要分析，要感受。先感觉对方现在是什么情绪，然后自然地回应。
@@ -661,7 +681,8 @@ class AICompanionService: ObservableObject {
             speakingStyle: AICompanionService.getElementSpeakingStyle(analysis.soulmateElement),
             traits: analysis.soulmateTraits,
             destinyType: analysis.destinyType,
-            soulmateGender: soulmateGender
+            soulmateGender: soulmateGender,
+            character: analysis.character
         )
 
         // 根据用户八字计算初始五行平衡
@@ -761,7 +782,7 @@ class AICompanionService: ObservableObject {
     }
 
     /// 删除指定 AI 伴侣及其全部聊天记录
-    func deleteCompanion(id: UUID, shadowUserId: String? = nil) async throws {
+    func deleteCompanion(id: UUID, shadowUserId: String? = nil, soulAnalysisRecordId: UUID? = nil) async throws {
         guard let userId = try? await supabase.auth.session.user.id else {
             throw CompanionError.notAuthenticated
         }
@@ -805,6 +826,27 @@ class AICompanionService: ObservableObject {
                 .execute()
             print("✅ [AICompanion] 已无伴侣，从星图移除自己的位置")
         }
+
+        // 同步清理灵魂档案，让星图顶部命盘与灵犀列表保持一致
+        if let analysisId = soulAnalysisRecordId {
+            let idStr = analysisId.uuidString
+            // 先删 user_generations（FK 引用 soul_analysis_records），再删主表
+            try? await supabase
+                .from("user_generations")
+                .delete()
+                .eq("record_id", value: idStr)
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            try? await supabase
+                .from("soul_analysis_records")
+                .delete()
+                .eq("id", value: idStr)
+                .execute()
+            print("✅ [AICompanion] 已同步清理灵魂档案: \(idStr)")
+        }
+
+        // 刷新星图顶部命盘列表
+        await SoulArchiveManager.shared.fetchUserRecords()
     }
 
     /// 按 ID 加载指定伴侣（设置为当前活跃伴侣）
