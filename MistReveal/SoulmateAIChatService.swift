@@ -542,8 +542,14 @@ class SoulmateAIChatService: ObservableObject {
         // 反重复指令
         let antiRepetition = buildAntiRepetitionInstruction(chatHistory: chatHistory)
 
+        // 首条用户消息检测：历史中没有任何 user 消息
+        let isFirstUserMessage = !chatHistory.contains { $0["role"] == "user" }
+        let firstMessageHint = isFirstUserMessage
+            ? "\n【重要】这是对方发来的第一条消息，你们之前从未聊过。不要使用〔一直〕〔又〕〔还是〕等暗示重复的词。把它当作第一次开口来回应，新鲜感、稍有期待，但不用过于热烈。"
+            : ""
+
         // 重复消息检测
-        let repetitionCount = detectRepetition(userText: userText, chatHistory: chatHistory)
+        let repetitionCount = isFirstUserMessage ? 0 : detectRepetition(userText: userText, chatHistory: chatHistory)
         let repetitionHint: String
         if repetitionCount >= 2 {
             repetitionHint = "\n【注意】用户已经连续发了 \(repetitionCount + 1) 次相同或相似的消息，自然地回应这种重复——可以好奇地问为什么、可以调侃、可以关心是不是有什么想说的。不要假装没注意到。"
@@ -554,6 +560,7 @@ class SoulmateAIChatService: ObservableObject {
         let finalUserMessage = """
         \(modeInstruction)
         \(antiRepetition)
+        \(firstMessageHint)
         \(repetitionHint)
 
         【用户消息】
@@ -635,11 +642,12 @@ class SoulmateAIChatService: ObservableObject {
             \(commonRules)
             【本轮模式：共情而不解析】
             - 先接住，再陪伴，不解释用户人格
-            - 接住后补一句关心或轻提问，不能只说"我在"就结束
+            - 接住后可以补一句关心或轻提问，但**不要强制**——如果对方只是发了"额""嗯""哦"等单字感叹词，不需要问"有什么话想说吗"这类客服式问题，自然接一句就好
             - 可以用一句"我也有过这种感觉"，但不要延展成长分析
             - 状态括号方向：你看到消息后自己的安静反应
-            - 示例：(盯着这条消息看了一会儿) 怎么了，今天不太开心？
-            - 示例：(放下手里的东西) 说说，发生什么了？
+            - 示例（重的话）：(盯着这条消息看了一会儿) 怎么了，今天不太开心？
+            - 示例（单字感叹词"额"）：哈，怎么了？ / 嗯？ / 怎么突然"额"了
+            - 严禁："有什么话想跟我说吗"、"需要我帮你什么"
             """
         case .lightLead:
             return """
@@ -670,19 +678,19 @@ class SoulmateAIChatService: ObservableObject {
             - 对方发"你好"不是在寻求帮助，而是在找你聊天、撒娇、或者不知道说什么但就是想找你
             - 你要像收到喜欢的人消息一样开心，然后**主动制造话题**，用调侃或暧昧化解对方的"词穷"
             - **必须包含一个追问或话题引导**——绝对不能只回"我在"、"嗯"、"慢慢说"
-            - 如果对方重复发同样的问候，要敏锐地捕捉到并调侃/好奇/关心地回应
             - 回复 25-60 字（含状态括号）
             - 状态括号方向：你看到消息时自己的真实反应（忍不住笑了、放下手里的东西、愣了一下）
             - 严禁客服腔："我在这里""慢慢说""有什么想聊的"
+            - **严禁假设重复**：除非上方【注意】提示说用户重复发相同消息，否则绝对不能说"一直"、"又"、"还是"等暗示对方重复打招呼的词
 
-            【示范对话】
+            【示范对话 — 第一次打招呼】
             用户："你好"
             ✅ (看到消息，忍不住笑了一下) 怎么突然想起我了？是有好事要跟我分享，还是就是想我了？
-            ✅ (放下手里的书) 嘿~ 今天怎么主动找我了，是不是外面发生什么有意思的事了？
+            ✅ (放下手里的书) 嘿~ 你来了，今天怎么样？
             ❌ (放下手里的东西，安静看着你) 嗯，我在。慢慢来，不急。
-            ❌ (靠近你) 怎么了？
+            ❌ 今天怎么这么乖，一直跟我打招呼？（这是第一次，不存在"一直"）
 
-            用户连续第3次发"你好"：
+            【示范对话 — 确认重复后才能用】
             ✅ (盯着屏幕笑了) 你是不是就想一直跟我说你好呀？要不换个词试试，比如"我想你了"？
             ✅ (又收到消息，乐了) 又是你好？我怀疑你其实有话想说但不知道怎么开口——猜对了吧？
             """
