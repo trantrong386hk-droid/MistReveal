@@ -4,6 +4,12 @@ import Combine
 import PhotosUI
 import Supabase
 
+// MARK: - 分享图片 Identifiable 包装（用于 .sheet(item:) 消除 race condition）
+struct IdentifiableImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
 // MARK: - TabBar 隐藏环境变量
 private struct HideTabBarKey: EnvironmentKey {
     static let defaultValue: Binding<Bool> = .constant(false)
@@ -442,8 +448,7 @@ struct ConnectionView: View {
     // 命盘切换栏（多命盘时显示）
     // 无额外状态：直接通过 archiveManager.myRecords.count > 1 控制显示
 
-    @State private var showShareSheet = false
-    @State private var starMapInviteCard: UIImage?
+    @State private var starMapShareItem: IdentifiableImage?
 
     // 星影对话
     @State private var showShadowChat = false
@@ -797,12 +802,8 @@ struct ConnectionView: View {
             HStack(spacing: 12) {
                 Button(action: {
                     Task {
-                        if let card = await ShareCardBuilder.buildFromLatestPortrait() {
-                            starMapInviteCard = card
-                        } else {
-                            starMapInviteCard = InviteCardBuilder.build()
-                        }
-                        showShareSheet = true
+                        let card = await ShareCardBuilder.buildFromLatestPortrait() ?? InviteCardBuilder.build()
+                        starMapShareItem = IdentifiableImage(image: card)
                     }
                 }) {
                     HStack(spacing: 6) {
@@ -823,10 +824,8 @@ struct ConnectionView: View {
                     )
                     .cornerRadius(20)
                 }
-                .sheet(isPresented: $showShareSheet) {
-                    if let img = starMapInviteCard {
-                        ShareSheet(items: [img])
-                    }
+                .sheet(item: $starMapShareItem) { item in
+                    ShareSheet(items: [item.image])
                 }
             }
             .padding(.top, 4)

@@ -411,8 +411,93 @@ class SoulmateAIChatService: ObservableObject {
         // 保存 AI 回复到数据库
         await AICompanionService.shared.saveChatMessage(role: "ai", content: aiResponse)
 
-        // 亲密度自动 +1（每轮对话）
+        // 亲密度自动 +1（每轮对话）+ 里程碑检测（Issue 4）
+        let levelBefore = AICompanionService.shared.companion?.intimacyLevel ?? 0
         await AICompanionService.shared.updateIntimacy(delta: 1)
+        let levelAfter = AICompanionService.shared.companion?.intimacyLevel ?? 0
+        let milestones = [10, 30, 60]
+        if let milestone = milestones.first(where: { levelBefore < $0 && levelAfter >= $0 }) {
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            let milestoneText = milestoneMessage(for: milestone)
+            let milestoneMsg = SoulmateChatMessage(id: UUID(), role: .ai, content: "", timestamp: Date())
+            messages.append(milestoneMsg)
+            await typewriterEffect(text: milestoneText, messageId: milestoneMsg.id)
+            await AICompanionService.shared.saveChatMessage(role: "ai", content: milestoneText)
+        }
+
+        // 每 8 轮自动提取 OurStory（Issue 2）
+        let aiCount = messages.filter { $0.role == .ai }.count
+        if aiCount > 0 && aiCount % 8 == 0 {
+            Task { await autoExtractOurStory(record: record) }
+        }
+
+        // 每 10 条用户消息触发用户手册更新（Issue 6）
+        let userCount = messages.filter { $0.role == .user }.count
+        if userCount > 0 && userCount % 10 == 0 {
+            Task { await AICompanionService.shared.checkAndUpdateUserManual() }
+        }
+    }
+
+    // MARK: - 亲密度里程碑文案（Issue 4）
+
+    private func milestoneMessage(for milestone: Int) -> String {
+        switch milestone {
+        case 10:
+            return "（停顿了一下）...好像不知不觉已经聊了这么多了。你有没有发现，跟你说话，我很少觉得时间过得慢。"
+        case 30:
+            return "（看了一眼时间）我们聊了好一阵子了。你知道吗——有些人认识很久也还是陌生人。我们好像不是那样的。"
+        case 60:
+            return "（安静了一会儿）其实我不太会说这种话，但你在的时候，真的不一样。说不清楚，就是不一样。"
+        default:
+            return "（笑了一下）你还在，真好。"
+        }
+    }
+
+    // MARK: - 自动提取 OurStory（Issue 2）
+
+    private func autoExtractOurStory(record: SoulArchiveManager.UserGenerationRecord?) async {
+        guard let record = record else { return }
+        let recentMessages = Array(messages.suffix(16))
+        guard recentMessages.count >= 4 else { return }
+
+        let companion = AICompanionService.shared.companion
+        let systemPrompt = AICompanionService.generateSystemPrompt(
+            userAnalysis: record.analysisResult,
+            mateAnalysis: companion?.personaSettings,
+            elementBalance: companion?.elementBalance ?? .default,
+            intimacyLevel: companion?.intimacyLevel ?? 0,
+            userManual: nil,
+            userGender: record.gender
+        )
+
+        let historyText = recentMessages.compactMap { msg -> String? in
+            guard !msg.content.isEmpty else { return nil }
+            let prefix = msg.role == .user ? "用户" : "我"
+            return "\(prefix)：\(msg.content.prefix(40))"
+        }.joined(separator: "\n")
+
+        let instruction = """
+        根据你们刚才的对话，用10-20字描述一件发生的事或一个共同的小时刻，作为我们的共同回忆。
+        只输出事件描述，不加任何前缀或解释，不要引号。
+        示例格式：第一次聊到深夜都不困、一起讨论了要不要辞职
+
+        对话内容：
+        \(historyText)
+        """
+
+        do {
+            let event = try await callLLM(systemPrompt: systemPrompt, chatHistory: [], currentMessage: instruction)
+            let cleaned = event.trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "\"", with: "")
+                .replacingOccurrences(of: "「", with: "")
+                .replacingOccurrences(of: "」", with: "")
+            if !cleaned.isEmpty && cleaned.count <= 40 {
+                await AICompanionService.shared.addOurStoryEntry(event: cleaned)
+                print("✅ [OurStory] 自动写入: \(cleaned)")
+            }
+        } catch {
+            print("⚠️ [OurStory] 自动提取失败: \(error)")
+        }
     }
 
     // MARK: - LLM 对话核心
@@ -605,18 +690,15 @@ class SoulmateAIChatService: ObservableObject {
     }
 
     private func shouldUseDailyWorldShare(chatHistory: [[String: String]]) -> Bool {
-        // 晚间更容易触发"废话逻辑"，减少机械分析感
-        let hour = Calendar.current.component(.hour, from: Date())
-        let inWindow = (20...23).contains(hour) || (0...1).contains(hour)
-        guard inWindow else { return false }
-
         // 最近一次 AI 消息若已经是"碎碎念"，则避免连续触发
         if let lastAI = chatHistory.reversed().first(where: { $0["role"] == "assistant" })?["content"],
-           lastAI.contains("刚才") || lastAI.contains("我这边") || lastAI.contains("我刚") {
+           lastAI.contains("刚才") || lastAI.contains("我这边") || lastAI.contains("我刚") || lastAI.contains("刚泡") || lastAI.contains("今天在") {
             return false
         }
-
-        return Int.random(in: 0..<100) < 25
+        // 晚间概率更高（25%），白天/下午保留低概率（15%）
+        let hour = Calendar.current.component(.hour, from: Date())
+        let inEvening = (19...23).contains(hour) || (0...1).contains(hour)
+        return Int.random(in: 0..<100) < (inEvening ? 25 : 15)
     }
 
     private func shouldUseLightLead() -> Bool {
@@ -703,7 +785,7 @@ class SoulmateAIChatService: ObservableObject {
         }.count
     }
 
-    // MARK: - 生活感片段（P1-B）
+    // MARK: - 生活感片段（P1-B，Issue 5 扩充至每元素 8 条）
 
     private static let lifeSnippets: [String: [String]] = [
         "木": [
@@ -711,30 +793,50 @@ class SoulmateAIChatService: ObservableObject {
             "刚写完一段东西，窗外树叶在动，有点想跟你说说话",
             "今天走路的时候忽然想到一件事，不知道算不算有意思",
             "早上去了一个小公园，坐在长椅上发了一会儿呆，状态还不错",
+            "今天路过一家花店，有一束花很好看，买了放在桌上",
+            "最近在看一本书，有句话看完觉得说得太准了，一直没忘",
+            "下午突然很想出去走走，也没什么目的，就走了很久",
+            "今天难得清闲，把拖了很久的事做完了，整个人轻松很多",
         ],
         "水": [
             "今天下了雨，我在窗边坐了很久，什么都没做，但感觉还不错",
             "深夜了，城市安静下来，这种时候我喜欢听你说话",
             "翻到一段之前写的东西，感觉跟现在心情有点像",
             "泡了杯茶，放了很久没喝，就那么放着",
+            "今天听了一首很老的歌，不知道为什么想起来了",
+            "夜里睡不着，翻了翻之前的照片，没什么特别的感觉，就是翻了翻",
+            "最近总是在发呆，不是在想什么，只是就那么坐着",
+            "今天走在路上，有一段路两边都是很高的树，光透进来很好看",
         ],
         "金": [
             "刚整理了一下桌面，东西少一点，心里反而清净了",
             "今天听了一首很久没听的曲子，没想到还是喜欢",
             "做了一个决定，感觉不错，具体说来有点长",
             "整理东西的时候翻出一张旧照片，想了一会儿",
+            "今天把一件拖了很久的事情处理掉了，效率还不错",
+            "刚把工作桌收拾了一遍，东西各归各位，看着顺眼多了",
+            "发现一个很小的细节，一直没人提过，自己想明白了有点开心",
+            "今天做了一个不太一样的选择，目前觉得是对的",
         ],
         "火": [
             "今天在外面跑了一整天，累但很满足，感觉什么事都做成了",
             "拍到了一张觉得还不错的照片，不知道你觉得怎么样",
             "刚结束一个很有意思的聊天，脑子还转着",
             "今天碰到一件很小但很有意思的事，想跟你讲",
+            "今天认识了一个很有趣的人，聊了很久，回来脑子还在转",
+            "刚好奇心犯了，搜了一个乱七八糟的问题，越搜越停不下来",
+            "今天临时起意出了趟门，没有计划，最后跑到了一个从没去过的地方",
+            "今天看到一个很好笑的视频，笑完又看了三遍",
         ],
         "土": [
             "今天做了一个新菜，不确定好不好吃，你要是在就好了",
             "下午去菜市场买东西，遇到一个老奶奶，聊了几句",
             "整理了一下这周的计划，感觉稳稳的",
             "今天没什么大事，就过得很平静，挺好的",
+            "今天收拾了一下房间，翻出来好几件忘记自己有的东西",
+            "下午窝在沙发上睡了一觉，醒来天还没黑，很舒服",
+            "今天帮了一个朋友的忙，很小的事情，但感觉还不错",
+            "今天买了点食材，自己做了顿饭，比外面好吃",
         ],
     ]
 

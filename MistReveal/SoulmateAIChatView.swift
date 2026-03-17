@@ -146,6 +146,8 @@ struct SoulmateAIChatView: View {
         .onDisappear {
             // 恢复 TabBar
             NotificationCenter.default.post(name: NSNotification.Name("ShowTabBar"), object: nil)
+            // 离开聊天时触发用户手册分析（Issue 6）
+            Task { await AICompanionService.shared.checkAndUpdateUserManual() }
         }
         // 监听高匹配用户出现的通知
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("HighMatchUserAppeared"))) { _ in
@@ -385,10 +387,13 @@ struct SoulmateAIChatView: View {
                             // 顶部留白 — 让初始消息从屏幕中下部开始，不遮挡人物面部
                             Color.clear.frame(height: geometry.size.height * 0.4)
 
-                            // 简介名片卡（有角色档案时显示）
-                            if let character = companionService.companion?.personaSettings.character {
-                                IntroCardView(character: character)
-                            }
+                            // 简介名片卡（有角色档案时显示；无角色档案时按五行生成默认卡）
+                            let displayCharacter: CharacterCard = {
+                                if let c = companionService.companion?.personaSettings.character { return c }
+                                let element = companionService.companion?.personaSettings.element ?? "木"
+                                return CharacterCard.fallback(for: element, name: companionName)
+                            }()
+                            IntroCardView(character: displayCharacter)
 
                             ForEach(chatService.messages) { message in
                                 ChatBubbleView(message: message)
