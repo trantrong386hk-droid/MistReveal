@@ -443,6 +443,7 @@ struct ConnectionView: View {
     // 无额外状态：直接通过 archiveManager.myRecords.count > 1 控制显示
 
     @State private var showShareSheet = false
+    @State private var starMapInviteCard: UIImage?
 
     // 星影对话
     @State private var showShadowChat = false
@@ -795,7 +796,14 @@ struct ConnectionView: View {
             // 操作按钮
             HStack(spacing: 12) {
                 Button(action: {
-                    showShareSheet = true
+                    Task {
+                        if let card = await ShareCardBuilder.buildFromLatestPortrait() {
+                            starMapInviteCard = card
+                        } else {
+                            starMapInviteCard = InviteCardBuilder.build()
+                        }
+                        showShareSheet = true
+                    }
                 }) {
                     HStack(spacing: 6) {
                         Image(systemName: "square.and.arrow.up")
@@ -816,9 +824,10 @@ struct ConnectionView: View {
                     .cornerRadius(20)
                 }
                 .sheet(isPresented: $showShareSheet) {
-                    ShareSheet(items: ["我在用命迷（MistReveal）探索命中注定的灵魂，邀你一起！"])
+                    if let img = starMapInviteCard {
+                        ShareSheet(items: [img])
+                    }
                 }
-
             }
             .padding(.top, 4)
 
@@ -936,34 +945,6 @@ struct ConnectionView: View {
 
                 Spacer()
 
-                // 刷新按钮
-                Button(action: {
-                    refreshMatches()
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 18))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                }
-
-                #if DEBUG
-                // 开发者工具按钮
-                Button(action: { showDevMenu = true }) {
-                    Image(systemName: "testtube.2")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.5))
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.07))
-                        .clipShape(Circle())
-                }
-                .confirmationDialog("开发者工具", isPresented: $showDevMenu, titleVisibility: .visible) {
-                    Button("种入测试数据") { Task { await seedTestUsers() } }
-                    Button("清除测试数据", role: .destructive) { Task { await deleteTestUsers() } }
-                    Button("取消", role: .cancel) {}
-                }
-                #endif
 
                 // 罗盘返回按钮（从翻转容器进入时显示）
                 if let onBackTap = onBackTap {
@@ -1800,7 +1781,6 @@ struct ProfileView: View {
     @State private var deleteConfirmText = ""
     @State private var isDeleting = false
     @State private var navigateToArchive = false
-    @State private var navigateToMoments = false
     @State private var navigateToInvite = false
     @State private var navigateToFateRecords = false
 
@@ -1887,13 +1867,6 @@ struct ProfileView: View {
                                 navigateToArchive = true
                             }) {
                                 profileMenuItemContent(icon: "sparkles", title: "我的灵魂档案", subtitle: "查看你的命理分析")
-                            }
-
-                            // 灵感动态 - 可导航
-                            Button(action: {
-                                navigateToMoments = true
-                            }) {
-                                profileMenuItemContent(icon: "bubble.left.and.bubble.right", title: "灵感动态", subtitle: "记录日常并接收灵犀回应")
                             }
 
                             // 邀请好友 - 可导航
@@ -2002,9 +1975,6 @@ struct ProfileView: View {
             }
             .navigationDestination(isPresented: $navigateToArchive) {
                 SoulArchiveView()
-            }
-            .navigationDestination(isPresented: $navigateToMoments) {
-                MomentsTimelineView()
             }
             .navigationDestination(isPresented: $navigateToInvite) {
                 InviteFriendsView()
@@ -2176,10 +2146,9 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - 我的资料 / 灵感动态存储
+// MARK: - 我的资料存储
 private enum UserCenterStorage {
     static let profileKey = "user_center_profile_v1"
-    static let momentsKey = "user_center_moments_v1"
 
     static func loadProfile() -> UserProfileDraft {
         guard let data = UserDefaults.standard.data(forKey: profileKey),
@@ -2194,18 +2163,6 @@ private enum UserCenterStorage {
         UserDefaults.standard.set(data, forKey: profileKey)
     }
 
-    static func loadMoments() -> [MomentPost] {
-        guard let data = UserDefaults.standard.data(forKey: momentsKey),
-              let value = try? JSONDecoder().decode([MomentPost].self, from: data) else {
-            return []
-        }
-        return value.sorted { $0.createdAt > $1.createdAt }
-    }
-
-    static func saveMoments(_ moments: [MomentPost]) {
-        guard let data = try? JSONEncoder().encode(moments) else { return }
-        UserDefaults.standard.set(data, forKey: momentsKey)
-    }
 }
 
 private struct UserProfileDraft: Codable {
@@ -2222,45 +2179,6 @@ private struct UserProfileDraft: Codable {
         hobbies: [],
         dislikes: []
     )
-}
-
-private struct MomentPost: Codable, Identifiable {
-    var id: UUID
-    var content: String
-    var mood: String
-    var tags: [String]
-    var imageDataList: [Data]
-    var aiReply: String
-    var createdAt: Date
-
-    init(
-        id: UUID,
-        content: String,
-        mood: String,
-        tags: [String],
-        imageDataList: [Data] = [],
-        aiReply: String,
-        createdAt: Date
-    ) {
-        self.id = id
-        self.content = content
-        self.mood = mood
-        self.tags = tags
-        self.imageDataList = imageDataList
-        self.aiReply = aiReply
-        self.createdAt = createdAt
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        content = try container.decode(String.self, forKey: .content)
-        mood = try container.decode(String.self, forKey: .mood)
-        tags = try container.decode([String].self, forKey: .tags)
-        imageDataList = try container.decodeIfPresent([Data].self, forKey: .imageDataList) ?? []
-        aiReply = try container.decode(String.self, forKey: .aiReply)
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-    }
 }
 
 // MARK: - 我的资料页
@@ -2594,256 +2512,6 @@ struct UserProfileSetupView: View {
         withAnimation {
             showSaved = true
         }
-    }
-}
-
-// MARK: - 灵感动态页
-struct MomentsTimelineView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var posts: [MomentPost] = UserCenterStorage.loadMoments()
-    @State private var showComposer = false
-    @State private var draft = ""
-    @State private var selectedPhotoItems: [PhotosPickerItem] = []
-    @State private var selectedImageData: [Data] = []
-    @FocusState private var isDraftFocused: Bool
-
-    var body: some View {
-        ZStack {
-            Color(hex: "#0A0A12").ignoresSafeArea()
-
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("灵感动态")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundColor(.white)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("我的动态")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.9))
-                            Spacer()
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showComposer.toggle()
-                                }
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: showComposer ? "xmark.circle" : "plus.circle")
-                                    Text(showComposer ? "收起" : "发动态")
-                                }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color(hex: "#E94560").opacity(0.65))
-                                .cornerRadius(16)
-                            }
-                        }
-
-                        if showComposer {
-                            TextEditor(text: $draft)
-                                .frame(minHeight: 90, maxHeight: 120)
-                                .scrollContentBackground(.hidden)
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color.white.opacity(0.06))
-                                .cornerRadius(10)
-                                .focused($isDraftFocused)
-
-                            PhotosPicker(
-                                selection: $selectedPhotoItems,
-                                maxSelectionCount: 3,
-                                matching: .images
-                            ) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "photo.on.rectangle")
-                                    Text("上传图片（最多3张）")
-                                }
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white.opacity(0.9))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 9)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(10)
-                            }
-
-                            if !selectedImageData.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 10) {
-                                        ForEach(Array(selectedImageData.enumerated()), id: \.offset) { index, data in
-                                            if let image = UIImage(data: data) {
-                                                ZStack(alignment: .topTrailing) {
-                                                    Image(uiImage: image)
-                                                        .resizable()
-                                                        .scaledToFill()
-                                                        .frame(width: 88, height: 88)
-                                                        .clipped()
-                                                        .cornerRadius(10)
-
-                                                    Button(action: {
-                                                        selectedImageData.remove(at: index)
-                                                        if index < selectedPhotoItems.count {
-                                                            selectedPhotoItems.remove(at: index)
-                                                        }
-                                                    }) {
-                                                        Image(systemName: "xmark.circle.fill")
-                                                            .font(.system(size: 18))
-                                                            .foregroundColor(.white.opacity(0.95))
-                                                            .background(Color.black.opacity(0.35))
-                                                            .clipShape(Circle())
-                                                    }
-                                                    .offset(x: 6, y: -6)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            Button(action: publishMoment) {
-                                Text("发布动态")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 44)
-                                    .background(Color(hex: "#E94560").opacity(canPublish ? 0.8 : 0.35))
-                                    .cornerRadius(10)
-                            }
-                            .disabled(!canPublish)
-                        }
-                    }
-                    .padding(14)
-                    .background(Color.white.opacity(0.04))
-                    .cornerRadius(12)
-
-                    if posts.isEmpty {
-                        Text("还没有动态，发一条让灵犀更懂你。")
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.5))
-                            .padding(.top, 8)
-                    } else {
-                        ForEach(posts) { post in
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack {
-                                    Text(post.createdAt, style: .time)
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.white.opacity(0.45))
-                                    Spacer()
-                                }
-
-                                if !post.content.isEmpty {
-                                    Text(post.content)
-                                        .font(.system(size: 15))
-                                        .foregroundColor(.white.opacity(0.9))
-                                }
-
-                                if !post.imageDataList.isEmpty {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(Array(post.imageDataList.enumerated()), id: \.offset) { _, data in
-                                                if let image = UIImage(data: data) {
-                                                    Image(uiImage: image)
-                                                        .resizable()
-                                                        .scaledToFill()
-                                                        .frame(width: 82, height: 82)
-                                                        .clipped()
-                                                        .cornerRadius(10)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "heart.text.square")
-                                        .foregroundColor(Color(hex: "#E94560"))
-                                    Text(post.aiReply)
-                                        .font(.system(size: 13))
-                                        .foregroundColor(.white.opacity(0.78))
-                                }
-                                .padding(10)
-                                .background(Color(hex: "#E94560").opacity(0.10))
-                                .cornerRadius(10)
-                            }
-                            .padding(14)
-                            .background(Color.white.opacity(0.04))
-                            .cornerRadius(12)
-                        }
-                    }
-                }
-                .padding(20)
-                .padding(.bottom, 40)
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("返回") { dismiss() }
-                    .foregroundColor(.white.opacity(0.85))
-            }
-        }
-        .scrollDismissesKeyboard(.immediately)
-        .onTapGesture {
-            dismissKeyboard()
-        }
-        .onAppear {
-            posts = UserCenterStorage.loadMoments()
-        }
-        .onChange(of: selectedPhotoItems) { _, newItems in
-            Task {
-                await loadSelectedImages(from: newItems)
-            }
-        }
-    }
-
-    private var canPublish: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty
-    }
-
-    private func publishMoment() {
-        let content = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty || !selectedImageData.isEmpty else { return }
-
-        let reply = "我看到了你的这条动态，我会继续记住你现在的状态。"
-        let post = MomentPost(
-            id: UUID(),
-            content: content,
-            mood: "日常",
-            tags: [],
-            imageDataList: selectedImageData,
-            aiReply: reply,
-            createdAt: Date()
-        )
-        posts.insert(post, at: 0)
-        UserCenterStorage.saveMoments(posts)
-
-        draft = ""
-        selectedPhotoItems = []
-        selectedImageData = []
-        dismissKeyboard()
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showComposer = false
-        }
-    }
-
-    private func loadSelectedImages(from items: [PhotosPickerItem]) async {
-        var dataList: [Data] = []
-        for item in items.prefix(3) {
-            if let data = try? await item.loadTransferable(type: Data.self) {
-                dataList.append(data)
-            }
-        }
-        await MainActor.run {
-            selectedImageData = dataList
-        }
-    }
-
-    private func dismissKeyboard() {
-        isDraftFocused = false
-        #if canImport(UIKit)
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
     }
 }
 

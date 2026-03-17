@@ -35,20 +35,22 @@ struct IntroCardView: View {
                 .italic()
                 .foregroundColor(.white.opacity(0.75))
 
-            HStack(spacing: 4) {
-                Text(character.name)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.65))
-                Text("·").foregroundColor(.white.opacity(0.3))
-                Text("\(character.age)岁")
-                    .foregroundColor(.white.opacity(0.45))
-                Text("·").foregroundColor(.white.opacity(0.3))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 4) {
+                    Text(character.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.65))
+                    Text("·").foregroundColor(.white.opacity(0.3))
+                    Text("\(character.age)岁")
+                        .foregroundColor(.white.opacity(0.45))
+                }
+                .font(.system(size: 12))
+
                 Text(character.occupationDesc)
+                    .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.45))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .font(.system(size: 12))
 
             Text(character.introStory)
                 .font(.system(size: 14))

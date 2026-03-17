@@ -382,7 +382,7 @@ class ImageGenerationService {
         print("🔵 [ImageGen] ========== 开始生成图片 (即梦 4.0) ==========")
         print("🔵 [ImageGen] Prompt Token: \(promptToken)")
 
-        let negativePrompt = "绿色头发，蓝色头发，紫色头发，银色头发，灰色头发，粉色头发，不自然的发色，头发泛绿，头发泛蓝，染发，动漫风格头发，绿色皮肤，蓝色皮肤，苍白灰暗的皮肤，蓝色眼睛，绿色眼睛，异色瞳，眼睛发光，眼睛空洞无神，眼白过多，眼部变形，西方面孔特征"
+        let negativePrompt = "绿色头发，蓝色头发，紫色头发，银色头发，灰色头发，粉色头发，不自然的发色，头发泛绿，头发泛蓝，染发，动漫风格头发，发型前后不一致，同一人物多种发型长度混合，短发与长发同时出现，平头与长发混合，绿色皮肤，蓝色皮肤，苍白灰暗的皮肤，蓝色眼睛，绿色眼睛，异色瞳，眼睛发光，眼睛空洞无神，眼白过多，眼部变形，西方面孔特征"
 
         do {
             return try await submitAndPollImage(promptToken: promptToken, negativePrompt: negativePrompt)
