@@ -222,6 +222,13 @@ struct SoulAnalysisResult: Codable, Equatable {
     // 角色档案（LLM 生成，存入 persona_settings.character）
     var character: CharacterCard?
 
+    // 深度报告字段（付费解锁）
+    var loveWound: String?              // 感情伤口：你在感情里反复出现的模式
+    var shadowTrait: String?            // 隐藏性格面：你不对人说但自己知道的那一面
+    var compatibilityAnalysis: String?  // 契合度深度解析：共鸣点/张力点/关系意义
+    var meetingTiming: String?          // 相遇时机：什么状态/阶段下 Ta 会出现
+    var messageToSoulmate: String?      // 给 Ta 的一句话（可分享）
+
     // MARK: - 成员初始化器
     init(
         hexagram: String,
@@ -241,7 +248,12 @@ struct SoulAnalysisResult: Codable, Equatable {
         soulmateAnalysis: String,
         promptToken: String,
         shareQuote: String? = nil,
-        character: CharacterCard? = nil
+        character: CharacterCard? = nil,
+        loveWound: String? = nil,
+        shadowTrait: String? = nil,
+        compatibilityAnalysis: String? = nil,
+        meetingTiming: String? = nil,
+        messageToSoulmate: String? = nil
     ) {
         self.hexagram = hexagram
         self.userElement = userElement
@@ -261,6 +273,11 @@ struct SoulAnalysisResult: Codable, Equatable {
         self.promptToken = promptToken
         self.shareQuote = shareQuote
         self.character = character
+        self.loveWound = loveWound
+        self.shadowTrait = shadowTrait
+        self.compatibilityAnalysis = compatibilityAnalysis
+        self.meetingTiming = meetingTiming
+        self.messageToSoulmate = messageToSoulmate
     }
 
     enum CodingKeys: String, CodingKey {
@@ -282,6 +299,11 @@ struct SoulAnalysisResult: Codable, Equatable {
         case promptToken = "promptToken"
         case shareQuote = "share_quote"
         case character
+        case loveWound = "love_wound"
+        case shadowTrait = "shadow_trait"
+        case compatibilityAnalysis = "compatibility_analysis"
+        case meetingTiming = "meeting_timing"
+        case messageToSoulmate = "message_to_soulmate"
     }
 
     // MARK: - 自定义解码器（兼容旧数据）
@@ -320,6 +342,13 @@ struct SoulAnalysisResult: Codable, Equatable {
 
         // 角色档案（新字段，旧数据无此字段时降级为 nil）
         character = try? container.decodeIfPresent(CharacterCard.self, forKey: .character)
+
+        // 深度报告字段（旧数据无此字段时降级为 nil）
+        loveWound = try? container.decode(String.self, forKey: .loveWound)
+        shadowTrait = try? container.decode(String.self, forKey: .shadowTrait)
+        compatibilityAnalysis = try? container.decode(String.self, forKey: .compatibilityAnalysis)
+        meetingTiming = try? container.decode(String.self, forKey: .meetingTiming)
+        messageToSoulmate = try? container.decode(String.self, forKey: .messageToSoulmate)
     }
 }
 

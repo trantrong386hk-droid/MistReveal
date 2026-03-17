@@ -30,6 +30,7 @@ struct SoulmateGalleryView: View {
     @State private var showDeleteAlert = false
     @State private var awakeningCompanionId: UUID? = nil  // 触发直接跳转对话
     @State private var awakeningPortraitUrl: String? = nil  // 唤醒时携带的画像 URL（companions 未加载时兜底）
+    @State private var reportCompanion: AICompanion? = nil  // 查看命盘报告的伴侣
 
     var body: some View {
         ZStack {
@@ -57,9 +58,11 @@ struct SoulmateGalleryView: View {
         .navigationDestination(item: $awakeningCompanionId) { companionId in
             let companion = companions.first { $0.id == companionId }
             let portrait = companion?.portraitId.flatMap { portraits[$0] } ?? companion.flatMap { fallbackPortraits[$0.id] }
-            // companions 可能还未加载完毕，用 awakeningPortraitUrl 兜底确保背景图正确
             let imageUrl = portrait?.imageUrl ?? awakeningPortraitUrl
             SoulmateAIChatView(companionId: companionId, portraitImageUrl: imageUrl)
+        }
+        .navigationDestination(item: $reportCompanion) { companion in
+            DeepReportDetailView(companion: companion)
         }
         .onAppear {
             // 若有待唤醒的伴侣，立刻触发导航；同时保存画像 URL 作为兜底
@@ -234,9 +237,24 @@ struct SoulmateGalleryView: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.3))
+                VStack(spacing: 8) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.3))
+
+                    // 命盘报告入口
+                    Button(action: {
+                        reportCompanion = companion
+                    }) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(hex: "#E94560").opacity(0.7))
+                            .padding(6)
+                            .background(Color(hex: "#E94560").opacity(0.12))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(16)
             .background(

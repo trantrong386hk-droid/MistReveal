@@ -51,6 +51,8 @@
 		AA000022 /* DestinyConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022 /* DestinyConnectionView.swift */; };
 		AA000031 /* AICompanionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031 /* AICompanionModels.swift */; };
 		AA000032 /* AICompanionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032 /* AICompanionService.swift */; };
+		AA000051 /* PurchaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000051 /* PurchaseManager.swift */; };
+		AA000052 /* DeepReportDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000052 /* DeepReportDetailView.swift */; };
 		AA000033 /* UserManualService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033 /* UserManualService.swift */; };
 		AA000034 /* MatchNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034 /* MatchNotificationService.swift */; };
 		AA000035 /* ChinaCityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035 /* ChinaCityData.swift */; };
@@ -178,6 +180,8 @@
 		AB000022 /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
 		AB000031 /* AICompanionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICompanionModels.swift; sourceTree = "<group>"; };
 		AB000032 /* AICompanionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICompanionService.swift; sourceTree = "<group>"; };
+		AB000051 /* PurchaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseManager.swift; sourceTree = "<group>"; };
+		AB000052 /* DeepReportDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepReportDetailView.swift; sourceTree = "<group>"; };
 		AB000033 /* UserManualService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManualService.swift; sourceTree = "<group>"; };
 		AB000034 /* MatchNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchNotificationService.swift; sourceTree = "<group>"; };
 		AB000035 /* ChinaCityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChinaCityData.swift; sourceTree = "<group>"; };
@@ -305,6 +309,8 @@
 				23100326CBAC4039B6E84F8A /* FateRecordsView.swift */,
 				AB000031 /* AICompanionModels.swift */,
 				AB000032 /* AICompanionService.swift */,
+				AB000051 /* PurchaseManager.swift */,
+				AB000052 /* DeepReportDetailView.swift */,
 				AB000033 /* UserManualService.swift */,
 				AB000034 /* MatchNotificationService.swift */,
 				22E3E3852F31B25C00F4107D /* SoulmateManager.swift */,
@@ -520,6 +526,8 @@
 				AA000022 /* DestinyConnectionView.swift in Sources */,
 				AA000031 /* AICompanionModels.swift in Sources */,
 				AA000032 /* AICompanionService.swift in Sources */,
+				AA000051 /* PurchaseManager.swift in Sources */,
+				AA000052 /* DeepReportDetailView.swift in Sources */,
 				AA000033 /* UserManualService.swift in Sources */,
 				AA000034 /* MatchNotificationService.swift in Sources */,
 				AA000035 /* ChinaCityData.swift in Sources */,

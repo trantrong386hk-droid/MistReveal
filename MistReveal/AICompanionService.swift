@@ -702,6 +702,16 @@ class AICompanionService: ObservableObject {
 
         // 构建人设
         let soulmateGender: String? = userGender == "男" ? "女" : (userGender == "女" ? "男" : nil)
+        let deepReport = DeepReport(
+            loveWound: analysis.loveWound,
+            shadowTrait: analysis.shadowTrait,
+            compatibilityAnalysis: analysis.compatibilityAnalysis,
+            meetingTiming: analysis.meetingTiming,
+            messageToSoulmate: analysis.messageToSoulmate,
+            compatibilityScore: analysis.compatibilityScore,
+            destinyType: analysis.destinyType,
+            soulmateTraits: analysis.soulmateTraits
+        )
         let persona = PersonaSettings(
             element: analysis.soulmateElement,
             personalityKeywords: analysis.soulmateTraits,
@@ -709,7 +719,8 @@ class AICompanionService: ObservableObject {
             traits: analysis.soulmateTraits,
             destinyType: analysis.destinyType,
             soulmateGender: soulmateGender,
-            character: analysis.character
+            character: analysis.character,
+            deepReport: deepReport
         )
 
         // 根据用户八字计算初始五行平衡

@@ -3,7 +3,9 @@ import Foundation
 // MARK: - AI 伴侣数据模型
 
 /// AI 伴侣信息（对应 Supabase ai_companions 表）
-struct AICompanion: Codable, Equatable, Identifiable {
+struct AICompanion: Codable, Equatable, Identifiable, Hashable {
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: AICompanion, rhs: AICompanion) -> Bool { lhs.id == rhs.id }
     let id: UUID
     let userId: UUID
 
@@ -155,6 +157,29 @@ struct CharacterCard: Codable, Equatable {
     }
 }
 
+/// 深度命盘报告（付费解锁内容，存入 persona_settings）
+struct DeepReport: Codable, Equatable {
+    var loveWound: String?
+    var shadowTrait: String?
+    var compatibilityAnalysis: String?
+    var meetingTiming: String?
+    var messageToSoulmate: String?
+    var compatibilityScore: Int?
+    var destinyType: String?
+    var soulmateTraits: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case loveWound = "love_wound"
+        case shadowTrait = "shadow_trait"
+        case compatibilityAnalysis = "compatibility_analysis"
+        case meetingTiming = "meeting_timing"
+        case messageToSoulmate = "message_to_soulmate"
+        case compatibilityScore = "compatibility_score"
+        case destinyType = "destiny_type"
+        case soulmateTraits = "soulmate_traits"
+    }
+}
+
 /// 人设设定
 struct PersonaSettings: Codable, Equatable {
     /// 五行属性（金/木/水/火/土）
@@ -184,6 +209,9 @@ struct PersonaSettings: Codable, Equatable {
     /// LLM 生成的角色档案（名字/年龄/职业/故事等）
     var character: CharacterCard?
 
+    /// 深度命盘报告数据（付费解锁内容）
+    var deepReport: DeepReport?
+
     enum CodingKeys: String, CodingKey {
         case element
         case personalityKeywords = "personality_keywords"
@@ -194,6 +222,7 @@ struct PersonaSettings: Codable, Equatable {
         case name
         case shadowUserId = "shadow_user_id"
         case character
+        case deepReport = "deep_report"
     }
 
     /// 默认设定

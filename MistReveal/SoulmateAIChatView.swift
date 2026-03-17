@@ -81,6 +81,7 @@ struct SoulmateAIChatView: View {
     @ObservedObject private var chatService = SoulmateAIChatService.shared
     @ObservedObject private var archiveManager = SoulArchiveManager.shared
     @ObservedObject private var companionService = AICompanionService.shared
+    @ObservedObject private var purchaseManager = PurchaseManager.shared
 
     @State private var inputText = ""
     @State private var keyboardHeight: CGFloat = 0
@@ -90,6 +91,20 @@ struct SoulmateAIChatView: View {
 
     @State private var showNameEditor = false
     @State private var editingName = ""
+    @State private var showSubscriptionPaywall = false
+
+    // 免费消息限额
+    private let freeMessageLimit = 20
+
+    /// 用户已发送的消息数（不含 AI 回复）
+    private var userMessageCount: Int {
+        chatService.messages.filter { $0.role == .user }.count
+    }
+
+    /// 是否已触及免费上限
+    private var hasReachedFreeLimit: Bool {
+        !purchaseManager.isSubscribed && userMessageCount >= freeMessageLimit
+    }
 
     /// 伴侣名字：优先角色卡名字 → 用户自定义名字 → 默认"灵犀"
     private var companionName: String {
@@ -172,6 +187,9 @@ struct SoulmateAIChatView: View {
             Text("这个名字会显示在聊天界面顶部")
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showSubscriptionPaywall) {
+            SubscriptionPaywallView(purchaseManager: purchaseManager)
+        }
     }
 
     // MARK: - 背景视图（清晰全屏人像）
@@ -445,6 +463,14 @@ struct SoulmateAIChatView: View {
                     }
                 }
 
+                // 免费消息剩余提示
+                if !purchaseManager.isSubscribed && userMessageCount >= freeMessageLimit - 3 && userMessageCount < freeMessageLimit {
+                    Text("还剩 \(freeMessageLimit - userMessageCount) 条免费消息")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(.top, 4)
+                }
+
                 // 底部输入框 + 渐变过渡
                 inputBar
             }
@@ -568,6 +594,12 @@ struct SoulmateAIChatView: View {
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+
+        // 检查免费消息上限
+        if hasReachedFreeLimit {
+            showSubscriptionPaywall = true
+            return
+        }
 
         inputText = ""
         isInputFocused = false
@@ -736,6 +768,149 @@ struct TypingIndicator: View {
     private func animationOffset(for index: Int) -> CGFloat {
         let delay = Double(index) * 0.15
         return animationOffset * cos(delay * .pi)
+    }
+}
+
+// MARK: - 订阅付费墙
+
+struct SubscriptionPaywallView: View {
+    @ObservedObject var purchaseManager: PurchaseManager
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Color(hex: "#0A0A12").ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // 顶部装饰
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "#E94560").opacity(0.15))
+                        .frame(width: 200, height: 200)
+                        .blur(radius: 60)
+
+                    VStack(spacing: 12) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(Color(hex: "#E94560"))
+
+                        Text("继续与灵犀相遇")
+                            .font(.system(size: 24, weight: .bold))
+                            .tracking(2)
+                            .foregroundColor(.white)
+
+                        Text("你们已经有了 20 次对话\n解锁订阅，让这段缘分继续")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.55))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(5)
+                    }
+                }
+                .padding(.top, 48)
+
+                Spacer()
+
+                // 订阅卡片
+                VStack(spacing: 16) {
+                    // 月订阅
+                    VStack(spacing: 8) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("灵犀月订阅")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(.white)
+                                Text("无限聊天 · 深度陪伴 · 随时取消")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.5))
+                            }
+
+                            Spacer()
+
+                            if let product = purchaseManager.monthlyProduct {
+                                Text(product.displayPrice)
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(Color(hex: "#E94560"))
+                                + Text("/月")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.5))
+                            } else {
+                                Text("¥28/月")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(Color(hex: "#E94560"))
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color(hex: "#E94560").opacity(0.4), lineWidth: 1)
+                        )
+                    }
+
+                    // 解锁按钮
+                    Button(action: {
+                        Task {
+                            if let product = purchaseManager.monthlyProduct {
+                                try? await purchaseManager.purchase(product)
+                                if purchaseManager.isSubscribed {
+                                    dismiss()
+                                }
+                            }
+                        }
+                    }) {
+                        Group {
+                            if purchaseManager.isPurchasing {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Text("解锁灵犀")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .tracking(4)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(28)
+                        .shadow(color: Color(hex: "#E94560").opacity(0.35), radius: 16, x: 0, y: 8)
+                    }
+                    .disabled(purchaseManager.isPurchasing)
+
+                    // 恢复购买
+                    Button(action: {
+                        Task {
+                            await purchaseManager.restorePurchases()
+                            if purchaseManager.isSubscribed {
+                                dismiss()
+                            }
+                        }
+                    }) {
+                        Text("恢复购买")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.35))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
+
+                if let error = purchaseManager.errorMessage {
+                    Text(error)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "#E94560"))
+                        .padding(.bottom, 12)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
