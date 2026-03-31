@@ -189,7 +189,7 @@ enum ShareCardBuilder {
             let drawW = portrait.size.width * scale
             let drawH = portrait.size.height * scale
             let drawX = (cardW - drawW) / 2
-            let drawY = (portraitH - drawH) / 2
+            let drawY: CGFloat = 0  // 顶部对齐，不裁头部
             cgCtx.saveGState()
             cgCtx.clip(to: imageRect)
             portrait.draw(in: CGRect(x: drawX, y: drawY, width: drawW, height: drawH))

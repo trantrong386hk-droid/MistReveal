@@ -201,7 +201,8 @@ struct SoulArchiveView: View {
                     AsyncImage(url: URL(string: imageUrl)) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
+                            .frame(width: 80, height: 80, alignment: .top)
                     } placeholder: {
                         portraitPlaceholder
                     }

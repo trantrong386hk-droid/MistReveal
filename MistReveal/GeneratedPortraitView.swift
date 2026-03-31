@@ -102,19 +102,7 @@ struct GeneratedPortraitView: View {
                     .background(Color.black.opacity(0.3))
                     .clipShape(Circle())
             }
-
             Spacer()
-
-            if soulmateManager.state == .completed {
-                Button(action: saveImage) {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.black.opacity(0.3))
-                        .clipShape(Circle())
-                }
-            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
@@ -256,63 +244,19 @@ struct GeneratedPortraitView: View {
                     .foregroundColor(.white.opacity(0.8))
 
                 // 按钮组
-                HStack(spacing: 12) {
-                    // 保存按钮
-                    Button(action: saveImage) {
-                        HStack(spacing: 6) {
-                            Image(systemName: saveStatus == .saved ? "checkmark" : "arrow.down.to.line")
-                                .font(.system(size: 13))
-                            Text(saveStatus == .saved ? "已保存" : "保存")
-                                .font(.system(size: 13, weight: .medium))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(saveStatus == .saved ? Color(hex: "#E94560").opacity(0.6) : Color.white.opacity(0.15))
-                        .cornerRadius(25)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .disabled(saveStatus == .saved)
-
-                    // 分享按钮
-                    Button(action: shareCard) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 13))
-                            Text("分享")
-                                .font(.system(size: 13, weight: .medium))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(Color.white.opacity(0.15))
-                        .cornerRadius(25)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .sheet(isPresented: $showShareSheet) {
-                        if let img = shareCardImage {
-                            ShareSheet(items: [img])
-                        }
-                    }
-
-                    // 唤醒按钮 - 仅自己的推演才显示，跳转到灵犀 Tab
+                VStack(spacing: 12) {
+                    // 主 CTA：唤醒（仅自己的推演显示）
                     if isSelf {
                         Button(action: awakenSoulmate) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Image(systemName: "heart.circle.fill")
-                                    .font(.system(size: 13))
-                                Text("唤醒")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 15))
+                                Text("唤醒灵魂伴侣")
+                                    .font(.system(size: 15, weight: .semibold))
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 11)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                             .background(
                                 LinearGradient(
                                     colors: [Color(hex: "#E94560"), Color(hex: "#FF6B6B")],
@@ -320,8 +264,48 @@ struct GeneratedPortraitView: View {
                                     endPoint: .trailing
                                 )
                             )
-                            .cornerRadius(25)
-                            .shadow(color: Color(hex: "#E94560").opacity(0.4), radius: 8, x: 0, y: 4)
+                            .cornerRadius(28)
+                            .shadow(color: Color(hex: "#E94560").opacity(0.45), radius: 10, x: 0, y: 5)
+                        }
+                        .padding(.horizontal, 24)
+                    }
+
+                    // 次要操作：保存 + 分享
+                    HStack(spacing: 12) {
+                        Button(action: saveImage) {
+                            HStack(spacing: 6) {
+                                Image(systemName: saveStatus == .saved ? "checkmark" : "arrow.down.to.line")
+                                    .font(.system(size: 13))
+                                Text(saveStatus == .saved ? "已保存" : "保存")
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 10)
+                            .background(saveStatus == .saved ? Color(hex: "#E94560").opacity(0.5) : Color.white.opacity(0.13))
+                            .cornerRadius(22)
+                            .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.25), lineWidth: 0.8))
+                        }
+                        .disabled(saveStatus == .saved)
+
+                        Button(action: shareCard) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 13))
+                                Text("分享")
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 10)
+                            .background(Color.white.opacity(0.13))
+                            .cornerRadius(22)
+                            .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.25), lineWidth: 0.8))
+                        }
+                        .sheet(isPresented: $showShareSheet) {
+                            if let img = shareCardImage {
+                                ShareSheet(items: [img])
+                            }
                         }
                     }
                 }
