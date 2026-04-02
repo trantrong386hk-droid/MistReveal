@@ -291,6 +291,9 @@
         }
       }
     },
+    "了解我们如何保护你的数据" : {
+
+    },
     "亲密度 %lld" : {
       "localizations" : {
         "en" : {
@@ -958,6 +961,9 @@
         }
       }
     },
+    "常见问题与联系我们" : {
+
+    },
     "开启命运之旅" : {
       "localizations" : {
         "en" : {
@@ -1158,46 +1164,6 @@
         }
       }
     },
-    "查看你的命理分析" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View Your Destiny Analysis"
-          }
-        }
-      }
-    },
-    "邀请好友获得生成次数" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite Friends for Extra Generations"
-          }
-        }
-      }
-    },
-    "查看历史匹配" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View Match History"
-          }
-        }
-      }
-    },
-    "账号与偏好设置" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account & Preferences"
-          }
-        }
-      }
-    },
     "我的资料" : {
       "localizations" : {
         "en" : {
@@ -1237,6 +1203,9 @@
           }
         }
       }
+    },
+    "技术支持" : {
+
     },
     "探索" : {
       "localizations" : {
@@ -1364,6 +1333,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "View Them"
+          }
+        }
+      }
+    },
+    "查看你的命理分析" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Your Destiny Analysis"
+          }
+        }
+      }
+    },
+    "查看历史匹配" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Match History"
           }
         }
       }
@@ -1773,7 +1762,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Origin of Connection"
+            "value" : "MistReveal"
           }
         }
       }
@@ -1907,6 +1896,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Please select"
+          }
+        }
+      }
+    },
+    "账号与偏好设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account & Preferences"
           }
         }
       }
@@ -2121,6 +2120,16 @@
         }
       }
     },
+    "邀请好友获得生成次数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite Friends for Extra Generations"
+          }
+        }
+      }
+    },
     "邀请缘人加入" : {
       "localizations" : {
         "en" : {
@@ -2210,6 +2219,9 @@
           }
         }
       }
+    },
+    "隐私政策" : {
+
     },
     "需要" : {
       "localizations" : {
