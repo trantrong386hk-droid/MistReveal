@@ -5,6 +5,10 @@ import GoogleSignIn
 import AuthenticationServices
 import CryptoKit
 
+extension Notification.Name {
+    static let authSessionExpired = Notification.Name("authSessionExpired")
+}
+
 /// 认证管理器
 /// 负责处理用户注册、登录、密码重置等认证流程
 @MainActor
@@ -50,6 +54,16 @@ class AuthManager: ObservableObject {
         // 启动时检查现有会话
         Task {
             await checkSession()
+        }
+        // 监听 session 过期通知（由各 service 在 sessionMissing 时发送）
+        NotificationCenter.default.addObserver(
+            forName: .authSessionExpired,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.signOut()
+            }
         }
     }
 
@@ -215,19 +229,7 @@ class AuthManager: ObservableObject {
         errorMessage = nil
 
         do {
-            // 先检查邮箱是否存在
-            print("🔵 检查邮箱是否存在: \(email)")
-            let emailExists = await checkEmailExists(email: email)
-
-            if !emailExists {
-                print("❌ 账号不存在: \(email)")
-                errorMessage = "账号不存在"
-                isLoading = false
-                return
-            }
-
-            print("🔵 账号存在，尝试登录...")
-
+            print("🔵 尝试登录: \(email)")
             let response = try await supabase.auth.signIn(
                 email: email,
                 password: password
@@ -275,9 +277,8 @@ class AuthManager: ObservableObject {
             print("🔵 邮箱检查结果: exists = \(response.exists)")
             return response.exists
         } catch {
-            print("❌ 检查邮箱失败: \(error)")
-            // 如果检查失败，默认认为存在，继续尝试登录
-            return true
+            print("❌ 检查邮箱失败（EF错误），默认允许继续注册: \(error)")
+            return false
         }
     }
 
@@ -553,19 +554,17 @@ class AuthManager: ObservableObject {
 
         do {
             try await supabase.auth.signOut()
-
-            // 重置所有状态
-            isAuthenticated = false
-            needsPasswordSetup = false
-            currentUser = nil
-            resetFlowState()
-
-            print("✅ 已退出登录")
-
         } catch {
-            errorMessage = handleAuthError(error)
             print("❌ 退出登录失败: \(error)")
         }
+
+        // 无论 signOut 是否成功都重置本地状态
+        isAuthenticated = false
+        needsPasswordSetup = false
+        currentUser = nil
+        resetFlowState()
+        isLoading = false
+        print("✅ 已退出登录")
 
         isLoading = false
     }

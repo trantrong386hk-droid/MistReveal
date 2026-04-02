@@ -571,6 +571,7 @@ class TextGenerationService {
             print("🔑 [TextGeneration] refreshSession 成功，token 过期时间: \(expiresAt), 距离过期: \(Int(efSession.expiresAt - Date().timeIntervalSince1970))秒")
         } catch {
             print("❌ [TextGeneration] refreshSession 失败: \(error) — 需要重新登录")
+            NotificationCenter.default.post(name: .authSessionExpired, object: nil)
             throw error
         }
 

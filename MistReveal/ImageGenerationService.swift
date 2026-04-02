@@ -508,8 +508,14 @@ class ImageGenerationService {
         var headers: [String: String] = [
             "apikey": AppConfig.Supabase.anonKey
         ]
-        let session = try await supabase.auth.refreshSession()
-        headers["Authorization"] = "Bearer \(session.accessToken)"
+        do {
+            let session = try await supabase.auth.refreshSession()
+            headers["Authorization"] = "Bearer \(session.accessToken)"
+        } catch {
+            print("❌ [ImageGeneration] refreshSession 失败: \(error) — 需要重新登录")
+            NotificationCenter.default.post(name: .authSessionExpired, object: nil)
+            throw error
+        }
         return headers
     }
 
