@@ -7,9 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		058844346FA5256B1B6A80A4 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACB27116927944287C2B86B /* SettingsView.swift */; };
 		2239BF502F07C4C300B8997C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF4F2F07C4C300B8997C /* Supabase */; };
 		2239BF852F08A0AA00B8997C /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF842F08A0AA00B8997C /* GoogleSignIn */; };
 		2239BF872F08A0AA00B8997C /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2239BF862F08A0AA00B8997C /* GoogleSignInSwift */; };
+		22541F922F7E1FAF005B1A8C /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 22541F912F7E1FAF005B1A8C /* Localizable.xcstrings */; };
 		22E3E3A72F31B25C00F4107D /* SoulmateAIChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3832F31B25C00F4107D /* SoulmateAIChatService.swift */; };
 		22E3E3A82F31B25C00F4107D /* SecretsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E37D2F31B25C00F4107D /* SecretsManager.swift */; };
 		22E3E3AA2F31B25C00F4107D /* SoulmateAIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E3E3842F31B25C00F4107D /* SoulmateAIChatView.swift */; };
@@ -51,8 +53,6 @@
 		AA000022 /* DestinyConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022 /* DestinyConnectionView.swift */; };
 		AA000031 /* AICompanionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031 /* AICompanionModels.swift */; };
 		AA000032 /* AICompanionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032 /* AICompanionService.swift */; };
-		AA000051 /* PurchaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000051 /* PurchaseManager.swift */; };
-		AA000052 /* DeepReportDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000052 /* DeepReportDetailView.swift */; };
 		AA000033 /* UserManualService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033 /* UserManualService.swift */; };
 		AA000034 /* MatchNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034 /* MatchNotificationService.swift */; };
 		AA000035 /* ChinaCityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035 /* ChinaCityData.swift */; };
@@ -64,9 +64,14 @@
 		AA000043 /* Trigger_Config.json in Resources */ = {isa = PBXBuildFile; fileRef = AB000043 /* Trigger_Config.json */; };
 		AA000044 /* Script_Slots.json in Resources */ = {isa = PBXBuildFile; fileRef = AB000044 /* Script_Slots.json */; };
 		AA000045 /* Topic_Templates.json in Resources */ = {isa = PBXBuildFile; fileRef = AB000045 /* Topic_Templates.json */; };
+		AA000051 /* PurchaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000051 /* PurchaseManager.swift */; };
+		AA000052 /* DeepReportDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000052 /* DeepReportDetailView.swift */; };
+		C60A9230D913DB0A2B47C4FE /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA002FC3545F59CD7831571 /* LanguageManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0AA002FC3545F59CD7831571 /* LanguageManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
+		22541F912F7E1FAF005B1A8C /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		22E3E33B2F31A95500F4107D /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		22E3E33D2F31A95500F4107D /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		22E3E33E2F31A95500F4107D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -180,8 +185,6 @@
 		AB000022 /* DestinyConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinyConnectionView.swift; sourceTree = "<group>"; };
 		AB000031 /* AICompanionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICompanionModels.swift; sourceTree = "<group>"; };
 		AB000032 /* AICompanionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICompanionService.swift; sourceTree = "<group>"; };
-		AB000051 /* PurchaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseManager.swift; sourceTree = "<group>"; };
-		AB000052 /* DeepReportDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepReportDetailView.swift; sourceTree = "<group>"; };
 		AB000033 /* UserManualService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManualService.swift; sourceTree = "<group>"; };
 		AB000034 /* MatchNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchNotificationService.swift; sourceTree = "<group>"; };
 		AB000035 /* ChinaCityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChinaCityData.swift; sourceTree = "<group>"; };
@@ -193,6 +196,9 @@
 		AB000043 /* Trigger_Config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Trigger_Config.json; sourceTree = "<group>"; };
 		AB000044 /* Script_Slots.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Script_Slots.json; sourceTree = "<group>"; };
 		AB000045 /* Topic_Templates.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Topic_Templates.json; sourceTree = "<group>"; };
+		AB000051 /* PurchaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseManager.swift; sourceTree = "<group>"; };
+		AB000052 /* DeepReportDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepReportDetailView.swift; sourceTree = "<group>"; };
+		EACB27116927944287C2B86B /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -318,6 +324,8 @@
 				22E3E3872F31B25C00F4107D /* SupabaseTestView.swift */,
 				22E3E3882F31B25C00F4107D /* TextGenerationService.swift */,
 				22E3E3892F31B25C00F4107D /* WelcomeView.swift */,
+				0AA002FC3545F59CD7831571 /* LanguageManager.swift */,
+				EACB27116927944287C2B86B /* SettingsView.swift */,
 			);
 			path = MistReveal;
 			sourceTree = "<group>";
@@ -325,6 +333,7 @@
 		AD000001 = {
 			isa = PBXGroup;
 			children = (
+				22541F912F7E1FAF005B1A8C /* Localizable.xcstrings */,
 				22E3E38A2F31B25C00F4107D /* MistReveal */,
 				22E3E3622F31A95500F4107D /* MistReveal */,
 				AD000002 /* MistReveal */,
@@ -443,7 +452,7 @@
 			};
 			buildConfigurationList = AF000002 /* Build configuration list for PBXProject "MistReveal" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
@@ -478,6 +487,7 @@
 				AA000045 /* Topic_Templates.json in Resources */,
 				AA000009 /* Preview Assets.xcassets in Resources */,
 				AA000008 /* Assets.xcassets in Resources */,
+				22541F922F7E1FAF005B1A8C /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -533,6 +543,8 @@
 				AA000035 /* ChinaCityData.swift in Sources */,
 				AA000036 /* SupabaseManager.swift in Sources */,
 				AA000037 /* CityCoordinates.swift in Sources */,
+				C60A9230D913DB0A2B47C4FE /* LanguageManager.swift in Sources */,
+				058844346FA5256B1B6A80A4 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -598,6 +610,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -654,6 +667,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -670,7 +684,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MistReveal/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "我们需要您的位置来发现附近与您灵魂共振的人";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于吹气互动功能，拨开迷雾揭示画像";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存灵魂伴侣画像到您的相册";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -701,7 +717,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MistReveal/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "我们需要您的位置来发现附近与您灵魂共振的人";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "用于吹气互动功能，拨开迷雾揭示画像";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存灵魂伴侣画像到您的相册";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

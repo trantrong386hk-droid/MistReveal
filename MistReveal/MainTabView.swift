@@ -1782,6 +1782,7 @@ struct ProfileView: View {
     @State private var navigateToArchive = false
     @State private var navigateToInvite = false
     @State private var navigateToFateRecords = false
+    @State private var navigateToSettings = false
 
     // 头像上传相关状态
     @State private var selectedPhoto: PhotosPickerItem?
@@ -1881,7 +1882,9 @@ struct ProfileView: View {
                             }
 
                             // 设置
-                            profileMenuItem(icon: "gearshape", title: "设置", subtitle: "账号与偏好设置")
+                            Button(action: { navigateToSettings = true }) {
+                                profileMenuItemContent(icon: "gearshape", title: "设置", subtitle: "账号与偏好设置")
+                            }
                         }
                         .padding(.top, 20)
                         .padding(.horizontal, 24)
@@ -1980,6 +1983,9 @@ struct ProfileView: View {
             }
             .navigationDestination(isPresented: $navigateToFateRecords) {
                 FateRecordsView()
+            }
+            .navigationDestination(isPresented: $navigateToSettings) {
+                SettingsView()
             }
             .onAppear {
                 Task {

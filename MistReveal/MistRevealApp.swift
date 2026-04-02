@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct MistRevealApp: App {
     @StateObject private var authManager = AuthManager()
+    @StateObject private var languageManager = LanguageManager.shared
 
     var body: some Scene {
         WindowGroup {
@@ -18,7 +19,10 @@ struct MistRevealApp: App {
                     AuthView()
                 }
             }
+            // 语言切换后强制重建整个视图树，让所有 Text(LocalizedStringKey) 重新查询 Bundle
+            .id(languageManager.refreshID)
             .environmentObject(authManager)
+            .environmentObject(languageManager)
             .onOpenURL { url in
                 print("🔵 App 收到 URL 回调: \(url)")
                 // 处理 Google 登录回调
