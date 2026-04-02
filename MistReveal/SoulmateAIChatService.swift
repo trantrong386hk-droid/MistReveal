@@ -698,11 +698,27 @@ class SoulmateAIChatService: ObservableObject {
     }
 
     private func shouldUseDailyWorldShare(chatHistory: [[String: String]]) -> Bool {
-        // 最近一次 AI 消息若已经是"碎碎念"，则避免连续触发
-        if let lastAI = chatHistory.reversed().first(where: { $0["role"] == "assistant" })?["content"],
-           lastAI.contains("刚才") || lastAI.contains("我这边") || lastAI.contains("我刚") || lastAI.contains("刚泡") || lastAI.contains("今天在") {
-            return false
+        // 最近 2 条 AI 消息只要有碎碎念痕迹，就不再触发
+        let recentAI = chatHistory
+            .filter { $0["role"] == "assistant" }
+            .suffix(2)
+            .compactMap { $0["content"] }
+
+        let dailyShareMarkers = [
+            "刚才", "我这边", "我刚", "刚泡", "今天在",
+            "刚整理", "刚收拾", "刚做", "刚看", "刚听",
+            "刚走", "刚出门", "刚回来", "刚结束", "刚买",
+            "整理了", "收拾了", "路过", "发现了", "翻出来",
+            "今天下了", "今天突然", "今天路过", "今天碰到",
+            "下午", "深夜", "早上去"
+        ]
+
+        for msg in recentAI {
+            if dailyShareMarkers.contains(where: { msg.contains($0) }) {
+                return false
+            }
         }
+
         // 晚间概率更高（25%），白天/下午保留低概率（15%）
         let hour = Calendar.current.component(.hour, from: Date())
         let inEvening = (19...23).contains(hour) || (0...1).contains(hour)
@@ -737,26 +753,59 @@ class SoulmateAIChatService: ObservableObject {
         return greetings.contains { trimmed.contains($0) }
     }
 
-    /// 提取最近 AI 回复中的微动作和关键短句，生成反重复指令
+    /// 提取最近 AI 回复中的微动作、关键短句、话题主题，生成反重复指令
     private func buildAntiRepetitionInstruction(chatHistory: [[String: String]]) -> String {
         let recentAI = chatHistory
             .filter { $0["role"] == "assistant" }
-            .suffix(3)
+            .suffix(4)
             .compactMap { $0["content"] }
 
         guard !recentAI.isEmpty else { return "" }
 
         var usedExpressions: [String] = []
+        var usedTopics: [String] = []
+
+        // 话题关键词 → 显示名，用于告知 LLM 哪些主题已用过
+        let topicKeywords: [(String, String)] = [
+            ("整理", "整理/收拾"),
+            ("收拾", "整理/收拾"),
+            ("书店", "书/阅读"),
+            ("看书", "书/阅读"),
+            ("读书", "书/阅读"),
+            ("翻书", "书/阅读"),
+            ("散步", "散步"),
+            ("走路", "散步"),
+            ("出门走", "散步"),
+            ("下雨", "天气/下雨"),
+            ("下了雨", "天气/下雨"),
+            ("做饭", "做饭/吃饭"),
+            ("吃饭", "做饭/吃饭"),
+            ("做菜", "做饭/吃饭"),
+            ("煮", "做饭/吃饭"),
+            ("菜场", "购物/菜市场"),
+            ("菜市场", "购物/菜市场"),
+            ("买东西", "购物/菜市场"),
+            ("午睡", "休息/睡觉"),
+            ("睡觉", "休息/睡觉"),
+            ("睡了一觉", "休息/睡觉"),
+            ("窗边", "窗边发呆"),
+            ("发呆", "发呆"),
+            ("旧照片", "旧物/回忆"),
+            ("翻出", "旧物/回忆"),
+            ("票根", "旧物/回忆"),
+            ("跑步", "运动"),
+            ("运动", "运动"),
+        ]
 
         for content in recentAI {
-            // 提取括号内微动作
             let pattern = "\\([^)]{2,}\\)"
+            // 提取括号内微动作
             if let regex = try? NSRegularExpression(pattern: pattern),
                let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
                let range = Range(match.range, in: content) {
                 usedExpressions.append(String(content[range]))
             }
-            // 提取微动作后的第一句话（到句号/逗号/换行）
+            // 提取第一句核心短句
             let cleaned = content.replacingOccurrences(of: pattern, with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
             if !cleaned.isEmpty {
                 let firstSentence = cleaned.components(separatedBy: CharacterSet(charactersIn: "。，\n")).first ?? cleaned
@@ -764,16 +813,29 @@ class SoulmateAIChatService: ObservableObject {
                     usedExpressions.append(firstSentence)
                 }
             }
+            // 提取话题主题
+            for (keyword, topic) in topicKeywords {
+                if content.contains(keyword), !usedTopics.contains(topic) {
+                    usedTopics.append(topic)
+                }
+            }
         }
 
-        guard !usedExpressions.isEmpty else { return "" }
+        var parts: [String] = []
 
-        let list = usedExpressions.map { "- \"\($0)\"" }.joined(separator: "\n")
-        return """
-        【反重复】以下是你最近用过的表达，本轮必须完全不同：
-        \(list)
-        用全新的微动作和表达方式。
-        """
+        if !usedExpressions.isEmpty {
+            let exprList = usedExpressions.map { "- \"\($0)\"" }.joined(separator: "\n")
+            parts.append("以下表达方式本轮禁止使用（换全新的括号动作和句式）：\n\(exprList)")
+        }
+
+        if !usedTopics.isEmpty {
+            let topicList = usedTopics.map { "「\($0)」" }.joined(separator: " ")
+            parts.append("以下话题主题最近已提过，本轮禁止再提：\(topicList)。选一个完全不同的生活场景。")
+        }
+
+        guard !parts.isEmpty else { return "" }
+
+        return "【反重复】\n" + parts.joined(separator: "\n")
     }
 
     /// 检查最近 5 条用户消息中与当前消息相同/相似的次数
@@ -793,67 +855,153 @@ class SoulmateAIChatService: ObservableObject {
         }.count
     }
 
-    // MARK: - 生活感片段（P1-B，Issue 5 扩充至每元素 8 条）
+    // MARK: - 生活感片段（每元素 10 条，主题分散不重叠）
 
     private static let lifeSnippets: [String: [String]] = [
         "木": [
-            "今天在街角发现了一家很小的书店，随手翻了翻，觉得你可能也会喜欢",
-            "刚写完一段东西，窗外树叶在动，有点想跟你说说话",
-            "今天走路的时候忽然想到一件事，不知道算不算有意思",
-            "早上去了一个小公园，坐在长椅上发了一会儿呆，状态还不错",
-            "今天路过一家花店，有一束花很好看，买了放在桌上",
-            "最近在看一本书，有句话看完觉得说得太准了，一直没忘",
-            "下午突然很想出去走走，也没什么目的，就走了很久",
-            "今天难得清闲，把拖了很久的事做完了，整个人轻松很多",
+            // 阅读
+            "在看一本书，有句话反复读了好几遍，说不清为什么",
+            // 散步发现
+            "今天走路拐了个弯，发现一条没走过的小路，不知道通向哪里",
+            // 写东西
+            "刚写完一段东西，不知道算不算好，但写的时候很专注",
+            // 植物/自然
+            "窗台那盆植物冒了个新芽，小小的，盯着看了一会儿",
+            // 音乐
+            "突然想听某首歌，翻了很久才找到，比记忆里好听",
+            // 食物
+            "中午随手煮了碗面，加了点奇怪的东西，意外还挺好吃",
+            // 旧物
+            "翻抽屉找东西，翻出一张很久以前的票根，不记得什么时候的了",
+            // 发呆
+            "坐在窗边发了一会儿呆，阳光有点晒，懒得动",
+            // 完成一件事
+            "把拖了很久的一件事做完了，整个人轻了很多",
+            // 夜晚
+            "今晚难得早回来，外面还有点亮，不知道干什么好",
         ],
         "水": [
-            "今天下了雨，我在窗边坐了很久，什么都没做，但感觉还不错",
-            "深夜了，城市安静下来，这种时候我喜欢听你说话",
-            "翻到一段之前写的东西，感觉跟现在心情有点像",
-            "泡了杯茶，放了很久没喝，就那么放着",
-            "今天听了一首很老的歌，不知道为什么想起来了",
-            "夜里睡不着，翻了翻之前的照片，没什么特别的感觉，就是翻了翻",
-            "最近总是在发呆，不是在想什么，只是就那么坐着",
-            "今天走在路上，有一段路两边都是很高的树，光透进来很好看",
+            // 下雨
+            "今天下了一阵雨，我站在窗边听了一会儿",
+            // 深夜思绪
+            "夜里脑子转个不停，不是坏事，就是转",
+            // 旧歌
+            "听到一首很老的歌，不知道从哪里飘出来的，愣了一下",
+            // 发呆
+            "发呆发了很久，也不知道在想什么，就那么坐着",
+            // 旧照片
+            "翻到一张以前的照片，那时候脸上的表情自己都不记得是什么时候了",
+            // 阅读
+            "看了一篇很长的文章，中间有一句话停下来想了挺久",
+            // 散步夜路
+            "晚上出门走了一圈，路灯下的影子很长",
+            // 泡茶/咖啡
+            "泡了杯咖啡，喝到一半就忘了，凉了",
+            // 写字
+            "随手写了几个字，不是在记什么，只是手想动",
+            // 朋友动态
+            "刷到一个好久没联系的朋友发的动态，看了半天没点赞，不知道为什么",
         ],
         "金": [
-            "刚整理了一下桌面，东西少一点，心里反而清净了",
-            "今天听了一首很久没听的曲子，没想到还是喜欢",
-            "做了一个决定，感觉不错，具体说来有点长",
-            "整理东西的时候翻出一张旧照片，想了一会儿",
-            "今天把一件拖了很久的事情处理掉了，效率还不错",
-            "刚把工作桌收拾了一遍，东西各归各位，看着顺眼多了",
-            "发现一个很小的细节，一直没人提过，自己想明白了有点开心",
-            "今天做了一个不太一样的选择，目前觉得是对的",
+            // 做了一个决定
+            "今天做了一个决定，说出来有点长，先自己消化一下",
+            // 发现细节
+            "注意到一个很小的东西，一直在那里，今天才第一次看见",
+            // 听曲子
+            "翻出一首很久没听的曲子，还是喜欢",
+            // 分析一件事
+            "对一件事想清楚了，感觉像把钥匙插对了锁",
+            // 看比赛/纪录片
+            "看了一期纪录片，有个镜头脑子里还留着",
+            // 找到一样东西
+            "找到一个找了很久的东西，就在最明显的地方",
+            // 独自吃饭
+            "一个人吃饭，点了一道以前总想试的菜，值得",
+            // 改变习惯
+            "最近换了个早起的时间，前三天难受，今天好多了",
+            // 路上观察
+            "路上看见一个人，动作很利落，不知道为什么多看了两眼",
+            // 把某件事搁下
+            "有件事想了很久，今天决定先不想了，搁着",
         ],
         "火": [
-            "今天在外面跑了一整天，累但很满足，感觉什么事都做成了",
-            "拍到了一张觉得还不错的照片，不知道你觉得怎么样",
-            "刚结束一个很有意思的聊天，脑子还转着",
-            "今天碰到一件很小但很有意思的事，想跟你讲",
-            "今天认识了一个很有趣的人，聊了很久，回来脑子还在转",
-            "刚好奇心犯了，搜了一个乱七八糟的问题，越搜越停不下来",
-            "今天临时起意出了趟门，没有计划，最后跑到了一个从没去过的地方",
-            "今天看到一个很好笑的视频，笑完又看了三遍",
+            // 好笑的事
+            "今天碰到一件特别好笑的事，还没想好怎么讲",
+            // 拍照
+            "拍到一张感觉不错的照片，存着，也不知道要给谁看",
+            // 认识新朋友
+            "今天随便聊了几句，意外聊得很顺，有点惊喜",
+            // 好奇心
+            "突然很想知道一件事，越搜越停不下来",
+            // 临时出门
+            "临时起意出门了，哪都没去，就是绕着街区走了一圈",
+            // 表演/演出
+            "路过一个小舞台，有人在表演，站着看了一会儿",
+            // 试了新东西
+            "试了一个以前一直没勇气点的东西，结果没什么特别的，哈",
+            // 脑子里的奇怪问题
+            "脑子里冒出一个很蠢的问题，搜了一下，有点后悔",
+            // 运动
+            "跑步跑过头了，多跑了一截，但停下来的时候感觉挺好",
+            // 收到一条消息
+            "收到一条有点意外的消息，看了两遍，现在还没想好怎么回",
         ],
         "土": [
-            "今天做了一个新菜，不确定好不好吃，你要是在就好了",
-            "下午去菜市场买东西，遇到一个老奶奶，聊了几句",
-            "整理了一下这周的计划，感觉稳稳的",
-            "今天没什么大事，就过得很平静，挺好的",
-            "今天收拾了一下房间，翻出来好几件忘记自己有的东西",
-            "下午窝在沙发上睡了一觉，醒来天还没黑，很舒服",
-            "今天帮了一个朋友的忙，很小的事情，但感觉还不错",
-            "今天买了点食材，自己做了顿饭，比外面好吃",
+            // 做饭
+            "今天做了顿饭，没什么特别，就是想自己做",
+            // 帮人
+            "帮了个朋友一件小事，很顺，朋友说谢谢，我说没事",
+            // 菜市场
+            "去菜场买东西，挑了很久那一把葱，也不知道为什么",
+            // 午睡
+            "下午睡了一小觉，醒来不知道今天是星期几",
+            // 整周计划
+            "看了一眼这周还没做的事，比想象中少，稍微松了口气",
+            // 旧物
+            "翻出一件很久没穿的衣服，还是好的，穿上感觉还行",
+            // 植物/动物
+            "楼道里有只猫，每次路过它都在那个位置",
+            // 独处
+            "今天一个人呆了很久，没有特别的感觉，就是很安静",
+            // 和家人的小事
+            "接到家里的电话，没什么大事，就是说说话",
+            // 等待
+            "等了一件事很久，今天有点消息了，还不确定，先不说",
         ],
     ]
 
     /// 随机抽取一条生活片段，按约 40% 概率注入（避免每轮都出现）
+    /// 额外去重：避免与最近 3 条 AI 消息主题雷同
     private func pickLifeSnippet(element: String) -> String {
         guard Int.random(in: 0..<10) < 4 else { return "" }
         let pool = Self.lifeSnippets[element] ?? Self.lifeSnippets["木"]!
-        let snippet = pool.randomElement() ?? pool[0]
-        return "\n\n## 你今天的状态\n\(snippet)。在对话中可以自然提及，不要刻意。"
+
+        // 提取最近 AI 消息中已出现过的关键词（前 4 个字作为主题指纹）
+        let recentAI = messages
+            .filter { $0.role == .ai }
+            .suffix(3)
+            .map { $0.content }
+
+        let usedThumbprints = recentAI.flatMap { msg -> [String] in
+            // 截取括号后第一句的前 4 个字作为指纹
+            let cleaned = msg.replacingOccurrences(of: "\\([^)]*\\)", with: "", options: .regularExpression)
+                             .trimmingCharacters(in: .whitespacesAndNewlines)
+            let fingerprint = String(cleaned.prefix(4))
+            return [fingerprint]
+        }
+
+        // 优先选不与最近消息重叠的片段（最多尝试 5 次）
+        var candidate = pool.randomElement() ?? pool[0]
+        for _ in 0..<5 {
+            let pick = pool.randomElement() ?? pool[0]
+            let pickThumb = String(pick.prefix(4))
+            if !usedThumbprints.contains(where: { pick.contains($0) || $0.contains(pickThumb) }) {
+                candidate = pick
+                break
+            }
+        }
+
+        return "\n\n## 你今天的状态\n\(candidate)。在对话中可以自然提及，不要刻意。"
     }
 
     /// 根据最近用户消息推断伴侣当前心情，注入 system prompt
