@@ -186,7 +186,7 @@ struct MainTabView: View {
         }
     }
 
-    func tabBarItem(icon: String, title: String, index: Int) -> some View {
+    func tabBarItem(icon: String, title: LocalizedStringKey, index: Int) -> some View {
         Button(action: {
             withAnimation(.easeInOut(duration: 0.2)) {
                 selectedTab = index
@@ -2114,14 +2114,14 @@ struct ProfileView: View {
     }
 
     // 菜单项组件（不可点击）
-    func profileMenuItem(icon: String, title: String, subtitle: String) -> some View {
+    func profileMenuItem(icon: String, title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         Button(action: {}) {
             profileMenuItemContent(icon: icon, title: title, subtitle: subtitle)
         }
     }
 
     // 菜单项内容（可复用）
-    func profileMenuItemContent(icon: String, title: String, subtitle: String) -> some View {
+    func profileMenuItemContent(icon: String, title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.system(size: 20))

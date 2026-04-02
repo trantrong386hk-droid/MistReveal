@@ -91,9 +91,16 @@ class LanguageManager: ObservableObject {
 
     private func applyBundle(for language: AppLanguage) {
         switch language {
-        case .system:  Bundle.setLanguage(nil)
-        case .zhHans:  Bundle.setLanguage("zh-Hans")
-        case .english: Bundle.setLanguage("en")
+        case .system:
+            Bundle.setLanguage(nil)
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        case .zhHans:
+            Bundle.setLanguage("zh-Hans")
+            UserDefaults.standard.set(["zh-Hans"], forKey: "AppleLanguages")
+        case .english:
+            Bundle.setLanguage("en")
+            UserDefaults.standard.set(["en"], forKey: "AppleLanguages")
         }
+        UserDefaults.standard.synchronize()
     }
 }

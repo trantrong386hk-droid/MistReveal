@@ -451,6 +451,9 @@
         }
       }
     },
+    "切换语言后立即生效，无需重启 App\nLanguage change takes effect immediately" : {
+
+    },
     "创建你的账号" : {
       "localizations" : {
         "en" : {
@@ -581,7 +584,11 @@
         }
       }
     },
+    "去星图探索与你有缘的灵魂" : {
+
+    },
     "去星图探索与你灵魂共振的人" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1151,6 +1158,46 @@
         }
       }
     },
+    "查看你的命理分析" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Your Destiny Analysis"
+          }
+        }
+      }
+    },
+    "邀请好友获得生成次数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite Friends for Extra Generations"
+          }
+        }
+      }
+    },
+    "查看历史匹配" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Match History"
+          }
+        }
+      }
+    },
+    "账号与偏好设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account & Preferences"
+          }
+        }
+      }
+    },
     "我的资料" : {
       "localizations" : {
         "en" : {
@@ -1187,6 +1234,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reset Password"
+          }
+        }
+      }
+    },
+    "探索" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explore"
           }
         }
       }
@@ -1780,6 +1837,9 @@
           }
         }
       }
+    },
+    "设置" : {
+
     },
     "设置新密码" : {
       "localizations" : {
