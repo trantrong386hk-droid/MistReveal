@@ -20,6 +20,7 @@ struct MistRevealApp: App {
                 }
             }
             // 语言切换后强制重建整个视图树，让所有 Text(LocalizedStringKey) 重新查询 Bundle
+            .environment(\.locale, languageManager.currentLocale)
             .id(languageManager.refreshID)
             .environmentObject(authManager)
             .environmentObject(languageManager)
