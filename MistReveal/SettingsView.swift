@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var languageManager: LanguageManager
+    @State private var isLanguageExpanded = false
 
     var body: some View {
         ZStack {
@@ -13,17 +14,7 @@ struct SettingsView: View {
                     // MARK: - 语言
                     sectionHeader(icon: "globe", title: "语言 / Language")
 
-                    VStack(spacing: 0) {
-                        ForEach(Array(LanguageManager.AppLanguage.allCases.enumerated()), id: \.element) { index, lang in
-                            languageRow(lang: lang, isLast: index == LanguageManager.AppLanguage.allCases.count - 1)
-                        }
-                    }
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
+                    languagePickerCard
 
                     Text("切换语言后立即生效，无需重启 App\nLanguage change takes effect immediately")
                         .font(.system(size: 12))
@@ -39,6 +30,58 @@ struct SettingsView: View {
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    // MARK: - Language Picker Card（折叠式）
+
+    private var languagePickerCard: some View {
+        VStack(spacing: 0) {
+            // 始终可见的当前语言行，点击展开/收起
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isLanguageExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: 14) {
+                    Image(systemName: languageManager.currentLanguage.icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(Color(hex: "#E94560"))
+                        .frame(width: 28)
+
+                    Text(languageManager.currentLanguage.displayName)
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .rotationEffect(.degrees(isLanguageExpanded ? 180 : 0))
+                        .animation(.easeInOut(duration: 0.22), value: isLanguageExpanded)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            // 展开后显示所有选项
+            if isLanguageExpanded {
+                Divider()
+                    .background(Color.white.opacity(0.08))
+
+                ForEach(Array(LanguageManager.AppLanguage.allCases.enumerated()), id: \.element) { index, lang in
+                    languageRow(lang: lang, isLast: index == LanguageManager.AppLanguage.allCases.count - 1)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 
     // MARK: - Section Header
@@ -61,6 +104,9 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             Button(action: {
                 languageManager.setLanguage(lang)
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isLanguageExpanded = false
+                }
             }) {
                 HStack(spacing: 14) {
                     Image(systemName: lang.icon)

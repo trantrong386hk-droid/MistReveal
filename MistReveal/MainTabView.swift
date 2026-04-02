@@ -1885,6 +1885,24 @@ struct ProfileView: View {
                             Button(action: { navigateToSettings = true }) {
                                 profileMenuItemContent(icon: "gearshape", title: "设置", subtitle: "账号与偏好设置")
                             }
+
+                            // 技术支持
+                            Button(action: {
+                                if let url = URL(string: "https://trantrong386hk-droid.github.io/MistReveal-support/") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }) {
+                                profileMenuItemContent(icon: "questionmark.circle", title: "技术支持", subtitle: "常见问题与联系我们")
+                            }
+
+                            // 隐私政策
+                            Button(action: {
+                                if let url = URL(string: "https://trantrong386hk-droid.github.io/MistReveal-support/privacy.html") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }) {
+                                profileMenuItemContent(icon: "lock.shield", title: "隐私政策", subtitle: "了解我们如何保护你的数据")
+                            }
                         }
                         .padding(.top, 20)
                         .padding(.horizontal, 24)
