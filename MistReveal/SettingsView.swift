@@ -21,6 +21,41 @@ struct SettingsView: View {
                         .foregroundColor(.white.opacity(0.35))
                         .padding(.top, -16)
 
+                    // MARK: - 关于
+                    sectionHeader(icon: "info.circle", title: "关于 / About")
+
+                    VStack(spacing: 0) {
+                        // 技术支持
+                        Button(action: {
+                            if let url = URL(string: "https://trantrong386hk-droid.github.io/MistReveal-support/") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            aboutRow(icon: "questionmark.circle", title: "技术支持", subtitle: "常见问题与联系我们", isLast: false)
+                        }
+                        .buttonStyle(.plain)
+
+                        Divider()
+                            .background(Color.white.opacity(0.08))
+                            .padding(.leading, 58)
+
+                        // 隐私政策
+                        Button(action: {
+                            if let url = URL(string: "https://trantrong386hk-droid.github.io/MistReveal-support/privacy.html") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            aboutRow(icon: "lock.shield", title: "隐私政策", subtitle: "了解我们如何保护你的数据", isLast: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
+
                     Spacer(minLength: 60)
                 }
                 .padding(.horizontal, 20)
@@ -82,6 +117,35 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
+    }
+
+    // MARK: - About Row
+
+    private func aboutRow(icon: String, title: LocalizedStringKey, subtitle: LocalizedStringKey, isLast: Bool) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(Color(hex: "#E94560"))
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+
+            Spacer()
+
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.25))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
     }
 
     // MARK: - Section Header
