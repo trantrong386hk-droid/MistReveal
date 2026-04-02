@@ -563,7 +563,9 @@ struct AuthView: View {
             VStack(spacing: 12) {
                 // Apple 登录
                 Button(action: {
-                    showToastMessage("Apple 登录即将开放")
+                    Task {
+                        await authManager.signInWithApple()
+                    }
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "apple.logo")

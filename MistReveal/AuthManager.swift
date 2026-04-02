@@ -2,6 +2,8 @@ import Foundation
 import UIKit
 import Supabase
 import GoogleSignIn
+import AuthenticationServices
+import CryptoKit
 
 /// 认证管理器
 /// 负责处理用户注册、登录、密码重置等认证流程
@@ -391,16 +393,75 @@ class AuthManager: ObservableObject {
         isLoading = false
     }
 
-    // MARK: - 第三方登录（预留）
+    // MARK: - Apple 登录
 
-    /// Apple 登录
-    /// TODO: 实现 Apple Sign In
     func signInWithApple() async {
-        // TODO: 实现 Apple 登录
-        // 1. 使用 AuthenticationServices 获取 Apple 凭证
-        // 2. 调用 supabase.auth.signInWithIdToken(credentials:)
-        print("⚠️ Apple 登录功能待实现")
-        errorMessage = "Apple 登录功能即将推出"
+        print("🍎 开始 Apple 登录流程")
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let (idToken, nonce) = try await requestAppleCredential()
+
+            let session = try await supabase.auth.signInWithIdToken(
+                credentials: .init(
+                    provider: .apple,
+                    idToken: idToken,
+                    nonce: nonce
+                )
+            )
+
+            currentUser = session.user
+            isAuthenticated = true
+
+            let userId = session.user.id.uuidString
+            UserDefaults.standard.set(true, forKey: "registration_completed_\(userId)")
+
+            print("✅ Apple 登录完成，用户 ID: \(userId)")
+
+        } catch let error as ASAuthorizationError where error.code == .canceled {
+            print("⚠️ 用户取消了 Apple 登录")
+            // 取消不显示错误提示
+        } catch {
+            print("❌ Apple 登录失败: \(error)")
+            errorMessage = handleAuthError(error)
+        }
+
+        isLoading = false
+    }
+
+    // 发起 Apple 凭证请求，返回 idToken 和原始 nonce
+    private func requestAppleCredential() async throws -> (idToken: String, nonce: String) {
+        let rawNonce = randomNonceString()
+        let hashedNonce = sha256(rawNonce)
+
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = hashedNonce
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let coordinator = AppleSignInCoordinator(nonce: rawNonce, continuation: continuation)
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            controller.delegate = coordinator
+            controller.presentationContextProvider = coordinator
+            controller.performRequests()
+            // 用关联对象保活 coordinator，直到回调完成
+            objc_setAssociatedObject(controller, &AppleSignInCoordinator.associatedKey,
+                                     coordinator, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+
+    private func randomNonceString(length: Int = 32) -> String {
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        _ = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        let data = Data(input.utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.map { String(format: "%02x", $0) }.joined()
     }
 
     /// Google 登录
@@ -668,5 +729,47 @@ class AuthManager: ObservableObject {
         } else {
             return "操作失败，请稍后重试"
         }
+    }
+}
+
+// MARK: - Apple 登录协调器
+
+private class AppleSignInCoordinator: NSObject,
+    ASAuthorizationControllerDelegate,
+    ASAuthorizationControllerPresentationContextProviding {
+
+    static var associatedKey: UInt8 = 0
+
+    private let nonce: String
+    private let continuation: CheckedContinuation<(idToken: String, nonce: String), Error>
+
+    init(nonce: String, continuation: CheckedContinuation<(idToken: String, nonce: String), Error>) {
+        self.nonce = nonce
+        self.continuation = continuation
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? UIWindow()
+    }
+
+    func authorizationController(controller: ASAuthorizationController,
+                                  didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard
+            let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+            let tokenData = credential.identityToken,
+            let idToken = String(data: tokenData, encoding: .utf8)
+        else {
+            continuation.resume(throwing: ASAuthorizationError(.failed))
+            return
+        }
+        continuation.resume(returning: (idToken: idToken, nonce: nonce))
+    }
+
+    func authorizationController(controller: ASAuthorizationController,
+                                  didCompleteWithError error: Error) {
+        continuation.resume(throwing: error)
     }
 }
